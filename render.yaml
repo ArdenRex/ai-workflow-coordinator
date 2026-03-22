@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: ai-workflow-coordinator-api
+    env: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ai-workflow-db
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false          # Set manually in Render dashboard
+      - key: SLACK_BOT_TOKEN
+        sync: false
+      - key: SLACK_SIGNING_SECRET
+        sync: false
+      - key: SLACK_CHANNEL_ID
+        value: ""
+      - key: APP_ENV
+        value: production
+      - key: APP_SECRET_KEY
+        generateValue: true  # Render auto-generates a secure random value
+
+databases:
+  - name: ai-workflow-db
+    plan: free
+    databaseName: ai_workflow
+    user: postgres

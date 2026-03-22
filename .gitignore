@@ -1,0 +1,45 @@
+# Environment -- never commit real secrets
+.env
+.env.local
+.env.*.local
+
+# Credential files -- never commit
+slack.txt
+*.txt.bak
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Build / dist
+*.egg-info/
+dist/
+build/
+
+# Test / type caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend
+frontend/build/
+frontend/node_modules/
+
+# NOTE: alembic/versions/*.py is intentionally NOT ignored.
+# Migration files must be committed to git so deployments can run
+# `alembic upgrade head` and recreate the database schema.
