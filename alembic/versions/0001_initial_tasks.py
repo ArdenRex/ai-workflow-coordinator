@@ -17,17 +17,8 @@ def upgrade() -> None:
     # ── Enums ─────────────────────────────────────────────────────────────────
     # Create enums explicitly so downgrade can drop them cleanly.
     # checkfirst=True makes re-runs idempotent.
-    taskstatus_enum = sa.Enum(
-        'pending', 'in_progress', 'completed', 'cancelled',
-        name='taskstatus_enum',
-    )
-    taskstatus_enum.create(op.get_bind(), checkfirst=True)
-
-    priority_enum = sa.Enum(
-        'low', 'medium', 'high', 'critical',
-        name='priority_enum',
-    )
-    priority_enum.create(op.get_bind(), checkfirst=True)
+    op.execute("DO $$ BEGIN CREATE TYPE taskstatus_enum AS ENUM ('pending', 'in_progress', 'completed', 'cancelled'); EXCEPTION WHEN duplicate_object THEN null; END $$;")
+    op.execute("DO $$ BEGIN CREATE TYPE priority_enum AS ENUM ('low', 'medium', 'high', 'critical'); EXCEPTION WHEN duplicate_object THEN null; END $$;")
 
     # ── Table ─────────────────────────────────────────────────────────────────
     op.create_table(
