@@ -6,7 +6,6 @@ POST /process-message  →  AI extracts task  →  saves to DB  →  returns res
 
 import logging
 
-import openai
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -50,30 +49,6 @@ async def process_message(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"AI extraction failed: {exc}",
-        ) from exc
-    except openai.RateLimitError as exc:
-        logger.error("OpenAI rate limit hit: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="AI service is rate-limited. Please retry shortly.",
-        ) from exc
-    except openai.AuthenticationError as exc:
-        logger.critical("OpenAI authentication error — check API key: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="AI service authentication failure.",
-        ) from exc
-    except openai.APITimeoutError as exc:
-        logger.error("OpenAI request timed out: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="AI service timed out. Please retry.",
-        ) from exc
-    except openai.APIError as exc:
-        logger.exception("OpenAI API error during extraction: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="AI service error. Please retry later.",
         ) from exc
     except Exception as exc:
         logger.exception("Unexpected error during AI extraction: %s", exc)
