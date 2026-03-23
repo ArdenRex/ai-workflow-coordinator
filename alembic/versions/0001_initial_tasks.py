@@ -38,7 +38,7 @@ def upgrade() -> None:
         sa.Column('deadline', sa.String(length=100), nullable=True),
         sa.Column(
             'priority',
-            sa.Enum('low', 'medium', 'high', 'critical', name='priority_enum'),
+            sa.Enum('low', 'medium', 'high', 'critical', name='priority_enum', create_type=False),
             server_default='medium',
             nullable=False,
         ),
@@ -48,7 +48,7 @@ def upgrade() -> None:
         sa.Column('slack_message_ts', sa.String(length=64), nullable=True),
         sa.Column(
             'status',
-            sa.Enum('pending', 'in_progress', 'completed', 'cancelled', name='taskstatus_enum'),
+            sa.Enum('pending', 'in_progress', 'completed', 'cancelled', name='taskstatus_enum', create_type=False),
             server_default='pending',
             nullable=False,
         ),
