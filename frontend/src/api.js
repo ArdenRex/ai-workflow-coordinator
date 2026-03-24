@@ -2,7 +2,7 @@
 // Thin wrapper around the FastAPI backend.
 // The CRA proxy in package.json forwards all /api calls to http://localhost:8000
 
-const BASE = (process.env.REACT_APP_API_BASE || "").replace(/\/$/, "");
+const BASE = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
 
 // ── Shared request helper ─────────────────────────────────────────────────────
 
