@@ -6,34 +6,34 @@ Slack bot integration using the Bolt for Python SDK.
 Flow:
   1. Slack posts an Events API payload to POST /slack/events
   2. SlackRequestHandler (ASGI) forwards it to the Bolt App
-  3. @app.event("message") fires for every message in a subscribed channel
-  4. Bot filters its own messages (bot_id guard) and sub-types (edits etc.)
-  5. Message text is sent to OpenAI -> ExtractedTask
-  6. Task is saved to PostgreSQL via crud.create_task()
-  7. Bot replies in the same thread confirming task creation
+  3. @app.event("app_mention") fires when the bot is @mentioned
+  4. Bot supports two formats:
+       A. Structured:   @bot create task [@assignee] <title>
+       B. Natural lang: @bot Hey Sarah, finish the sales report by Friday
+  5. Task is saved to PostgreSQL directly
+  6. Bot replies in the same thread confirming task creation
 
 Required Slack OAuth scopes (Bot Token):
   channels:history   -- read public channel messages
   groups:history     -- read private channel messages (if needed)
   chat:write         -- post replies
-  app_mentions:read  -- optional, for @mention flows
+  app_mentions:read  -- receive @mention events
+  users:read         -- resolve user display names
 
 Required Event Subscriptions (in your Slack App dashboard):
-  message.channels   -- messages in public channels
-  message.groups     -- messages in private channels (if needed)
+  app_mention        -- @bot mentions
+  message.channels   -- messages in public channels (optional)
 """
 
-import asyncio
 import logging
+import re
 
 from slack_bolt import App
 from slack_bolt.adapter.fastapi import SlackRequestHandler
 
-from app import crud
-from app.ai_extractor import extract_task_from_message
 from app.config import get_settings
 from app.database import SessionLocal
-from app.models import Priority
+from app.models import Priority, Task, TaskStatus
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -57,156 +57,166 @@ PRIORITY_EMOJI: dict[str, str] = {
     Priority.low.value:      ":large_green_circle:",
 }
 
-# Slack message text min length — shorter messages are unlikely to contain tasks
-_MIN_TEXT_LENGTH = 10
+# ── Regex patterns ─────────────────────────────────────────────────────────────
+# Structured command:
+#   @bot create task <title>
+#   @bot create task @ali Finish sales report
+_CMD_RE = re.compile(
+    r"<@[A-Z0-9]+>\s+create\s+task\s+"    # mention + "create task "
+    r"(?:<@(?P<mention>[A-Z0-9]+)>\s+)?"   # optional @assignee mention
+    r"(?P<title>.+)",                       # task title (rest of message)
+    re.IGNORECASE,
+)
+
+# Strip ALL bot mentions to get the plain message body
+_MENTION_RE = re.compile(r"<@[A-Z0-9]+>\s*", re.IGNORECASE)
+
+# Detect an @assignee anywhere in natural-language messages
+_NL_ASSIGNEE_RE = re.compile(r"<@(?P<uid>[A-Z0-9]+)>", re.IGNORECASE)
 
 
-def _build_reply(
-    task_text: str,
-    assignee: str | None,
-    deadline: str | None,
-    priority: str,
-    task_id: int,
-) -> str:
-    """Compose the threaded Slack reply."""
-    assignee_label = f"*{assignee}*" if assignee else "*Unassigned*"
-    emoji = PRIORITY_EMOJI.get(priority, ":large_yellow_circle:")
-    lines = [
-        f":white_check_mark: Task #{task_id} created and assigned to {assignee_label}",
-        f"  > {task_text}",
-    ]
-    meta: list[str] = []
-    if deadline:
-        meta.append(f"Deadline: {deadline}")
-    meta.append(f"Priority: {emoji} {priority.capitalize()}")
-    lines.append("  > " + "  |  ".join(meta))
-    return "\n".join(lines)
-
-
-def _run_async(coro):
-    """
-    Run an async coroutine from a sync Bolt handler.
-
-    Bolt's sync handlers run in a threadpool executor — there is no running
-    event loop in that thread, so we must create a fresh one per call.
-    asyncio.run() handles loop creation, cleanup, and cancels pending tasks.
-    """
-    return asyncio.run(coro)
-
-
-def _is_duplicate(db, channel_id: str, message_ts: str) -> bool:
-    """Return True if we've already processed this exact Slack message."""
-    return crud.get_task_by_slack_ts(db, channel_id, message_ts) is not None
-
-
-@bolt_app.event("message")
-def handle_message(event, say):
-    """
-    Handles incoming Slack messages.
-    Guards against bot messages, edits, duplicates, and off-channel messages.
-    """
-    subtype = event.get("subtype")
-
-    # Skip sub-typed events (edits, joins, bot_message, file shares, etc.)
-    if subtype:
-        logger.debug("Skipping sub-typed event: %s", subtype)
-        return
-
-    # Skip messages from bots (prevents infinite reply loops)
-    if event.get("bot_id"):
-        logger.debug("Skipping bot message: bot_id=%s", event.get("bot_id"))
-        return
-
-    channel_id: str = event.get("channel", "")
-    message_ts: str = event.get("ts", "")
-
-    # Optional: restrict to a specific channel
-    if settings.slack_channel_id and channel_id != settings.slack_channel_id:
-        return
-
-    text: str = (event.get("text") or "").strip()
-    if len(text) < _MIN_TEXT_LENGTH:
-        return
-
-    thread_ts: str = event.get("thread_ts") or message_ts
-    user_id: str = event.get("user", "unknown")
-
-    logger.info(
-        "Processing message user=%s channel=%s ts=%s: %r",
-        user_id, channel_id, message_ts, text[:80],
-    )
-
-    # ── Deduplication: skip if we already handled this message ────────────────
-    # Slack retries delivery on 5xx or timeout — without this guard a single
-    # message can create multiple tasks.
-    db = SessionLocal()
+def _resolve_slack_user(client, user_id: str) -> str:
+    """Return display name for a Slack user ID, fallback to raw ID."""
     try:
-        if _is_duplicate(db, channel_id, message_ts):
-            logger.info("Duplicate Slack event ts=%s — skipping.", message_ts)
-            return
+        info = client.users_info(user=user_id)
+        profile = info["user"].get("profile", {})
+        return (
+            profile.get("display_name")
+            or profile.get("real_name")
+            or user_id
+        )
+    except Exception:
+        return user_id
 
-        # ── Step 1: AI extraction ─────────────────────────────────────────────
-        try:
-            extracted = _run_async(extract_task_from_message(text))
-        except Exception as exc:
-            logger.exception("AI extraction failed for ts=%s: %s", message_ts, exc)
-            say(
-                text=":warning: Could not extract a task from that message. Please try rephrasing.",
-                thread_ts=thread_ts,
-                channel=channel_id,
-            )
-            return
 
-        # ── Step 2: Save to database ──────────────────────────────────────────
-        try:
-            task = crud.create_task(
-                db=db,
-                source_message=text,
-                extracted=extracted,
-                slack_channel_id=channel_id,
-                slack_message_ts=message_ts,
-            )
-            db.commit()
-        except Exception as exc:
-            db.rollback()
-            logger.exception("DB save failed for ts=%s: %s", message_ts, exc)
-            say(
-                text=":warning: Task was extracted but could not be saved. Please try again.",
-                thread_ts=thread_ts,
-                channel=channel_id,
-            )
-            return
-
-    finally:
-        db.close()
-
-    logger.info(
-        "Task #%d saved — assignee=%r priority=%s",
-        task.id, task.assignee, task.priority,
+def _task_exists(db, channel_id: str, message_ts: str) -> bool:
+    """Idempotency check — True if this Slack message was already processed."""
+    return (
+        db.query(Task)
+        .filter_by(slack_channel_id=channel_id, slack_message_ts=message_ts)
+        .first()
+        is not None
     )
-
-    # ── Step 3: Reply in thread ───────────────────────────────────────────────
-    reply = _build_reply(
-        task_text=task.task_description,
-        assignee=task.assignee,
-        deadline=task.deadline,
-        priority=task.priority.value if hasattr(task.priority, "value") else task.priority,
-        task_id=task.id,
-    )
-    say(text=reply, thread_ts=thread_ts, channel=channel_id)
 
 
 @bolt_app.event("app_mention")
-def handle_mention(event, say):
-    """Responds to @bot mentions with a help message."""
-    thread_ts: str = event.get("thread_ts") or event.get("ts", "")
-    channel_id: str = event.get("channel", "")
-    say(
-        text=(
-            ":wave: I'm the *AI Workflow Coordinator*.\n"
-            "Post any message describing a task and I'll extract it automatically.\n"
-            '_Example: "Hey Sarah, please deploy the hotfix by Friday — it\'s urgent"_'
-        ),
-        thread_ts=thread_ts,
-        channel=channel_id,
+def handle_mention(event, say, client):
+    """
+    Handles two message formats:
+
+    1. Structured command (Option A):
+         @bot create task [@assignee] <title>
+         → Extracts title and optional assignee from the command syntax.
+
+    2. Natural language fallback (Option B):
+         @bot Hey Sarah, please finish the sales report by Friday
+         → Strips the bot mention, uses the rest as the task title.
+         → If another @user is mentioned in the message, they become the assignee.
+    """
+    channel_id = event.get("channel", "")
+    message_ts = event.get("ts", "")
+    text       = event.get("text", "")
+    thread_ts  = event.get("thread_ts") or message_ts
+
+    # Optional channel restriction
+    if settings.slack_channel_id and channel_id != settings.slack_channel_id:
+        logger.info("Ignoring message from channel %s (not allowed)", channel_id)
+        return
+
+    # ── Route: structured command vs natural language ──────────────────────────
+    match = _CMD_RE.search(text)
+
+    if match:
+        # ── Option A: structured "@bot create task [@assignee] <title>" ──────
+        title         = match.group("title").strip()
+        assignee_id   = match.group("mention")
+        assignee_name = (
+            _resolve_slack_user(client, assignee_id) if assignee_id else None
+        )
+        mode = "command"
+
+    else:
+        # ── Option B: natural language fallback ───────────────────────────────
+        body = _MENTION_RE.sub("", text).strip()
+
+        if not body:
+            say(
+                text=(
+                    "Hi! I can create tasks two ways:\n"
+                    "• *Structured:* `@bot create task [@assignee] <title>`\n"
+                    "• *Natural language:* `@bot Hey Sarah, finish the report by Friday`"
+                ),
+                thread_ts=thread_ts,
+                channel=channel_id,
+            )
+            return
+
+        title = body
+
+        # Look for an @mention in the body to use as assignee
+        assignee_match = _NL_ASSIGNEE_RE.search(body)
+        if assignee_match:
+            assignee_id   = assignee_match.group("uid")
+            assignee_name = _resolve_slack_user(client, assignee_id)
+            # Clean the mention tag out of the title for readability
+            title = _NL_ASSIGNEE_RE.sub("", body).strip()
+            title = re.sub(r"\s{2,}", " ", title)
+        else:
+            assignee_id   = None
+            assignee_name = None
+
+        mode = "natural"
+
+    logger.info(
+        "Processing task | mode=%s | title=%r | assignee=%r | ts=%s",
+        mode, title, assignee_name, message_ts,
     )
+
+    # ── DB insert ──────────────────────────────────────────────────────────────
+    db = SessionLocal()
+    try:
+        if _task_exists(db, channel_id, message_ts):
+            logger.info("Duplicate Slack event ts=%s — skipping", message_ts)
+            return
+
+        new_task = Task(
+            title            = title,
+            task_description = title,       # keep legacy column in sync
+            assignee         = assignee_name,
+            assignee_id      = assignee_id,
+            source_message   = text,
+            slack_channel_id = channel_id,
+            slack_message_ts = message_ts,
+            status           = TaskStatus.to_do,
+        )
+        db.add(new_task)
+        db.commit()
+        db.refresh(new_task)
+
+        if assignee_name:
+            reply = (
+                f"✅ Task *{title}* (id: {new_task.id}) "
+                f"assigned to *{assignee_name}* and added to *To Do*."
+            )
+        else:
+            reply = (
+                f"✅ Task *{title}* (id: {new_task.id}) "
+                f"added to *To Do* (no assignee)."
+            )
+
+        say(text=reply, thread_ts=thread_ts, channel=channel_id)
+        logger.info(
+            "Created task id=%s title=%r assignee=%r mode=%s",
+            new_task.id, title, assignee_name, mode,
+        )
+
+    except Exception as exc:
+        db.rollback()
+        logger.error("Failed to create task: %s", exc, exc_info=True)
+        say(
+            text=f"⚠️ Sorry, I couldn't create that task. Please try again. (Error: {exc})",
+            thread_ts=thread_ts,
+            channel=channel_id,
+        )
+    finally:
+        db.close()
