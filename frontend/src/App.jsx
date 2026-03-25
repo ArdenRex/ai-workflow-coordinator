@@ -30,10 +30,12 @@ const GLOBAL_STYLES = `
   .fade-up.delay-2 { animation-delay: 0.14s; }
 `;
 
+// ── FIX: corrected statuses to match backend values ───────────────────────────
 const COLUMNS = [
-  { status: "pending",     label: "To do"       },
-  { status: "in_progress", label: "In progress" },
-  { status: "completed",   label: "Done"        },
+  { status: "to_do",     label: "To Do"       },
+  { status: "pending",   label: "In Progress" },
+  { status: "active",    label: "Active"      },
+  { status: "completed", label: "Done"        },
 ];
 
 const NAV_ITEMS = [
@@ -45,7 +47,7 @@ const NAV_ITEMS = [
   { icon: "⚙", label: "Settings",   badge: null },
 ];
 
-const TAB_STATUS_FILTER = [null, "pending", "completed"];
+const TAB_STATUS_FILTER = [null, "to_do", "completed"];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 function Sidebar({ activeNav, onNavChange }) {
@@ -205,7 +207,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
       const matchesSearch =
         !filter ||
         (t.assignee || "").toLowerCase().includes(filter.toLowerCase()) ||
-        t.task_description.toLowerCase().includes(filter.toLowerCase());
+        (t.title || t.task_description || "").toLowerCase().includes(filter.toLowerCase());
       const matchesTab = !tabStatusFilter || t.status === tabStatusFilter;
       return matchesSearch && matchesTab;
     });
@@ -215,17 +217,19 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
     }));
   }, [tasks, filter, activeTab]);
 
+  // ── FIX: counts now use correct backend status values ─────────────────────
   const counts = useMemo(() => ({
-    pending:     tasks.filter(t => t.status === "pending").length,
-    in_progress: tasks.filter(t => t.status === "in_progress").length,
-    completed:   tasks.filter(t => t.status === "completed").length,
+    to_do:     tasks.filter(t => t.status === "to_do").length,
+    pending:   tasks.filter(t => t.status === "pending").length,
+    active:    tasks.filter(t => t.status === "active").length,
+    completed: tasks.filter(t => t.status === "completed").length,
   }), [tasks]);
 
   const METRICS = useMemo(() => [
-    { label: "Active Tasks", value: total,              icon: <IconCheckbox />, color: "#4f8ef7", variant: "blue"  },
-    { label: "In Progress",  value: counts.in_progress, icon: <IconProgress />, color: "#f59e0b", variant: "amber" },
-    { label: "Completed",    value: counts.completed,   icon: <IconDone />,     color: "#22d3a8", variant: "teal"  },
-  ], [total, counts]);
+    { label: "To Do",      value: counts.to_do,     icon: <IconCheckbox />, color: "#4f8ef7", variant: "blue"  },
+    { label: "In Progress", value: counts.pending,  icon: <IconProgress />, color: "#f59e0b", variant: "amber" },
+    { label: "Completed",  value: counts.completed,  icon: <IconDone />,     color: "#22d3a8", variant: "teal"  },
+  ], [counts]);
 
   const handleModalAdd = useCallback(async (msg) => {
     const result = await addTask(msg);
@@ -272,12 +276,14 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
           />
         </div>
 
-        {/* Actions */}
+        {/* Status badges + actions */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+          {/* ── FIX: badges now use correct status keys ── */}
           {[
-            { label: "to do",       count: counts.pending,     color: "#f59e0b" },
-            { label: "in progress", count: counts.in_progress, color: "#4f8ef7" },
-            { label: "done",        count: counts.completed,   color: "#22d3a8" },
+            { label: "to do",       count: counts.to_do,     color: "#f59e0b" },
+            { label: "in progress", count: counts.pending,   color: "#4f8ef7" },
+            { label: "active",      count: counts.active,    color: "#a855f7" },
+            { label: "done",        count: counts.completed, color: "#22d3a8" },
           ].map(s => (
             <span key={s.label} style={{
               display: "inline-flex", alignItems: "center", gap: 5,
@@ -395,7 +401,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>Task Board</h2>
             <div role="tablist" aria-label="Filter tasks" style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 999, padding: 3 }}>
-              {["All Tasks", "Pending", "Completed"].map((tab, i) => (
+              {["All Tasks", "To Do", "Completed"].map((tab, i) => (
                 <button key={tab} role="tab" aria-selected={activeTab === i} onClick={() => setActiveTab(i)}
                   style={{
                     padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 600,
@@ -418,7 +424,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
               <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading tasks…</span>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 20, alignItems: "start" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 20, alignItems: "start" }}>
               {columns.map(col => (
                 <KanbanColumn key={col.status} status={col.status} label={col.label} tasks={col.tasks} onMove={moveTask} />
               ))}
