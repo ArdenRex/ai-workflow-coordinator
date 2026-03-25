@@ -1,3 +1,11 @@
+"""
+models.py
+─────────
+SQLAlchemy ORM models.
+
+Status lifecycle: to_do → pending → active → completed / cancelled
+"""
+
 import enum
 from datetime import datetime
 from typing import Optional
@@ -16,16 +24,17 @@ from app.database import Base
 
 
 class TaskStatus(str, enum.Enum):
-    pending = "pending"
-    in_progress = "in_progress"
-    completed = "completed"
-    cancelled = "cancelled"
+    to_do      = "to_do"       # ← default for Slack-created tasks
+    pending    = "pending"
+    active     = "active"
+    completed  = "completed"
+    cancelled  = "cancelled"
 
 
 class Priority(str, enum.Enum):
-    low = "low"
-    medium = "medium"
-    high = "high"
+    low      = "low"
+    medium   = "medium"
+    high     = "high"
     critical = "critical"
 
 
@@ -35,10 +44,14 @@ class Task(Base):
     # ── Primary key ───────────────────────────────────────────────────────────
     id: Mapped[int] = mapped_column(primary_key=True, index=True, autoincrement=True)
 
-    # ── Core AI-extracted fields ──────────────────────────────────────────────
-    task_description: Mapped[str] = mapped_column(Text, nullable=False)
+    # ── Core fields ───────────────────────────────────────────────────────────
+    title: Mapped[str] = mapped_column(String(500), nullable=False)
+
+    # Legacy column kept for backwards-compat; prefer `title`
+    task_description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     assignee: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    assignee_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     # Store as ISO-8601 string; nullable — AI may not extract a deadline
     deadline: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -51,17 +64,18 @@ class Task(Base):
     )
 
     # ── Source ────────────────────────────────────────────────────────────────
-    source_message: Mapped[str] = mapped_column(Text, nullable=False)
+    source_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # Optional: Slack channel or message TS for traceability
+    # Slack traceability fields
     slack_channel_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     slack_message_ts: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
     # ── Status ────────────────────────────────────────────────────────────────
+    # FIX: default changed from "pending" → "to_do"
     status: Mapped[TaskStatus] = mapped_column(
         Enum(TaskStatus, name="taskstatus_enum", create_constraint=True),
-        default=TaskStatus.pending,
-        server_default=TaskStatus.pending.value,
+        default=TaskStatus.to_do,
+        server_default=TaskStatus.to_do.value,
         nullable=False,
     )
 
@@ -78,15 +92,38 @@ class Task(Base):
         nullable=False,
     )
 
-    # ── Composite indexes for common query patterns ───────────────────────────
+    # ── Composite indexes ─────────────────────────────────────────────────────
     __table_args__ = (
-        Index("ix_tasks_status", "status"),
-        Index("ix_tasks_assignee", "assignee"),
+        Index("ix_tasks_status",            "status"),
+        Index("ix_tasks_assignee",          "assignee"),
         Index("ix_tasks_status_created_at", "status", "created_at"),
+        # Idempotency: unique on (slack_channel_id, slack_message_ts) so the
+        # same Slack message can never produce two rows.
+        Index(
+            "uq_tasks_slack_msg",
+            "slack_channel_id",
+            "slack_message_ts",
+            unique=True,
+        ),
     )
 
     def __repr__(self) -> str:
         return (
-            f"<Task id={self.id} assignee={self.assignee!r} "
-            f"priority={self.priority} status={self.status}>"
+            f"<Task id={self.id} title={self.title!r} "
+            f"assignee={self.assignee!r} priority={self.priority} status={self.status}>"
         )
+
+
+# ── Migration helper (run once, outside normal app startup) ───────────────────
+MIGRATION_SQL = """
+-- 1. Add the new enum value if using PostgreSQL native ENUM
+--    (skip if status column is plain VARCHAR)
+-- ALTER TYPE taskstatus_enum ADD VALUE IF NOT EXISTS 'to_do';
+-- ALTER TYPE taskstatus_enum ADD VALUE IF NOT EXISTS 'active';
+
+-- 2. Back-fill rows that have NULL or an unrecognised status
+UPDATE tasks
+SET    status = 'to_do'
+WHERE  status IS NULL
+   OR  status NOT IN ('to_do', 'pending', 'active', 'completed', 'cancelled');
+"""
