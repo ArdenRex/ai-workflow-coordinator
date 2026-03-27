@@ -1,24 +1,22 @@
 // src/hooks/useTasks.js
 import { useState, useEffect, useCallback, useRef } from "react";
-import { fetchTasks, updateTaskStatus, processMessage } from "../api";
+import { fetchTasks, updateTaskStatus, processMessage, deleteTask } from "../api";
 
-const POLL_INTERVAL = 15_000; // re-fetch every 15 s to catch Slack-created tasks
+const POLL_INTERVAL = 15_000;
 
 export function useTasks(filters = {}) {
-  const [tasks, setTasks]         = useState([]);
-  const [total, setTotal]         = useState(0);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState(null);
+  const [tasks, setTasks]           = useState([]);
+  const [total, setTotal]           = useState(0);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Track mounted state to prevent setState after unmount
   const mountedRef = useRef(true);
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Stable ref to filters to avoid triggering useEffect on every render
   const filtersRef = useRef(filters);
   useEffect(() => { filtersRef.current = filters; });
 
@@ -37,9 +35,8 @@ export function useTasks(filters = {}) {
     } finally {
       if (mountedRef.current) setLoading(false);
     }
-  }, []); // no deps — filtersRef.current is always fresh
+  }, []);
 
-  // Initial load + polling
   useEffect(() => {
     load();
     const id = setInterval(() => load(true), POLL_INTERVAL);
@@ -48,32 +45,39 @@ export function useTasks(filters = {}) {
 
   // Optimistic status update
   const moveTask = useCallback(async (taskId, newStatus) => {
-    // Snapshot for rollback
     const snapshot = tasks;
-
-    setTasks(prev =>
-      prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t)
-    );
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
     setError(null);
-
     try {
       const updated = await updateTaskStatus(taskId, newStatus);
       if (!mountedRef.current) return;
-      // Replace with server-confirmed state
       setTasks(prev => prev.map(t => t.id === taskId ? updated : t));
     } catch (e) {
       if (!mountedRef.current) return;
-      // Roll back to snapshot instead of full reload
       setTasks(snapshot);
       setError(e.message ?? "Failed to update task status.");
     }
   }, [tasks]);
 
+  // Optimistic delete
+  const removeTask = useCallback(async (taskId) => {
+    const snapshot = tasks;
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    setTotal(n => Math.max(0, n - 1));
+    setError(null);
+    try {
+      await deleteTask(taskId);
+    } catch (e) {
+      if (!mountedRef.current) return;
+      setTasks(snapshot);
+      setTotal(n => n + 1);
+      setError(e.message ?? "Failed to delete task.");
+    }
+  }, [tasks]);
+
   // Add task via AI extraction
   const addTask = useCallback(async (message) => {
-    if (!message?.trim()) {
-      throw new Error("Message must not be empty.");
-    }
+    if (!message?.trim()) throw new Error("Message must not be empty.");
     setSubmitting(true);
     setError(null);
     try {
@@ -85,7 +89,7 @@ export function useTasks(filters = {}) {
     } catch (e) {
       if (!mountedRef.current) throw e;
       setError(e.message ?? "Failed to process message.");
-      throw e;   // re-throw so the caller (form) can react (clear input, show toast, etc.)
+      throw e;
     } finally {
       if (mountedRef.current) setSubmitting(false);
     }
@@ -98,6 +102,7 @@ export function useTasks(filters = {}) {
     error,
     submitting,
     moveTask,
+    removeTask,
     addTask,
     reload: load,
     clearError: () => setError(null),
