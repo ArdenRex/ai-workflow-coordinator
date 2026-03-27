@@ -10,27 +10,29 @@ Flow:
   4. Bot supports two formats:
        A. Structured:   @bot create task [@assignee] <title>
        B. Natural lang: @bot Hey Sarah, finish the sales report by Friday
-  5. Task is saved to PostgreSQL directly
-  6. Bot replies in the same thread confirming task creation
+  5. Message is sent to Groq AI to extract task, assignee, deadline, priority
+  6. Task is saved to PostgreSQL
+  7. Bot replies in the same thread confirming task creation
 
 Required Slack OAuth scopes (Bot Token):
   channels:history   -- read public channel messages
-  groups:history     -- read private channel messages (if needed)
   chat:write         -- post replies
   app_mentions:read  -- receive @mention events
   users:read         -- resolve user display names
 
 Required Event Subscriptions (in your Slack App dashboard):
   app_mention        -- @bot mentions
-  message.channels   -- messages in public channels (optional)
+  message.channels   -- messages in public channels
 """
 
+import asyncio
 import logging
 import re
 
 from slack_bolt import App
 from slack_bolt.adapter.fastapi import SlackRequestHandler
 
+from app.ai_extractor import extract_task_from_message
 from app.config import get_settings
 from app.database import SessionLocal
 from app.models import Priority, Task, TaskStatus
@@ -39,15 +41,12 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # ── Bolt app ──────────────────────────────────────────────────────────────────
-# process_before_response=True is required for FastAPI (ASGI) — without it,
-# Slack's 3-second ack deadline will time out before the handler completes.
 bolt_app = App(
     token=settings.slack_bot_token.get_secret_value(),
     signing_secret=settings.slack_signing_secret.get_secret_value(),
     process_before_response=True,
 )
 
-# FastAPI <-> Bolt adapter (handles signature verification + ack)
 slack_handler = SlackRequestHandler(bolt_app)
 
 PRIORITY_EMOJI: dict[str, str] = {
@@ -58,20 +57,13 @@ PRIORITY_EMOJI: dict[str, str] = {
 }
 
 # ── Regex patterns ─────────────────────────────────────────────────────────────
-# Structured command:
-#   @bot create task <title>
-#   @bot create task @ali Finish sales report
 _CMD_RE = re.compile(
-    r"<@[A-Z0-9]+>\s+create\s+task\s+"    # mention + "create task "
-    r"(?:<@(?P<mention>[A-Z0-9]+)>\s+)?"   # optional @assignee mention
-    r"(?P<title>.+)",                       # task title (rest of message)
+    r"<@[A-Z0-9]+>\s+create\s+task\s+"
+    r"(?:<@(?P<mention>[A-Z0-9]+)>\s+)?"
+    r"(?P<title>.+)",
     re.IGNORECASE,
 )
-
-# Strip ALL bot mentions to get the plain message body
-_MENTION_RE = re.compile(r"<@[A-Z0-9]+>\s*", re.IGNORECASE)
-
-# Detect an @assignee anywhere in natural-language messages
+_MENTION_RE     = re.compile(r"<@[A-Z0-9]+>\s*", re.IGNORECASE)
 _NL_ASSIGNEE_RE = re.compile(r"<@(?P<uid>[A-Z0-9]+)>", re.IGNORECASE)
 
 
@@ -99,6 +91,11 @@ def _task_exists(db, channel_id: str, message_ts: str) -> bool:
     )
 
 
+def _run_async(coro):
+    """Run an async coroutine from a sync Bolt handler."""
+    return asyncio.run(coro)
+
+
 @bolt_app.event("app_mention")
 def handle_mention(event, say, client):
     """
@@ -106,12 +103,15 @@ def handle_mention(event, say, client):
 
     1. Structured command (Option A):
          @bot create task [@assignee] <title>
-         → Extracts title and optional assignee from the command syntax.
 
     2. Natural language fallback (Option B):
-         @bot Hey Sarah, please finish the sales report by Friday
-         → Strips the bot mention, uses the rest as the task title.
-         → If another @user is mentioned in the message, they become the assignee.
+         @bot Hey Alina, finish the sales report today. It's urgent.
+
+    In both cases the full message is sent to Groq AI to extract:
+      - task title     (clean, actionable description)
+      - assignee       (person mentioned in the message)
+      - deadline       (e.g. "today", "Friday", "June 30")
+      - priority       (low / medium / high / critical — inferred from urgency)
     """
     channel_id = event.get("channel", "")
     message_ts = event.get("ts", "")
@@ -123,56 +123,72 @@ def handle_mention(event, say, client):
         logger.info("Ignoring message from channel %s (not allowed)", channel_id)
         return
 
-    # ── Route: structured command vs natural language ──────────────────────────
+    # ── Step 1: Parse the raw message ─────────────────────────────────────────
     match = _CMD_RE.search(text)
 
     if match:
-        # ── Option A: structured "@bot create task [@assignee] <title>" ──────
-        title         = match.group("title").strip()
-        assignee_id   = match.group("mention")
-        assignee_name = (
-            _resolve_slack_user(client, assignee_id) if assignee_id else None
+        # Option A: structured command — use title from regex, AI enriches rest
+        raw_title           = match.group("title").strip()
+        slack_mention       = match.group("mention")  # Slack user ID or None
+        slack_assignee_name = (
+            _resolve_slack_user(client, slack_mention) if slack_mention else None
         )
+        ai_input = raw_title
         mode = "command"
-
     else:
-        # ── Option B: natural language fallback ───────────────────────────────
+        # Option B: natural language — strip bot mention, send full body to AI
         body = _MENTION_RE.sub("", text).strip()
-
         if not body:
             say(
                 text=(
                     "Hi! I can create tasks two ways:\n"
                     "• *Structured:* `@bot create task [@assignee] <title>`\n"
-                    "• *Natural language:* `@bot Hey Sarah, finish the report by Friday`"
+                    "• *Natural language:* `@bot Hey Alina, finish the sales report today — it's urgent`"
                 ),
                 thread_ts=thread_ts,
                 channel=channel_id,
             )
             return
 
-        title = body
-
-        # Look for an @mention in the body to use as assignee
+        # Check for @mention in the body to resolve Slack assignee
         assignee_match = _NL_ASSIGNEE_RE.search(body)
         if assignee_match:
-            assignee_id   = assignee_match.group("uid")
-            assignee_name = _resolve_slack_user(client, assignee_id)
-            # Clean the mention tag out of the title for readability
-            title = _NL_ASSIGNEE_RE.sub("", body).strip()
-            title = re.sub(r"\s{2,}", " ", title)
+            slack_mention       = assignee_match.group("uid")
+            slack_assignee_name = _resolve_slack_user(client, slack_mention)
+            # Remove Slack mention tags so AI sees clean text
+            ai_input = re.sub(r"\s{2,}", " ", _NL_ASSIGNEE_RE.sub("", body).strip())
         else:
-            assignee_id   = None
-            assignee_name = None
+            slack_mention       = None
+            slack_assignee_name = None
+            ai_input            = body
 
         mode = "natural"
 
+    logger.info("Extracting task via AI | mode=%s | input=%r", mode, ai_input[:100])
+
+    # ── Step 2: AI extraction (Groq) ──────────────────────────────────────────
+    try:
+        extracted = _run_async(extract_task_from_message(ai_input))
+    except Exception as exc:
+        logger.error("AI extraction failed: %s", exc, exc_info=True)
+        say(
+            text="⚠️ I couldn't extract a task from that message. Please try rephrasing.",
+            thread_ts=thread_ts,
+            channel=channel_id,
+        )
+        return
+
+    # ── Step 3: Resolve final assignee ────────────────────────────────────────
+    # Priority: Slack @mention > AI-extracted name > None
+    final_assignee    = slack_assignee_name or extracted.assignee or None
+    final_assignee_id = slack_mention if slack_assignee_name else None
+
     logger.info(
-        "Processing task | mode=%s | title=%r | assignee=%r | ts=%s",
-        mode, title, assignee_name, message_ts,
+        "Extracted | task=%r | assignee=%r | deadline=%r | priority=%s | mode=%s",
+        extracted.task, final_assignee, extracted.deadline, extracted.priority, mode,
     )
 
-    # ── DB insert ──────────────────────────────────────────────────────────────
+    # ── Step 4: Save to database ───────────────────────────────────────────────
     db = SessionLocal()
     try:
         if _task_exists(db, channel_id, message_ts):
@@ -180,10 +196,12 @@ def handle_mention(event, say, client):
             return
 
         new_task = Task(
-            title            = title,
-            task_description = title,       # keep legacy column in sync
-            assignee         = assignee_name,
-            assignee_id      = assignee_id,
+            title            = extracted.task,
+            task_description = extracted.task,
+            assignee         = final_assignee,
+            assignee_id      = final_assignee_id,
+            deadline         = extracted.deadline,
+            priority         = extracted.priority or Priority.medium,
             source_message   = text,
             slack_channel_id = channel_id,
             slack_message_ts = message_ts,
@@ -193,30 +211,44 @@ def handle_mention(event, say, client):
         db.commit()
         db.refresh(new_task)
 
-        if assignee_name:
-            reply = (
-                f"✅ Task *{title}* (id: {new_task.id}) "
-                f"assigned to *{assignee_name}* and added to *To Do*."
-            )
-        else:
-            reply = (
-                f"✅ Task *{title}* (id: {new_task.id}) "
-                f"added to *To Do* (no assignee)."
-            )
+        # ── Step 5: Build confirmation reply ──────────────────────────────────
+        priority_val = (
+            new_task.priority.value
+            if hasattr(new_task.priority, "value")
+            else new_task.priority
+        )
+        emoji         = PRIORITY_EMOJI.get(priority_val, ":large_yellow_circle:")
+        assignee_line = f"👤 Assigned to: *{final_assignee}*" if final_assignee else "👤 *Unassigned*"
+        deadline_line = f"📅 Deadline: *{extracted.deadline}*" if extracted.deadline else ""
 
-        say(text=reply, thread_ts=thread_ts, channel=channel_id)
+        lines = [
+            f"✅ Task *{extracted.task}* (id: {new_task.id}) added to *To Do*.",
+            assignee_line,
+            f"{emoji} Priority: *{priority_val.capitalize()}*",
+        ]
+        if deadline_line:
+            lines.append(deadline_line)
+
+        say(text="\n".join(lines), thread_ts=thread_ts, channel=channel_id)
         logger.info(
-            "Created task id=%s title=%r assignee=%r mode=%s",
-            new_task.id, title, assignee_name, mode,
+            "Created task id=%s title=%r assignee=%r priority=%s deadline=%r mode=%s",
+            new_task.id, extracted.task, final_assignee,
+            extracted.priority, extracted.deadline, mode,
         )
 
     except Exception as exc:
         db.rollback()
-        logger.error("Failed to create task: %s", exc, exc_info=True)
+        logger.error("Failed to save task: %s", exc, exc_info=True)
         say(
-            text=f"⚠️ Sorry, I couldn't create that task. Please try again. (Error: {exc})",
+            text=f"⚠️ Sorry, I couldn't save that task. Please try again. (Error: {exc})",
             thread_ts=thread_ts,
             channel=channel_id,
         )
     finally:
         db.close()
+
+
+@bolt_app.event("message")
+def handle_message_events(body, logger):
+    """Silently acknowledge message events we don't need to process."""
+    pass
