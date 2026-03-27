@@ -1,16 +1,16 @@
-// src/components/KanbanColumn.jsx — redesigned dark theme
+// src/components/KanbanColumn.jsx
 import React from "react";
 import TaskCard from "./TaskCard";
 
 const COLUMN_CONFIG = {
-  pending:     { accent: "#f59e0b", dotShadow: "0 0 6px rgba(245,158,11,0.6)"  },
+  to_do:       { accent: "#f59e0b", dotShadow: "0 0 6px rgba(245,158,11,0.6)"  },
   in_progress: { accent: "#4f8ef7", dotShadow: "0 0 6px rgba(79,142,247,0.6)" },
   completed:   { accent: "#22d3a8", dotShadow: "0 0 6px rgba(34,211,168,0.6)" },
+  cancelled:   { accent: "#6b7280", dotShadow: "0 0 6px rgba(107,114,128,0.6)" },
 };
 
-export default function KanbanColumn({ status, label, tasks, onMove }) {
+export default function KanbanColumn({ status, label, tasks, onMove, onDelete }) {
   const config = COLUMN_CONFIG[status] || { accent: "#4f8ef7", dotShadow: "none" };
-  const displayLabel = label || status;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -21,7 +21,7 @@ export default function KanbanColumn({ status, label, tasks, onMove }) {
           background: config.accent, boxShadow: config.dotShadow,
         }} aria-hidden="true" />
         <span style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>
-          {displayLabel}
+          {label || status}
         </span>
         <span style={{
           marginLeft: "auto",
@@ -54,7 +54,12 @@ export default function KanbanColumn({ status, label, tasks, onMove }) {
           </p>
         ) : (
           tasks.map(task => (
-            <TaskCard key={task.id} task={task} onMove={onMove} />
+            <TaskCard
+              key={task.id}
+              task={task}
+              onMove={onMove}
+              onDelete={onDelete}
+            />
           ))
         )}
       </div>
