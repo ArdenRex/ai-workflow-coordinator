@@ -24,11 +24,12 @@ from app.database import Base
 
 
 class TaskStatus(str, enum.Enum):
-    to_do      = "to_do"       # ← default for Slack-created tasks
-    pending    = "pending"
-    active     = "active"
-    completed  = "completed"
-    cancelled  = "cancelled"
+    to_do       = "to_do"        # ← default for Slack-created tasks
+    pending     = "pending"
+    active      = "active"       # kept for backwards-compat
+    in_progress = "in_progress"  # ← used by frontend Start button
+    completed   = "completed"
+    cancelled   = "cancelled"
 
 
 class Priority(str, enum.Enum):
@@ -120,10 +121,11 @@ MIGRATION_SQL = """
 --    (skip if status column is plain VARCHAR)
 -- ALTER TYPE taskstatus_enum ADD VALUE IF NOT EXISTS 'to_do';
 -- ALTER TYPE taskstatus_enum ADD VALUE IF NOT EXISTS 'active';
+-- ALTER TYPE taskstatus_enum ADD VALUE IF NOT EXISTS 'in_progress';
 
 -- 2. Back-fill rows that have NULL or an unrecognised status
 UPDATE tasks
 SET    status = 'to_do'
 WHERE  status IS NULL
-   OR  status NOT IN ('to_do', 'pending', 'active', 'completed', 'cancelled');
+   OR  status NOT IN ('to_do', 'pending', 'active', 'in_progress', 'completed', 'cancelled');
 """
