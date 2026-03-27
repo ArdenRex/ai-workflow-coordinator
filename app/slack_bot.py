@@ -9,7 +9,7 @@ Flow:
   3. @app.event("app_mention") fires when the bot is @mentioned
   4. Bot supports two formats:
        A. Structured:   @bot create task [@assignee] <title>
-       B. Natural lang: @bot Hey Sarah, finish the sales report by Friday
+       B. Natural lang: @bot Hey Alina, finish the sales report today. It's urgent.
   5. Message is sent to Groq AI to extract task, assignee, deadline, priority
   6. Task is saved to PostgreSQL
   7. Bot replies in the same thread confirming task creation
@@ -26,6 +26,7 @@ Required Event Subscriptions (in your Slack App dashboard):
 """
 
 import asyncio
+import concurrent.futures
 import logging
 import re
 
@@ -92,8 +93,24 @@ def _task_exists(db, channel_id: str, message_ts: str) -> bool:
 
 
 def _run_async(coro):
-    """Run an async coroutine from a sync Bolt handler."""
-    return asyncio.run(coro)
+    """
+    Safely run an async coroutine from a sync Bolt handler.
+
+    FastAPI already runs an event loop, so asyncio.run() would fail.
+    Instead we spin up a fresh event loop in a separate thread via
+    concurrent.futures, which is completely isolated from FastAPI's loop.
+    """
+    def _in_thread():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_in_thread)
+        return future.result(timeout=30)
 
 
 @bolt_app.event("app_mention")
@@ -107,11 +124,11 @@ def handle_mention(event, say, client):
     2. Natural language fallback (Option B):
          @bot Hey Alina, finish the sales report today. It's urgent.
 
-    In both cases the full message is sent to Groq AI to extract:
-      - task title     (clean, actionable description)
-      - assignee       (person mentioned in the message)
-      - deadline       (e.g. "today", "Friday", "June 30")
-      - priority       (low / medium / high / critical — inferred from urgency)
+    In both cases the message is sent to Groq AI to extract:
+      - task title  (clean, actionable description)
+      - assignee    (person mentioned in the message)
+      - deadline    (e.g. "today", "Friday", "June 30")
+      - priority    (low / medium / high / critical — inferred from urgency words)
     """
     channel_id = event.get("channel", "")
     message_ts = event.get("ts", "")
@@ -127,16 +144,16 @@ def handle_mention(event, say, client):
     match = _CMD_RE.search(text)
 
     if match:
-        # Option A: structured command — use title from regex, AI enriches rest
+        # Option A: structured command
         raw_title           = match.group("title").strip()
-        slack_mention       = match.group("mention")  # Slack user ID or None
+        slack_mention       = match.group("mention")
         slack_assignee_name = (
             _resolve_slack_user(client, slack_mention) if slack_mention else None
         )
         ai_input = raw_title
         mode = "command"
     else:
-        # Option B: natural language — strip bot mention, send full body to AI
+        # Option B: natural language
         body = _MENTION_RE.sub("", text).strip()
         if not body:
             say(
@@ -150,12 +167,10 @@ def handle_mention(event, say, client):
             )
             return
 
-        # Check for @mention in the body to resolve Slack assignee
         assignee_match = _NL_ASSIGNEE_RE.search(body)
         if assignee_match:
             slack_mention       = assignee_match.group("uid")
             slack_assignee_name = _resolve_slack_user(client, slack_mention)
-            # Remove Slack mention tags so AI sees clean text
             ai_input = re.sub(r"\s{2,}", " ", _NL_ASSIGNEE_RE.sub("", body).strip())
         else:
             slack_mention       = None
@@ -166,7 +181,7 @@ def handle_mention(event, say, client):
 
     logger.info("Extracting task via AI | mode=%s | input=%r", mode, ai_input[:100])
 
-    # ── Step 2: AI extraction (Groq) ──────────────────────────────────────────
+    # ── Step 2: AI extraction via Groq ────────────────────────────────────────
     try:
         extracted = _run_async(extract_task_from_message(ai_input))
     except Exception as exc:
@@ -179,7 +194,7 @@ def handle_mention(event, say, client):
         return
 
     # ── Step 3: Resolve final assignee ────────────────────────────────────────
-    # Priority: Slack @mention > AI-extracted name > None
+    # Slack @mention takes priority over AI-extracted name
     final_assignee    = slack_assignee_name or extracted.assignee or None
     final_assignee_id = slack_mention if slack_assignee_name else None
 
