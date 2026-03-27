@@ -1,9 +1,10 @@
 """
 routers/tasks.py
 ────────────────
-GET   /tasks               →  list all tasks (with optional filters)
-GET   /tasks/{id}          →  get a single task
-PATCH /tasks/{id}/status   →  update task status
+GET    /tasks               →  list all tasks (with optional filters)
+GET    /tasks/{id}          →  get a single task
+PATCH  /tasks/{id}/status   →  update task status
+DELETE /tasks/{id}          →  delete a task
 """
 
 import logging
@@ -95,7 +96,7 @@ def get_task(
     "/{task_id}/status",
     response_model=TaskResponse,
     summary="Update a task's status",
-    description="Valid statuses: pending, in_progress, completed, cancelled",
+    description="Valid statuses: to_do, in_progress, completed, cancelled",
 )
 def update_task_status(
     task_id: int,
@@ -122,3 +123,46 @@ def update_task_status(
             detail=f"Task #{task_id} not found.",
         )
     return task
+
+
+@router.delete(
+    "/{task_id}",
+    status_code=http_status.HTTP_204_NO_CONTENT,
+    summary="Delete a task",
+    description="Permanently removes a task by ID.",
+)
+def delete_task(
+    task_id: int,
+    db: Session = Depends(get_db),
+) -> None:
+    if task_id <= 0:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="task_id must be a positive integer.",
+        )
+    try:
+        task = crud.get_task(db, task_id)
+    except SQLAlchemyError as exc:
+        logger.exception("DB error fetching task %d for delete: %s", task_id, exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database error. Please retry.",
+        ) from exc
+
+    if not task:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=f"Task #{task_id} not found.",
+        )
+
+    try:
+        db.delete(task)
+        db.commit()
+        logger.info("Deleted task id=%d", task_id)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.exception("DB error deleting task %d: %s", task_id, exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database error. Please retry.",
+        ) from exc
