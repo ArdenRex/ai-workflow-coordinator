@@ -30,12 +30,12 @@ const GLOBAL_STYLES = `
   .fade-up.delay-2 { animation-delay: 0.14s; }
 `;
 
-// ── FIX: corrected statuses to match backend values ───────────────────────────
+// Columns match the actual backend TaskStatus enum values
 const COLUMNS = [
-  { status: "to_do",     label: "To Do"       },
-  { status: "pending",   label: "In Progress" },
-  { status: "active",    label: "Active"      },
-  { status: "completed", label: "Done"        },
+  { status: "to_do",       label: "To Do"       },
+  { status: "in_progress", label: "In Progress" },
+  { status: "completed",   label: "Done"        },
+  { status: "cancelled",   label: "Cancelled"   },
 ];
 
 const NAV_ITEMS = [
@@ -47,7 +47,13 @@ const NAV_ITEMS = [
   { icon: "⚙", label: "Settings",   badge: null },
 ];
 
-const TAB_STATUS_FILTER = [null, "to_do", "completed"];
+// null = show all; a status string = filter to only that column
+const TABS = [
+  { label: "All Tasks",   filter: null          },
+  { label: "To Do",       filter: "to_do"       },
+  { label: "In Progress", filter: "in_progress" },
+  { label: "Done",        filter: "completed"   },
+];
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 function Sidebar({ activeNav, onNavChange }) {
@@ -196,39 +202,44 @@ function PlaceholderPage({ label }) {
 }
 
 // ── Dashboard page ────────────────────────────────────────────────────────────
-function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask, reload, clearError }) {
+function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError }) {
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter]       = useState("");
   const [activeTab, setActiveTab] = useState(0);
 
   const columns = useMemo(() => {
-    const tabStatusFilter = TAB_STATUS_FILTER[activeTab];
+    const tabFilter = TABS[activeTab]?.filter;
     const filtered = tasks.filter(t => {
       const matchesSearch =
         !filter ||
         (t.assignee || "").toLowerCase().includes(filter.toLowerCase()) ||
         (t.title || t.task_description || "").toLowerCase().includes(filter.toLowerCase());
-      const matchesTab = !tabStatusFilter || t.status === tabStatusFilter;
+      const matchesTab = !tabFilter || t.status === tabFilter;
       return matchesSearch && matchesTab;
     });
-    return COLUMNS.map(col => ({
+
+    // When a tab filter is active, only show the matching column
+    const visibleColumns = tabFilter
+      ? COLUMNS.filter(col => col.status === tabFilter)
+      : COLUMNS;
+
+    return visibleColumns.map(col => ({
       ...col,
       tasks: filtered.filter(t => t.status === col.status),
     }));
   }, [tasks, filter, activeTab]);
 
-  // ── FIX: counts now use correct backend status values ─────────────────────
   const counts = useMemo(() => ({
-    to_do:     tasks.filter(t => t.status === "to_do").length,
-    pending:   tasks.filter(t => t.status === "pending").length,
-    active:    tasks.filter(t => t.status === "active").length,
-    completed: tasks.filter(t => t.status === "completed").length,
+    to_do:       tasks.filter(t => t.status === "to_do").length,
+    in_progress: tasks.filter(t => t.status === "in_progress").length,
+    completed:   tasks.filter(t => t.status === "completed").length,
+    cancelled:   tasks.filter(t => t.status === "cancelled").length,
   }), [tasks]);
 
   const METRICS = useMemo(() => [
-    { label: "To Do",      value: counts.to_do,     icon: <IconCheckbox />, color: "#4f8ef7", variant: "blue"  },
-    { label: "In Progress", value: counts.pending,  icon: <IconProgress />, color: "#f59e0b", variant: "amber" },
-    { label: "Completed",  value: counts.completed,  icon: <IconDone />,     color: "#22d3a8", variant: "teal"  },
+    { label: "To Do",       value: counts.to_do,       icon: <IconCheckbox />, color: "#4f8ef7", variant: "blue"  },
+    { label: "In Progress", value: counts.in_progress, icon: <IconProgress />, color: "#f59e0b", variant: "amber" },
+    { label: "Completed",   value: counts.completed,   icon: <IconDone />,     color: "#22d3a8", variant: "teal"  },
   ], [counts]);
 
   const handleModalAdd = useCallback(async (msg) => {
@@ -236,6 +247,9 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
     setShowModal(false);
     return result;
   }, [addTask]);
+
+  // Grid columns: 4 for all tasks, 1 for single-column tabs
+  const gridCols = TABS[activeTab]?.filter ? 1 : `repeat(${COLUMNS.length}, minmax(0,1fr))`;
 
   return (
     <>
@@ -278,12 +292,11 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
 
         {/* Status badges + actions */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
-          {/* ── FIX: badges now use correct status keys ── */}
           {[
-            { label: "to do",       count: counts.to_do,     color: "#f59e0b" },
-            { label: "in progress", count: counts.pending,   color: "#4f8ef7" },
-            { label: "active",      count: counts.active,    color: "#a855f7" },
-            { label: "done",        count: counts.completed, color: "#22d3a8" },
+            { label: "to do",       count: counts.to_do,       color: "#f59e0b" },
+            { label: "in progress", count: counts.in_progress, color: "#4f8ef7" },
+            { label: "done",        count: counts.completed,   color: "#22d3a8" },
+            { label: "cancelled",   count: counts.cancelled,   color: "#6b7280" },
           ].map(s => (
             <span key={s.label} style={{
               display: "inline-flex", alignItems: "center", gap: 5,
@@ -400,9 +413,11 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
         <div className="fade-up delay-2">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>Task Board</h2>
+
+            {/* Tabs */}
             <div role="tablist" aria-label="Filter tasks" style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 999, padding: 3 }}>
-              {["All Tasks", "To Do", "Completed"].map((tab, i) => (
-                <button key={tab} role="tab" aria-selected={activeTab === i} onClick={() => setActiveTab(i)}
+              {TABS.map((tab, i) => (
+                <button key={tab.label} role="tab" aria-selected={activeTab === i} onClick={() => setActiveTab(i)}
                   style={{
                     padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 600,
                     cursor: "pointer", border: "none", fontFamily: "var(--font-sans)",
@@ -413,7 +428,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
                   }}
                   onMouseEnter={e => { if (activeTab !== i) { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "var(--color-text-primary)"; } }}
                   onMouseLeave={e => { if (activeTab !== i) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--color-text-secondary)"; } }}
-                >{tab}</button>
+                >{tab.label}</button>
               ))}
             </div>
           </div>
@@ -424,9 +439,21 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
               <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading tasks…</span>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0,1fr))", gap: 20, alignItems: "start" }}>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: typeof gridCols === "number" ? `repeat(${gridCols}, minmax(0,1fr))` : gridCols,
+              gap: 20,
+              alignItems: "start",
+            }}>
               {columns.map(col => (
-                <KanbanColumn key={col.status} status={col.status} label={col.label} tasks={col.tasks} onMove={moveTask} />
+                <KanbanColumn
+                  key={col.status}
+                  status={col.status}
+                  label={col.label}
+                  tasks={col.tasks}
+                  onMove={moveTask}
+                  onDelete={removeTask}
+                />
               ))}
             </div>
           )}
@@ -445,7 +472,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, addTask
 // ── Root App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [activeNav, setActiveNav] = useState(0);
-  const { tasks, total, loading, error, submitting, moveTask, addTask, reload, clearError } = useTasks();
+  const { tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError } = useTasks();
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === "Escape") document.activeElement?.blur();
@@ -462,8 +489,8 @@ export default function App() {
           {activeNav === 0 ? (
             <Dashboard
               tasks={tasks} total={total} loading={loading} error={error}
-              submitting={submitting} moveTask={moveTask} addTask={addTask}
-              reload={reload} clearError={clearError}
+              submitting={submitting} moveTask={moveTask} removeTask={removeTask}
+              addTask={addTask} reload={reload} clearError={clearError}
             />
           ) : (
             <PlaceholderPage label={currentNavLabel} />
