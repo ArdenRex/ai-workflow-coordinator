@@ -24,6 +24,10 @@ from fastapi.responses import Response
 
 from app.slack_bot import slack_handler
 
+import os
+import httpx
+from fastapi.responses import JSONResponse
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Slack"])
@@ -51,3 +55,20 @@ async def slack_events(request: Request) -> Response:
         request.url.path,
     )
     return await slack_handler.handle(request)
+@router.get("/auth/slack/callback")
+async def slack_oauth_callback(code: str):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://slack.com/api/oauth.v2.access",
+            data={
+                "client_id": os.environ["SLACK_CLIENT_ID"],
+                "client_secret": os.environ["SLACK_CLIENT_SECRET"],
+                "code": code,
+                "redirect_uri": "https://ai-workflow-coordinator-api-production.up.railway.app/auth/slack/callback",
+            },
+        )
+    data = response.json()
+    if data.get("ok"):
+        return JSONResponse({"message": "Slack connected successfully!", "team": data.get("team", {}).get("name")})
+    else:
+        return JSONResponse({"error": data.get("error")}, status_code=400)
