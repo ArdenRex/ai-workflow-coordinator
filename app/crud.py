@@ -37,7 +37,7 @@ def create_task(
     )
     db.add(task)
     try:
-        db.flush()      # write to DB within current transaction without committing
+        db.commit()       # ✅ FIXED: was db.flush() — flush never commits, transaction was rolling back on session close
         db.refresh(task)
     except IntegrityError as exc:
         db.rollback()
@@ -105,7 +105,7 @@ def update_task_status(
 
     task.status = update.status
     try:
-        db.flush()
+        db.commit()       # ✅ FIXED: was db.flush()
         db.refresh(task)
     except SQLAlchemyError as exc:
         db.rollback()
@@ -139,7 +139,7 @@ def update_task(
         setattr(task, key, value)
 
     try:
-        db.flush()
+        db.commit()       # ✅ FIXED: was db.flush()
         db.refresh(task)
     except SQLAlchemyError as exc:
         db.rollback()
