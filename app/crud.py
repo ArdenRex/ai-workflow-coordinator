@@ -26,18 +26,19 @@ def create_task(
 ) -> Task:
     """Create and persist a new task from AI-extracted data."""
     task = Task(
-        task_description=extracted.task,
+        title=extracted.task,             # FIX 1: was missing — title is NOT NULL, caused silent crash
+        task_description=extracted.task,  # legacy column kept in sync
         assignee=extracted.assignee,
         deadline=extracted.deadline,
         priority=extracted.priority or Priority.medium,
         source_message=source_message,
-        status=TaskStatus.pending,
+        status=TaskStatus.to_do,          # FIX 2: was TaskStatus.pending — frontend only shows to_do column
         slack_channel_id=slack_channel_id,
         slack_message_ts=slack_message_ts,
     )
     db.add(task)
     try:
-        db.commit()       # ✅ FIXED: was db.flush() — flush never commits, transaction was rolling back on session close
+        db.commit()                       # FIX 3: was db.flush() — flush never commits, task lost on session close
         db.refresh(task)
     except IntegrityError as exc:
         db.rollback()
@@ -71,7 +72,6 @@ def list_tasks(
     Returns:
         (total_count, tasks_page) tuple for pagination.
     """
-    # Clamp pagination to safe bounds
     skip = max(0, skip)
     limit = max(1, min(limit, 200))
 
@@ -84,11 +84,9 @@ def list_tasks(
     if priority is not None:
         stmt = stmt.where(Task.priority == priority)
 
-    # Total count (before pagination) — run on filtered query
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total: int = db.scalar(count_stmt) or 0
 
-    # Apply pagination and ordering
     stmt = stmt.order_by(Task.created_at.desc()).offset(skip).limit(limit)
     tasks: list[Task] = list(db.scalars(stmt).all())
 
@@ -105,7 +103,7 @@ def update_task_status(
 
     task.status = update.status
     try:
-        db.commit()       # ✅ FIXED: was db.flush()
+        db.commit()                       # FIX: was db.flush()
         db.refresh(task)
     except SQLAlchemyError as exc:
         db.rollback()
@@ -139,7 +137,7 @@ def update_task(
         setattr(task, key, value)
 
     try:
-        db.commit()       # ✅ FIXED: was db.flush()
+        db.commit()                       # FIX: was db.flush()
         db.refresh(task)
     except SQLAlchemyError as exc:
         db.rollback()
