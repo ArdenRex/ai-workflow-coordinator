@@ -3,6 +3,7 @@ import React, { useState, useMemo, useCallback } from "react";
 import { useTasks } from "./hooks/useTasks";
 import KanbanColumn from "./components/KanbanColumn";
 import AddTaskModal from "./components/AddTaskModal";
+import AddToSlackButton from "./components/AddToSlackButton"; // ✅ ADDED
 
 // ── CSS variables + animations injected once ──────────────────────────────────
 const GLOBAL_STYLES = `
@@ -47,7 +48,6 @@ const NAV_ITEMS = [
   { icon: "⚙", label: "Settings",   badge: null },
 ];
 
-// null = show all; a status string = filter to only that column
 const TABS = [
   { label: "All Tasks",   filter: null          },
   { label: "To Do",       filter: "to_do"       },
@@ -188,7 +188,7 @@ function Sparkline({ color }) {
   );
 }
 
-// ── Placeholder pages for non-dashboard nav items ─────────────────────────────
+// ── Placeholder pages ─────────────────────────────────────────────────────────
 function PlaceholderPage({ label }) {
   return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
@@ -218,7 +218,6 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
       return matchesSearch && matchesTab;
     });
 
-    // When a tab filter is active, only show the matching column
     const visibleColumns = tabFilter
       ? COLUMNS.filter(col => col.status === tabFilter)
       : COLUMNS;
@@ -248,7 +247,6 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
     return result;
   }, [addTask]);
 
-  // Grid columns: 4 for all tasks, 1 for single-column tabs
   const gridCols = TABS[activeTab]?.filter ? 1 : `repeat(${COLUMNS.length}, minmax(0,1fr))`;
 
   return (
@@ -343,8 +341,8 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
       {/* Page body */}
       <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
 
-        {/* Hero */}
-        <div className="fade-up" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20 }}>
+        {/* ✅ ADDED: Hero row — Welcome text + Add to Slack button side by side */}
+        <div className="fade-up" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
           <div>
             <h1 style={{
               fontSize: 26, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.15,
@@ -355,14 +353,21 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
               Your AI assistant team is ready · {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </p>
           </div>
-          <div style={{
-            padding: "6px 14px", borderRadius: 999,
-            background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.25)",
-            fontSize: 12, fontWeight: 600, color: "#22d3a8",
-            display: "flex", alignItems: "center", gap: 6,
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22d3a8", boxShadow: "0 0 6px #22d3a8", animation: "pulse 2s ease-in-out infinite" }} aria-hidden="true" />
-            System Online
+
+          {/* Right side: System Online badge + Add to Slack button */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            {/* ✅ Add to Slack button lives here */}
+            <AddToSlackButton />
+
+            <div style={{
+              padding: "6px 14px", borderRadius: 999,
+              background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.25)",
+              fontSize: 12, fontWeight: 600, color: "#22d3a8",
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22d3a8", boxShadow: "0 0 6px #22d3a8", animation: "pulse 2s ease-in-out infinite" }} aria-hidden="true" />
+              System Online
+            </div>
           </div>
         </div>
 
