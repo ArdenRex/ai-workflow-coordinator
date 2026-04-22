@@ -52,7 +52,24 @@ class Settings(BaseSettings):
         description="Secret key for signing/encryption (required).",
     )
 
-    # ── Validators ────────────────────────────────────────────────────────────
+    # ── NEW: JWT settings ─────────────────────────────────────────────────────
+    # Used to sign access tokens (login sessions)
+    jwt_algorithm: str = Field(
+        default="HS256",
+        description="JWT signing algorithm.",
+    )
+    # Short-lived access token — 30 minutes
+    jwt_access_token_expire_minutes: int = Field(
+        default=30,
+        description="Access token expiry in minutes.",
+    )
+    # Long-lived token for Remember Me — 30 days
+    jwt_refresh_token_expire_days: int = Field(
+        default=30,
+        description="Refresh token expiry in days (used for Remember Me).",
+    )
+
+    # ── Validators (all unchanged) ────────────────────────────────────────────
     @field_validator("database_url", mode="before")
     @classmethod
     def _validate_database_url(cls, v: str) -> str:
