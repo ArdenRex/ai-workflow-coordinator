@@ -34,6 +34,7 @@ from slack_bolt.adapter.fastapi import SlackRequestHandler
 from app.database import engine, Base, SessionLocal
 from app.models import Task, TaskStatus
 from app.routers import messages, tasks, slack as slack_router
+from app.routers import auth as auth_router  # ✅ NEW
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -43,7 +44,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 # ─── Slack Bolt app ───────────────────────────────────────────────────────────
 bolt_app = BoltApp(
@@ -160,7 +161,10 @@ def handle_mention(event, say, client, logger):
             f"✅ Task *{title}* (id: {new_task.id}) added to *To Do* (no assignee)."
         )
         say(confirmation)
-        logger.info("Created task id=%s title=%r assignee=%r mode=%s", new_task.id, title, assignee_name, mode)
+        logger.info(
+            "Created task id=%s title=%r assignee=%r mode=%s",
+            new_task.id, title, assignee_name, mode,
+        )
 
     except Exception as exc:
         db.rollback()
@@ -206,15 +210,16 @@ ALLOWED_ORIGINS: list[str] = (
 app.add_middleware(
     CORSMiddleware,
     allow_origins     = ALLOWED_ORIGINS,
-    allow_credentials = bool(_raw_origins),
+    allow_credentials = True,   # ✅ CHANGED: must be True for cookies (remember me)
     allow_methods     = ["*"],
     allow_headers     = ["*"],
 )
 
 # ── Routers ────────────────────────────────────────────────────────────────────
+app.include_router(auth_router.router)   # ✅ NEW — /auth/* endpoints
 app.include_router(messages.router)
 app.include_router(tasks.router)
-app.include_router(slack_router.router)  # handles /slack/events + /auth/install + /auth/slack/callback
+app.include_router(slack_router.router)  # /slack/events + /auth/install + /auth/slack/callback
 
 
 # ── Global exception handler ───────────────────────────────────────────────────
