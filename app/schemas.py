@@ -12,7 +12,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.models import Priority, TaskStatus, UserRole
 
 
-# ─── Existing Request Schemas (unchanged) ─────────────────────────────────────
+# ─── Request Schemas ──────────────────────────────────────────────────────────
 
 class MessageRequest(BaseModel):
     """Payload for the /process-message endpoint."""
@@ -45,7 +45,7 @@ class TaskStatusUpdate(BaseModel):
     status: TaskStatus
 
 
-# ─── Existing AI Extraction Schema (unchanged) ────────────────────────────────
+# ─── AI Extraction Schema ─────────────────────────────────────────────────────
 
 class ExtractedTask(BaseModel):
     """Represents what the AI extracted from a message."""
@@ -110,19 +110,26 @@ class ExtractedTask(BaseModel):
             return 0.8
 
 
-# ─── Existing Response Schemas (unchanged) ────────────────────────────────────
+# ─── Task Response Schemas ────────────────────────────────────────────────────
 
 class TaskResponse(BaseModel):
     """Full task as returned from the database."""
     id: int
+    title: Optional[str] = None
     task_description: Optional[str] = None
     assignee: Optional[str] = None
+    assignee_id: Optional[str] = None
     deadline: Optional[str] = None
     priority: Priority
     source_message: Optional[str] = None
     status: TaskStatus
     slack_channel_id: Optional[str] = None
     slack_message_ts: Optional[str] = None
+    owner_id: Optional[int] = None
+    workspace_id: Optional[int] = None
+    # Segment 3 — ping tracking
+    pinged_at: Optional[datetime] = None
+    owner_pinged_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
@@ -151,7 +158,7 @@ class HealthResponse(BaseModel):
     version: str
 
 
-# ─── Auth Request Schemas (unchanged) ────────────────────────────────────────
+# ─── Auth Request Schemas ─────────────────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
     """Step 1 of signup — basic account creation."""
@@ -197,7 +204,7 @@ class LoginRequest(BaseModel):
     remember_me: bool = Field(default=False)
 
 
-# ─── Auth Response Schemas (unchanged) ───────────────────────────────────────
+# ─── Auth Response Schemas ────────────────────────────────────────────────────
 
 class WorkspaceResponse(BaseModel):
     """Workspace info returned to frontend."""
@@ -243,7 +250,7 @@ class OnboardingResponse(BaseModel):
     workspace: WorkspaceResponse
 
 
-# ─── NEW: Workspace Settings Schemas (Segment 2) ──────────────────────────────
+# ─── Workspace Settings Schemas (Segment 2 + 3) ───────────────────────────────
 
 class KeywordRule(BaseModel):
     """A single keyword → priority mapping rule."""
@@ -290,6 +297,12 @@ class WorkspaceSettingsUpdate(BaseModel):
         description="Hours before unstarted High/Critical tasks trigger a drift alert (1–168).",
         examples=[24],
     )
+    # Segment 3 — escalation target
+    owner_slack_id: Optional[str] = Field(
+        default=None,
+        description="Slack user ID of the workspace architect — receives escalation DMs at 2× drift threshold.",
+        examples=["U012AB3CD"],
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -302,6 +315,7 @@ class WorkspaceSettingsUpdate(BaseModel):
                 ],
                 "high_priority_channels": ["C08XXXXXX"],
                 "drift_alert_hours": 24,
+                "owner_slack_id": "U012AB3CD",
             }
         }
     }
@@ -314,6 +328,7 @@ class WorkspaceSettingsResponse(BaseModel):
     keyword_rules: list[dict] = []
     high_priority_channels: list[str] = []
     drift_alert_hours: int = 24
+    owner_slack_id: Optional[str] = None   # Segment 3
     updated_at: datetime
 
     model_config = {"from_attributes": True}
