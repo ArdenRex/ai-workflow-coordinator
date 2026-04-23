@@ -174,6 +174,9 @@ class User(Base):
     tasks: Mapped[list["Task"]] = relationship(
         "Task", back_populates="owner", foreign_keys="Task.owner_id",
     )
+    onboarding: Mapped[Optional["OnboardingProgress"]] = relationship(
+        "OnboardingProgress", back_populates="user", uselist=False,
+    )
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r} role={self.role}>"
@@ -246,6 +249,105 @@ class Task(Base):
         )
 
 
+# ── OnboardingProgress (Segment 7) ────────────────────────────────────────────
+
+class OnboardingProgress(Base):
+    """
+    Tracks the 5-step guided onboarding checklist per user.
+
+    Steps:
+        1  slack_connected    — Slack OAuth completed
+        2  first_command_sent — User sent their first bot mention / task command
+        3  dashboard_viewed   — User opened their dashboard at least once
+        4  teammate_invited   — User sent at least one workspace invite
+        5  completed          — All 4 steps done; checklist is dismissed
+
+    completed_at is set automatically when all 4 action steps are done.
+    """
+    __tablename__ = "onboarding_progress"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", name="fk_onboarding_user"),
+        nullable=False,
+        unique=True,
+    )
+
+    # Step 1 — Connect Slack
+    slack_connected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    slack_connected_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    # Step 2 — Send first command
+    first_command_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    first_command_sent_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    # Step 3 — View dashboard
+    dashboard_viewed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    dashboard_viewed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    # Step 4 — Invite a teammate
+    teammate_invited: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    teammate_invited_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    # Completion
+    is_completed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False,
+    )
+
+    user: Mapped["User"] = relationship("User", back_populates="onboarding")
+
+    # ── helpers ───────────────────────────────────────────────────────────────
+
+    @property
+    def steps_completed(self) -> int:
+        """Count of the 4 action steps completed (0–4)."""
+        return sum([
+            self.slack_connected,
+            self.first_command_sent,
+            self.dashboard_viewed,
+            self.teammate_invited,
+        ])
+
+    @property
+    def total_steps(self) -> int:
+        return 4
+
+    @property
+    def progress_label(self) -> str:
+        """e.g. '3/4 steps to full setup'"""
+        return f"{self.steps_completed}/{self.total_steps} steps to full setup"
+
+    def mark_complete_if_done(self) -> None:
+        """Call after updating any step flag — auto-marks completion."""
+        if self.steps_completed == self.total_steps and not self.is_completed:
+            self.is_completed = True
+            self.completed_at = datetime.utcnow()
+
+    def __repr__(self) -> str:
+        return (
+            f"<OnboardingProgress user_id={self.user_id} "
+            f"steps={self.steps_completed}/{self.total_steps} "
+            f"completed={self.is_completed}>"
+        )
+
+
 # ── Migration helper ──────────────────────────────────────────────────────────
 MIGRATION_SQL = """
 -- Run this once in Railway Query tab if columns don't auto-migrate:
@@ -256,6 +358,24 @@ ALTER TABLE tasks
 
 ALTER TABLE workspace_settings
     ADD COLUMN IF NOT EXISTS owner_slack_id VARCHAR(64);
+
+-- Segment 7 — onboarding progress table
+CREATE TABLE IF NOT EXISTS onboarding_progress (
+    id                     SERIAL PRIMARY KEY,
+    user_id                INTEGER NOT NULL UNIQUE REFERENCES users(id),
+    slack_connected        BOOLEAN NOT NULL DEFAULT FALSE,
+    slack_connected_at     TIMESTAMPTZ,
+    first_command_sent     BOOLEAN NOT NULL DEFAULT FALSE,
+    first_command_sent_at  TIMESTAMPTZ,
+    dashboard_viewed       BOOLEAN NOT NULL DEFAULT FALSE,
+    dashboard_viewed_at    TIMESTAMPTZ,
+    teammate_invited       BOOLEAN NOT NULL DEFAULT FALSE,
+    teammate_invited_at    TIMESTAMPTZ,
+    is_completed           BOOLEAN NOT NULL DEFAULT FALSE,
+    completed_at           TIMESTAMPTZ,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- Back-fill tasks with NULL status
 UPDATE tasks
