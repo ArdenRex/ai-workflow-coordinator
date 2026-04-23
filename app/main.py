@@ -36,7 +36,8 @@ from app.models import Task, TaskStatus
 from app.routers import messages, tasks, slack as slack_router
 from app.routers import auth as auth_router
 from app.routers import workspace_settings as workspace_settings_router
-from app.scheduler import start_scheduler, stop_scheduler   # Segment 3
+from app.routers import onboarding as onboarding_router          # Segment 7
+from app.scheduler import start_scheduler, stop_scheduler        # Segment 3
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -46,7 +47,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-VERSION = "0.7.0"  # bumped for Segment 3
+VERSION = "0.8.0"  # bumped for Segment 7
 
 # ─── Slack Bolt app ───────────────────────────────────────────────────────────
 bolt_app = BoltApp(
@@ -157,6 +158,12 @@ def handle_mention(event, say, client, logger):
         db.commit()
         db.refresh(new_task)
 
+        # Segment 7 — mark "first_command_sent" onboarding step for the task creator
+        # (requires owner_id to be set on the task; wire in once you link Slack users to DB users)
+        # if new_task.owner_id:
+        #     from app.routers.onboarding import mark_step_for_user
+        #     mark_step_for_user(db, new_task.owner_id, "first_command_sent")
+
         confirmation = (
             f"✅ Task *{title}* (id: {new_task.id}) assigned to *{assignee_name}* and added to *To Do*."
             if assignee_name else
@@ -241,6 +248,7 @@ app.include_router(messages.router)
 app.include_router(tasks.router)
 app.include_router(slack_router.router)                 # /slack/events + OAuth
 app.include_router(workspace_settings_router.router)    # /workspace/settings
+app.include_router(onboarding_router.router)            # /onboarding/*  (Segment 7)
 
 
 # ── Global exception handler ───────────────────────────────────────────────────
