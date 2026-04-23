@@ -202,6 +202,13 @@ class Task(Base):
     source_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     slack_channel_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     slack_message_ts: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+    # ── Segment 8: public share token ────────────────────────────────────────
+    share_token: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True, unique=True, index=True,
+        default=lambda: secrets.token_urlsafe(16),
+    )
+
     status: Mapped[TaskStatus] = mapped_column(
         Enum(TaskStatus, name="taskstatus_enum", create_constraint=True),
         default=TaskStatus.to_do,
@@ -354,7 +361,8 @@ MIGRATION_SQL = """
 
 ALTER TABLE tasks
     ADD COLUMN IF NOT EXISTS pinged_at       TIMESTAMPTZ,
-    ADD COLUMN IF NOT EXISTS owner_pinged_at TIMESTAMPTZ;
+    ADD COLUMN IF NOT EXISTS owner_pinged_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS share_token     VARCHAR(32) UNIQUE;
 
 ALTER TABLE workspace_settings
     ADD COLUMN IF NOT EXISTS owner_slack_id VARCHAR(64);
