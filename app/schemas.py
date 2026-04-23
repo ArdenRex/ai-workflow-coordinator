@@ -54,6 +54,20 @@ class ExtractedTask(BaseModel):
     deadline: Optional[str] = None
     priority: Priority = Priority.medium
 
+    # NEW: urgency — tone of the message (separate from priority)
+    urgency: str = Field(
+        default="medium",
+        description="one of: none | low | medium | high | critical",
+    )
+
+    # NEW: confidence — how confident the AI is in this extraction (0.0–1.0)
+    confidence: float = Field(
+        default=0.8,
+        ge=0.0,
+        le=1.0,
+        description="AI confidence score for this extraction.",
+    )
+
     @field_validator("task")
     @classmethod
     def task_not_blank(cls, v: str) -> str:
@@ -84,6 +98,22 @@ class ExtractedTask(BaseModel):
             except ValueError:
                 return Priority.medium
         return v
+
+    @field_validator("urgency", mode="before")
+    @classmethod
+    def urgency_normalise(cls, v) -> str:
+        valid = {"none", "low", "medium", "high", "critical"}
+        if isinstance(v, str) and v.strip().lower() in valid:
+            return v.strip().lower()
+        return "medium"
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def confidence_clamp(cls, v) -> float:
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return 0.8
 
 
 # ─── Existing Response Schemas (unchanged) ────────────────────────────────────
