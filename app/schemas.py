@@ -53,18 +53,12 @@ class ExtractedTask(BaseModel):
     assignee: Optional[str] = None
     deadline: Optional[str] = None
     priority: Priority = Priority.medium
-
-    # NEW: urgency — tone of the message (separate from priority)
     urgency: str = Field(
         default="medium",
         description="one of: none | low | medium | high | critical",
     )
-
-    # NEW: confidence — how confident the AI is in this extraction (0.0–1.0)
     confidence: float = Field(
-        default=0.8,
-        ge=0.0,
-        le=1.0,
+        default=0.8, ge=0.0, le=1.0,
         description="AI confidence score for this extraction.",
     )
 
@@ -157,7 +151,7 @@ class HealthResponse(BaseModel):
     version: str
 
 
-# ─── NEW: Auth Request Schemas ────────────────────────────────────────────────
+# ─── Auth Request Schemas (unchanged) ────────────────────────────────────────
 
 class RegisterRequest(BaseModel):
     """Step 1 of signup — basic account creation."""
@@ -183,13 +177,7 @@ class RegisterRequest(BaseModel):
 class OnboardingRequest(BaseModel):
     """Step 2 + 3 — role selection + workspace setup."""
     role: UserRole
-
-    # For navigator role — what team do they lead?
     team_name: Optional[str] = Field(default=None, max_length=255)
-
-    # Workspace — either create new or join existing
-    # If create_workspace=True → workspace_name is required
-    # If create_workspace=False → invite_code is required
     create_workspace: bool = Field(default=True)
     workspace_name: Optional[str] = Field(default=None, max_length=255)
     invite_code: Optional[str] = Field(default=None, max_length=16)
@@ -206,13 +194,10 @@ class LoginRequest(BaseModel):
     """Email + password login."""
     email: EmailStr
     password: str
-    remember_me: bool = Field(
-        default=False,
-        description="If True, issues a long-lived refresh token (30 days).",
-    )
+    remember_me: bool = Field(default=False)
 
 
-# ─── NEW: Auth Response Schemas ───────────────────────────────────────────────
+# ─── Auth Response Schemas (unchanged) ───────────────────────────────────────
 
 class WorkspaceResponse(BaseModel):
     """Workspace info returned to frontend."""
@@ -240,8 +225,8 @@ class TokenResponse(BaseModel):
     """Returned after successful login."""
     access_token: str
     token_type: str = "bearer"
-    expires_in: int        # seconds until access token expires
-    remember_me: bool      # whether a long-lived refresh token was issued
+    expires_in: int
+    remember_me: bool
     user: UserResponse
 
 
@@ -256,3 +241,111 @@ class OnboardingResponse(BaseModel):
     message: str
     user: UserResponse
     workspace: WorkspaceResponse
+
+
+# ─── NEW: Workspace Settings Schemas (Segment 2) ──────────────────────────────
+
+class KeywordRule(BaseModel):
+    """A single keyword → priority mapping rule."""
+    keyword: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Word or phrase to match (case-insensitive) in the message.",
+        examples=["URGENT", "FYI", "ASAP", "blocker"],
+    )
+    priority: Priority = Field(
+        ...,
+        description="Priority to apply when this keyword is found.",
+        examples=["critical", "high", "low"],
+    )
+
+    @field_validator("keyword")
+    @classmethod
+    def keyword_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Keyword must not be blank.")
+        return v.strip().lower()
+
+
+class WorkspaceSettingsUpdate(BaseModel):
+    """
+    Payload for PUT /workspace/settings.
+    All fields are optional — only provided fields are updated.
+    """
+    keyword_rules: Optional[list[KeywordRule]] = Field(
+        default=None,
+        description="List of keyword → priority rules. Replaces all existing rules.",
+        examples=[[{"keyword": "URGENT", "priority": "critical"}, {"keyword": "FYI", "priority": "low"}]],
+    )
+    high_priority_channels: Optional[list[str]] = Field(
+        default=None,
+        description="Slack channel IDs where all tasks auto-get High priority.",
+        examples=[["C08XXXXXX", "C09YYYYYYY"]],
+    )
+    drift_alert_hours: Optional[int] = Field(
+        default=None,
+        ge=1,
+        le=168,
+        description="Hours before unstarted High/Critical tasks trigger a drift alert (1–168).",
+        examples=[24],
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "keyword_rules": [
+                    {"keyword": "URGENT", "priority": "critical"},
+                    {"keyword": "FYI",    "priority": "low"},
+                    {"keyword": "ASAP",   "priority": "high"},
+                    {"keyword": "blocker","priority": "critical"},
+                ],
+                "high_priority_channels": ["C08XXXXXX"],
+                "drift_alert_hours": 24,
+            }
+        }
+    }
+
+
+class WorkspaceSettingsResponse(BaseModel):
+    """Workspace settings as returned by GET/PUT /workspace/settings."""
+    id: int
+    workspace_id: int
+    keyword_rules: list[dict] = []
+    high_priority_channels: list[str] = []
+    drift_alert_hours: int = 24
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class PriorityPreviewRequest(BaseModel):
+    """Payload for POST /workspace/settings/preview."""
+    message: str = Field(
+        ...,
+        min_length=1,
+        max_length=5000,
+        description="The message text to test against your rules.",
+        examples=["URGENT: Ali please fix the payment bug before EOD"],
+    )
+    base_priority: Optional[Priority] = Field(
+        default=Priority.medium,
+        description="Starting priority (simulates what the AI would extract).",
+    )
+    urgency: Optional[str] = Field(
+        default="medium",
+        description="Urgency detected by AI: none | low | medium | high | critical",
+    )
+    slack_channel_id: Optional[str] = Field(
+        default=None,
+        description="Optional Slack channel ID to test channel rules.",
+        examples=["C08XXXXXX"],
+    )
+
+
+class PriorityPreviewResponse(BaseModel):
+    """Result of priority preview."""
+    base_priority: Priority
+    final_priority: Priority
+    boosted: bool
+    explanation: str
