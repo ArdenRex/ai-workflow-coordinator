@@ -28,7 +28,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
-# ── Existing enums (unchanged) ────────────────────────────────────────────────
+# ── Enums ─────────────────────────────────────────────────────────────────────
 
 class TaskStatus(str, enum.Enum):
     to_do       = "to_do"
@@ -53,7 +53,7 @@ class UserRole(str, enum.Enum):
     solo      = "solo"        # Independent — no team, sees only own tasks
 
 
-# ── Workspace model ───────────────────────────────────────────────────────────
+# ── Workspace ─────────────────────────────────────────────────────────────────
 
 class Workspace(Base):
     __tablename__ = "workspaces"
@@ -84,23 +84,16 @@ class Workspace(Base):
         return f"<Workspace id={self.id} name={self.name!r}>"
 
 
-# ── NEW: WorkspaceSettings model ──────────────────────────────────────────────
+# ── WorkspaceSettings ─────────────────────────────────────────────────────────
 
 class WorkspaceSettings(Base):
     """
     Per-workspace configuration for the priority/urgency engine.
 
-    keyword_rules  — JSON list of {keyword, priority} dicts
-                     e.g. [{"keyword": "URGENT", "priority": "critical"},
-                            {"keyword": "FYI",    "priority": "low"}]
-
-    high_priority_channels — JSON list of Slack channel IDs that auto-set
-                             priority=high on every task created there.
-                             e.g. ["C08XXXXXX", "C09YYYYYYY"]
-
-    drift_alert_hours — how many hours a High/Critical task can sit in
-                        to_do/pending before a drift alert is sent.
-                        Default: 24
+    keyword_rules          — JSON list of {keyword, priority} dicts
+    high_priority_channels — JSON list of Slack channel IDs that auto-set priority=high
+    drift_alert_hours      — hours before unstarted High/Critical tasks trigger a drift alert
+    owner_slack_id         — Slack user ID of the workspace architect (used for escalation DMs)
     """
     __tablename__ = "workspace_settings"
 
@@ -109,22 +102,24 @@ class WorkspaceSettings(Base):
     workspace_id: Mapped[int] = mapped_column(
         ForeignKey("workspaces.id", name="fk_ws_settings_workspace"),
         nullable=False,
-        unique=True,   # one settings row per workspace
+        unique=True,
     )
 
-    # Custom keyword → priority rules (stored as JSON array)
     keyword_rules: Mapped[Optional[list]] = mapped_column(
         JSON, nullable=True, default=list,
     )
 
-    # Slack channel IDs that trigger high priority automatically
     high_priority_channels: Mapped[Optional[list]] = mapped_column(
         JSON, nullable=True, default=list,
     )
 
-    # Hours before a high/critical unstarted task triggers a drift alert
     drift_alert_hours: Mapped[int] = mapped_column(
         Integer, nullable=False, default=24,
+    )
+
+    # Segment 3 — escalation DMs to workspace owner
+    owner_slack_id: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True,
     )
 
     updated_at: Mapped[datetime] = mapped_column(
@@ -142,7 +137,7 @@ class WorkspaceSettings(Base):
         return f"<WorkspaceSettings workspace_id={self.workspace_id}>"
 
 
-# ── User model ────────────────────────────────────────────────────────────────
+# ── User ──────────────────────────────────────────────────────────────────────
 
 class User(Base):
     __tablename__ = "users"
@@ -184,7 +179,7 @@ class User(Base):
         return f"<User id={self.id} email={self.email!r} role={self.role}>"
 
 
-# ── Task model ────────────────────────────────────────────────────────────────
+# ── Task ──────────────────────────────────────────────────────────────────────
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -216,6 +211,15 @@ class Task(Base):
     workspace_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("workspaces.id", use_alter=True, name="fk_task_workspace"), nullable=True,
     )
+
+    # Segment 3 — follow-up ping tracking
+    pinged_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    owner_pinged_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,
     )
@@ -244,8 +248,14 @@ class Task(Base):
 
 # ── Migration helper ──────────────────────────────────────────────────────────
 MIGRATION_SQL = """
--- Run this once in Railway Query tab to create the new table:
--- (create_all will handle it automatically on next deploy)
+-- Run this once in Railway Query tab if columns don't auto-migrate:
+
+ALTER TABLE tasks
+    ADD COLUMN IF NOT EXISTS pinged_at       TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS owner_pinged_at TIMESTAMPTZ;
+
+ALTER TABLE workspace_settings
+    ADD COLUMN IF NOT EXISTS owner_slack_id VARCHAR(64);
 
 -- Back-fill tasks with NULL status
 UPDATE tasks
