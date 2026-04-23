@@ -6,6 +6,7 @@ All database read/write operations. Keeps business logic out of route handlers.
 
 import logging
 import secrets
+from datetime import date, datetime, timezone
 from typing import Optional
 
 from sqlalchemy import select, func
@@ -47,7 +48,6 @@ def create_task(
     Segment 2: if a workspace_id is provided, the priority engine rules
     are applied before saving. Import is done inline to avoid circular imports.
     """
-    # Apply priority engine rules if we have a workspace
     final_priority = extracted.priority or Priority.medium
 
     if workspace_id:
@@ -62,7 +62,6 @@ def create_task(
                 settings=settings,
             )
         except Exception as exc:
-            # Priority engine failure must never block task creation
             logger.warning("Priority engine error (non-fatal): %s", exc)
 
     task = Task(
@@ -315,16 +314,12 @@ def get_workspace_by_id(db: Session, workspace_id: int) -> Optional[Workspace]:
     return db.get(Workspace, workspace_id)
 
 
-# ─── NEW: Workspace Settings CRUD (Segment 2) ────────────────────────────────
+# ─── Workspace Settings CRUD (Segment 2) ─────────────────────────────────────
 
 def get_workspace_settings(
     db: Session,
     workspace_id: int,
 ) -> Optional[WorkspaceSettings]:
-    """
-    Fetch workspace settings. Returns None if no settings row exists yet
-    (means default rules apply — no custom keywords, no channel overrides).
-    """
     stmt = select(WorkspaceSettings).where(
         WorkspaceSettings.workspace_id == workspace_id
     )
@@ -335,10 +330,6 @@ def get_or_create_workspace_settings(
     db: Session,
     workspace_id: int,
 ) -> WorkspaceSettings:
-    """
-    Fetch existing settings or create a default row.
-    Used by the router so managers always have a settings object to edit.
-    """
     settings = get_workspace_settings(db, workspace_id)
     if not settings:
         settings = WorkspaceSettings(
@@ -368,10 +359,6 @@ def update_workspace_settings(
     high_priority_channels: Optional[list] = None,
     drift_alert_hours: Optional[int] = None,
 ) -> WorkspaceSettings:
-    """
-    Update workspace settings. Creates the row if it doesn't exist.
-    Only updates fields that are explicitly passed (not None).
-    """
     settings = get_or_create_workspace_settings(db, workspace_id)
 
     if keyword_rules is not None:
@@ -400,8 +387,7 @@ def get_drifting_tasks(
 ) -> list[Task]:
     """
     Return all High/Critical tasks in this workspace that are still
-    unstarted (to_do or pending). The caller (scheduler) decides
-    whether each one is past its drift threshold using is_drifting().
+    unstarted (to_do or pending). Used by Segment 3 scheduler.
     """
     stmt = (
         select(Task)
@@ -411,5 +397,116 @@ def get_drifting_tasks(
             Task.status.in_([TaskStatus.to_do, TaskStatus.pending]),
         )
         .order_by(Task.created_at.asc())
+    )
+    return list(db.scalars(stmt).all())
+
+
+# ─── Segment 4: Daily Rollup Queries ─────────────────────────────────────────
+
+def get_tasks_due_today_for_user(
+    db: Session,
+    owner_id: int,
+) -> list[Task]:
+    """
+    Return all active (to_do / in_progress) tasks assigned to owner_id
+    whose deadline falls on today (UTC date). Used by the daily rollup job
+    to build each user's personal DM.
+    """
+    today: date = datetime.now(timezone.utc).date()
+
+    stmt = (
+        select(Task)
+        .where(
+            Task.owner_id == owner_id,
+            Task.status.in_([TaskStatus.to_do, TaskStatus.in_progress]),
+            # deadline is stored as DATE — cast-free comparison works for both
+            # date and datetime columns because SQLAlchemy handles it.
+            Task.deadline == today,
+        )
+        .order_by(Task.priority.desc(), Task.created_at.asc())
+    )
+    return list(db.scalars(stmt).all())
+
+
+def get_all_active_users_with_tasks_due_today(db: Session) -> list[User]:
+    """
+    Return every User who has at least one active task due today.
+    Used to fan out the daily rollup DMs without scanning all users.
+    """
+    today: date = datetime.now(timezone.utc).date()
+
+    # Subquery: distinct owner_ids that have a task due today
+    subq = (
+        select(Task.owner_id)
+        .where(
+            Task.owner_id.isnot(None),
+            Task.status.in_([TaskStatus.to_do, TaskStatus.in_progress]),
+            Task.deadline == today,
+        )
+        .distinct()
+        .subquery()
+    )
+
+    stmt = (
+        select(User)
+        .where(
+            User.id.in_(select(subq)),
+            User.slack_user_id.isnot(None),  # must have Slack to receive DM
+            User.is_active == True,
+        )
+    )
+    return list(db.scalars(stmt).all())
+
+
+def get_overdue_high_priority_tasks_for_workspace(
+    db: Session,
+    workspace_id: int,
+) -> list[Task]:
+    """
+    Return all High/Critical tasks in the workspace that are still active
+    AND whose deadline is strictly before today (i.e. overdue).
+    Used to build the manager's team overdue summary DM.
+    """
+    today: date = datetime.now(timezone.utc).date()
+
+    stmt = (
+        select(Task)
+        .where(
+            Task.workspace_id == workspace_id,
+            Task.priority.in_([Priority.high, Priority.critical]),
+            Task.status.in_([TaskStatus.to_do, TaskStatus.in_progress]),
+            Task.deadline < today,
+            Task.deadline.isnot(None),
+        )
+        .order_by(Task.deadline.asc(), Task.priority.desc())
+    )
+    return list(db.scalars(stmt).all())
+
+
+def get_all_workspace_ids(db: Session) -> list[int]:
+    """
+    Return all distinct workspace IDs that have at least one active user.
+    Used by the manager rollup loop to iterate workspaces.
+    """
+    stmt = (
+        select(Workspace.id)
+        .order_by(Workspace.id.asc())
+    )
+    return list(db.scalars(stmt).all())
+
+
+def get_managers_for_workspace(db: Session, workspace_id: int) -> list[User]:
+    """
+    Return all users in the workspace with role = architect or manager
+    who have a Slack user ID set (so we can DM them).
+    """
+    stmt = (
+        select(User)
+        .where(
+            User.workspace_id == workspace_id,
+            User.role.in_([UserRole.architect, UserRole.manager]),
+            User.slack_user_id.isnot(None),
+            User.is_active == True,
+        )
     )
     return list(db.scalars(stmt).all())
