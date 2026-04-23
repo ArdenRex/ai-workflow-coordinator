@@ -1,13 +1,9 @@
 """
 scheduler.py
 ------------
-Background scheduler for follow-up pings on overdue tasks.
-
-Runs every hour and:
-  1. Finds High/Critical tasks still in To Do past the drift threshold
-  2. Sends a Slack DM to the assignee (first ping)
-  3. If still unstarted after 2× threshold, pings the workspace owner/architect too
-  4. Stamps pinged_at / owner_pinged_at so we never double-ping
+Background scheduler for:
+  - Segment 3: Follow-up pings on overdue/drifting High/Critical tasks (hourly)
+  - Segment 4: Daily "Due Today" rollup DMs at 9 AM UTC (daily)
 
 Requires APScheduler:
   pip install apscheduler
@@ -22,14 +18,14 @@ from slack_sdk.errors import SlackApiError
 
 from app.config import get_settings
 from app.database import SessionLocal
-from app.models import Priority, Task, TaskStatus, WorkspaceSettings
+from app.models import Priority, Task, TaskStatus, User, WorkspaceSettings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 scheduler = AsyncIOScheduler(timezone="UTC")
 
-# ── Slack client (reuse token from settings) ──────────────────────────────────
+# ── Slack client ──────────────────────────────────────────────────────────────
 _slack_client: WebClient | None = None
 
 
@@ -40,13 +36,10 @@ def _get_slack_client() -> WebClient:
     return _slack_client
 
 
-# ── DM helpers ────────────────────────────────────────────────────────────────
+# ── DM helper ─────────────────────────────────────────────────────────────────
 
 def _send_dm(user_id: str, text: str) -> bool:
-    """
-    Open a DM channel with user_id and send text.
-    Returns True on success, False on failure.
-    """
+    """Open a DM channel with user_id and send text. Returns True on success."""
     client = _get_slack_client()
     try:
         convo = client.conversations_open(users=[user_id])
@@ -59,11 +52,8 @@ def _send_dm(user_id: str, text: str) -> bool:
         return False
 
 
-def _resolve_owner_id(db, workspace_id: str) -> str | None:
-    """
-    Return the Slack user ID of the workspace architect/owner, if stored.
-    Falls back to None so we skip the owner ping gracefully.
-    """
+def _resolve_owner_id(db, workspace_id: int) -> str | None:
+    """Return the Slack user ID of the workspace architect/owner, if stored."""
     ws: WorkspaceSettings | None = (
         db.query(WorkspaceSettings)
         .filter_by(workspace_id=workspace_id)
@@ -74,12 +64,12 @@ def _resolve_owner_id(db, workspace_id: str) -> str | None:
     return getattr(ws, "owner_slack_id", None)
 
 
-# ── Core ping logic ────────────────────────────────────────────────────────────
+# ── Segment 3: Overdue ping job ───────────────────────────────────────────────
 
 def _ping_overdue_tasks() -> dict:
     """
-    Synchronous job body — called by APScheduler every hour.
-
+    Synchronous job body — runs every hour.
+    Finds drifting High/Critical tasks and DMs assignees + owners.
     Returns a summary dict (also used by the manual trigger endpoint).
     """
     db = SessionLocal()
@@ -89,16 +79,13 @@ def _ping_overdue_tasks() -> dict:
     skipped = 0
 
     try:
-        # Fetch all workspace settings so we know the drift threshold per workspace
         all_settings: list[WorkspaceSettings] = db.query(WorkspaceSettings).all()
-        settings_map: dict[str, WorkspaceSettings] = {
+        settings_map: dict[int, WorkspaceSettings] = {
             ws.workspace_id: ws for ws in all_settings
         }
 
-        # Default threshold: 24 hours (used when no workspace settings exist)
         DEFAULT_THRESHOLD_HOURS = 24
 
-        # Find High/Critical tasks still in To Do that have an assignee_id
         drifting_tasks: list[Task] = (
             db.query(Task)
             .filter(
@@ -119,7 +106,6 @@ def _ping_overdue_tasks() -> dict:
                 else DEFAULT_THRESHOLD_HOURS
             )
 
-            # How long has this task been sitting?
             created_at = task.created_at
             if created_at.tzinfo is None:
                 created_at = created_at.replace(tzinfo=timezone.utc)
@@ -128,16 +114,13 @@ def _ping_overdue_tasks() -> dict:
 
             if age_hours < threshold_hours:
                 skipped += 1
-                continue  # Not overdue yet
+                continue
 
-            # ── First ping: assignee DM ────────────────────────────────────────
+            # First ping: assignee DM
             if task.pinged_at is None:
                 priority_label = (
-                    task.priority.value
-                    if hasattr(task.priority, "value")
-                    else str(task.priority)
+                    task.priority.value if hasattr(task.priority, "value") else str(task.priority)
                 ).capitalize()
-
                 msg = (
                     f"⚠️ *Overdue Task Alert*\n"
                     f"Your *{priority_label}* priority task has been sitting in *To Do* "
@@ -149,16 +132,13 @@ def _ping_overdue_tasks() -> dict:
                     task.pinged_at = now
                     assignee_pinged += 1
 
-            # ── Second ping: owner DM at 2× threshold ─────────────────────────
+            # Second ping: owner DM at 2× threshold
             if age_hours >= threshold_hours * 2 and task.owner_pinged_at is None:
                 owner_id = _resolve_owner_id(db, task.workspace_id) if task.workspace_id else None
                 if owner_id:
                     priority_label = (
-                        task.priority.value
-                        if hasattr(task.priority, "value")
-                        else str(task.priority)
+                        task.priority.value if hasattr(task.priority, "value") else str(task.priority)
                     ).capitalize()
-
                     owner_msg = (
                         f"🚨 *Escalation Alert*\n"
                         f"Task *{task.title}* (assigned to *{task.assignee}*) "
@@ -189,19 +169,143 @@ def _ping_overdue_tasks() -> dict:
         db.close()
 
 
-# ── APScheduler job wrapper ────────────────────────────────────────────────────
+# ── Segment 4: Daily rollup job ───────────────────────────────────────────────
+
+def _daily_rollup() -> dict:
+    """
+    Synchronous job body — runs once daily at 09:00 UTC.
+
+    For each user with tasks due today:
+      → DMs them: "X tasks due today (Y high-priority)"
+
+    For each manager/architect in each workspace:
+      → DMs them: team overdue high-priority task summary
+
+    Returns a summary dict (also used by the manual trigger endpoint).
+    """
+    from app import crud  # inline to avoid circular imports
+
+    db = SessionLocal()
+    now = datetime.now(timezone.utc)
+    user_dms_sent = 0
+    manager_dms_sent = 0
+
+    try:
+        # ── Part 1: Per-user "Due Today" DMs ─────────────────────────────────
+        users_with_tasks: list[User] = crud.get_all_active_users_with_tasks_due_today(db)
+
+        logger.info("Daily rollup: %d users have tasks due today", len(users_with_tasks))
+
+        for user in users_with_tasks:
+            tasks = crud.get_tasks_due_today_for_user(db, user.id)
+            if not tasks:
+                continue
+
+            high_count = sum(
+                1 for t in tasks
+                if t.priority in (Priority.high, Priority.critical)
+            )
+            total_count = len(tasks)
+
+            # Build task list lines (max 10 shown to keep DM readable)
+            task_lines = []
+            for t in tasks[:10]:
+                priority_label = (
+                    t.priority.value if hasattr(t.priority, "value") else str(t.priority)
+                ).capitalize()
+                task_lines.append(f"  • [{priority_label}] {t.title}")
+            if total_count > 10:
+                task_lines.append(f"  _...and {total_count - 10} more_")
+
+            tasks_block = "\n".join(task_lines)
+            high_note = f" *(including {high_count} high-priority)*" if high_count else ""
+
+            msg = (
+                f"📅 *Good morning! Here's your daily task rollup:*\n"
+                f"You have *{total_count} task(s) due today*{high_note}:\n\n"
+                f"{tasks_block}\n\n"
+                f"Stay on top of it — you've got this! 💪"
+            )
+
+            if _send_dm(user.slack_user_id, msg):
+                user_dms_sent += 1
+
+        # ── Part 2: Per-manager overdue summary DMs ───────────────────────────
+        workspace_ids: list[int] = crud.get_all_workspace_ids(db)
+
+        for ws_id in workspace_ids:
+            overdue_tasks = crud.get_overdue_high_priority_tasks_for_workspace(db, ws_id)
+            if not overdue_tasks:
+                continue
+
+            managers: list[User] = crud.get_managers_for_workspace(db, ws_id)
+            if not managers:
+                continue
+
+            # Build overdue task summary lines (max 15)
+            task_lines = []
+            for t in overdue_tasks[:15]:
+                priority_label = (
+                    t.priority.value if hasattr(t.priority, "value") else str(t.priority)
+                ).capitalize()
+                deadline_str = str(t.deadline) if t.deadline else "no deadline"
+                task_lines.append(
+                    f"  • [{priority_label}] *{t.title}* — assigned to {t.assignee or 'unassigned'} (due {deadline_str})"
+                )
+            if len(overdue_tasks) > 15:
+                task_lines.append(f"  _...and {len(overdue_tasks) - 15} more_")
+
+            tasks_block = "\n".join(task_lines)
+
+            manager_msg = (
+                f"🚨 *Team Overdue Summary — {now.strftime('%b %d, %Y')}*\n"
+                f"Your workspace has *{len(overdue_tasks)} overdue high-priority task(s)*:\n\n"
+                f"{tasks_block}\n\n"
+                f"Please follow up with your team to unblock these."
+            )
+
+            for manager in managers:
+                if _send_dm(manager.slack_user_id, manager_msg):
+                    manager_dms_sent += 1
+
+        summary = {
+            "user_dms_sent": user_dms_sent,
+            "manager_dms_sent": manager_dms_sent,
+            "workspaces_checked": len(workspace_ids),
+            "ran_at": now.isoformat(),
+        }
+        logger.info("Daily rollup complete: %s", summary)
+        return summary
+
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Daily rollup job failed: %s", exc)
+        return {"error": str(exc)}
+    finally:
+        db.close()
+
+
+# ── APScheduler async wrappers ────────────────────────────────────────────────
 
 async def ping_overdue_tasks_job():
-    """Async wrapper so APScheduler's AsyncIOScheduler can call the sync body."""
+    """Async wrapper for Segment 3 hourly ping job."""
     import asyncio
     loop = asyncio.get_event_loop()
     await loop.run_in_executor(None, _ping_overdue_tasks)
 
 
+async def daily_rollup_job():
+    """Async wrapper for Segment 4 daily rollup job."""
+    import asyncio
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, _daily_rollup)
+
+
 # ── Public API used by main.py ─────────────────────────────────────────────────
 
 def start_scheduler():
-    """Register the hourly job and start the scheduler. Call on app startup."""
+    """Register all jobs and start the scheduler. Call on app startup."""
+    # Segment 3: hourly overdue ping
     scheduler.add_job(
         ping_overdue_tasks_job,
         trigger="interval",
@@ -210,8 +314,21 @@ def start_scheduler():
         replace_existing=True,
         next_run_time=None,  # Don't run immediately on startup
     )
+
+    # Segment 4: daily rollup at 09:00 UTC
+    scheduler.add_job(
+        daily_rollup_job,
+        trigger="cron",
+        hour=9,
+        minute=0,
+        id="daily_rollup",
+        replace_existing=True,
+    )
+
     scheduler.start()
-    logger.info("Scheduler started — overdue ping job registered (hourly)")
+    logger.info(
+        "Scheduler started — overdue ping job (hourly) + daily rollup job (09:00 UTC) registered"
+    )
 
 
 def stop_scheduler():
@@ -222,8 +339,10 @@ def stop_scheduler():
 
 
 def run_ping_now() -> dict:
-    """
-    Manual trigger — called by the /tasks/ping-overdue endpoint.
-    Runs synchronously and returns the summary.
-    """
+    """Manual trigger for Segment 3 — called by POST /tasks/ping-overdue."""
     return _ping_overdue_tasks()
+
+
+def run_daily_rollup_now() -> dict:
+    """Manual trigger for Segment 4 — called by POST /tasks/daily-rollup."""
+    return _daily_rollup()
