@@ -1,10 +1,11 @@
 """
 routers/tasks.py
 ────────────────
-GET    /tasks               →  list all tasks (with optional filters)
-GET    /tasks/{id}          →  get a single task
-PATCH  /tasks/{id}/status   →  update task status
-DELETE /tasks/{id}          →  delete a task
+GET    /tasks                  →  list all tasks (with optional filters)
+GET    /tasks/{id}             →  get a single task
+PATCH  /tasks/{id}/status      →  update task status
+DELETE /tasks/{id}             →  delete a task
+POST   /tasks/ping-overdue     →  manually trigger overdue ping job (architect only)
 """
 
 import logging
@@ -166,3 +167,34 @@ def delete_task(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database error. Please retry.",
         ) from exc
+
+
+# ── Segment 3: Manual ping trigger ────────────────────────────────────────────
+
+@router.post(
+    "/ping-overdue",
+    summary="Manually trigger overdue task pings",
+    description=(
+        "Runs the overdue-ping job immediately. "
+        "Sends Slack DMs to assignees of High/Critical tasks past their drift threshold. "
+        "Intended for architect/admin use only."
+    ),
+    status_code=http_status.HTTP_200_OK,
+)
+def trigger_ping_overdue():
+    """
+    Manual trigger for the follow-up ping job.
+
+    In production this endpoint should be protected by an auth dependency
+    (e.g. require_architect role). Wired to the same logic the scheduler runs.
+    """
+    try:
+        from app.scheduler import run_ping_now
+        summary = run_ping_now()
+        return {"status": "ok", "result": summary}
+    except Exception as exc:
+        logger.exception("Manual ping trigger failed: %s", exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ping job failed: {exc}",
+        )
