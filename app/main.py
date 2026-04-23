@@ -35,7 +35,8 @@ from app.database import engine, Base, SessionLocal
 from app.models import Task, TaskStatus
 from app.routers import messages, tasks, slack as slack_router
 from app.routers import auth as auth_router
-from app.routers import workspace_settings as workspace_settings_router  # Segment 2
+from app.routers import workspace_settings as workspace_settings_router
+from app.scheduler import start_scheduler, stop_scheduler   # Segment 3
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -45,7 +46,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-VERSION = "0.6.0"  # bumped for Segment 2
+VERSION = "0.7.0"  # bumped for Segment 3
 
 # ─── Slack Bolt app ───────────────────────────────────────────────────────────
 bolt_app = BoltApp(
@@ -185,7 +186,13 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.critical("Database initialization failed: %s", exc, exc_info=True)
         sys.exit(1)
+
+    start_scheduler()   # Segment 3 — start hourly overdue-ping job
+    logger.info("Scheduler started.")
+
     yield
+
+    stop_scheduler()    # Segment 3 — graceful shutdown
     logger.info("Shutting down.")
 
 
