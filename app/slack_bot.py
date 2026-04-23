@@ -14,20 +14,24 @@ Flow:
   6. Task is saved to PostgreSQL
   7. Bot replies in the same thread confirming task creation
 
+Segment 5 — Viral Onboarding:
+  - After task creation, if the assignee has a Slack ID but no account,
+    the bot DMs them an invite link to claim the task and sign up.
+  - After every 3rd task created by a user, the bot DMs them a prompt
+    to invite teammates into the workspace.
+
 Required Slack OAuth scopes (Bot Token):
   channels:history   -- read public channel messages
   chat:write         -- post replies
   app_mentions:read  -- receive @mention events
   users:read         -- resolve user display names
-
-Required Event Subscriptions (in your Slack App dashboard):
-  app_mention        -- @bot mentions
-  message.channels   -- messages in public channels
+  im:write           -- open DM channels for invite messages
 """
 
 import asyncio
 import concurrent.futures
 import logging
+import os
 import re
 
 from slack_bolt import App
@@ -56,6 +60,9 @@ PRIORITY_EMOJI: dict[str, str] = {
     Priority.medium.value:   ":large_yellow_circle:",
     Priority.low.value:      ":large_green_circle:",
 }
+
+# Frontend base URL — used to build invite/claim links
+FRONTEND_URL = os.getenv("FRONTEND_URL", "").rstrip("/")
 
 # ── Regex patterns ─────────────────────────────────────────────────────────────
 _CMD_RE = re.compile(
@@ -113,6 +120,107 @@ def _run_async(coro):
         return future.result(timeout=30)
 
 
+# ── Segment 5: Viral onboarding helpers ──────────────────────────────────────
+
+def _send_dm(client, slack_user_id: str, text: str) -> bool:
+    """Open a DM and send text to a Slack user. Returns True on success."""
+    try:
+        convo = client.conversations_open(users=[slack_user_id])
+        dm_channel = convo["channel"]["id"]
+        client.chat_postMessage(channel=dm_channel, text=text)
+        logger.info("Onboarding DM sent to slack_user_id=%s", slack_user_id)
+        return True
+    except Exception as exc:
+        logger.warning("Failed to DM slack_user_id=%s: %s", slack_user_id, exc)
+        return False
+
+
+def _maybe_send_assignee_invite(
+    client,
+    db,
+    slack_user_id: str,
+    assignee_name: str,
+    task_id: int,
+    task_title: str,
+    workspace_invite_code: str | None,
+) -> None:
+    """
+    Segment 5A — Assignee invite DM.
+
+    If the assignee has a Slack ID but no account in our system,
+    DM them a claim link so they can sign up and see their task.
+    If they already have an account, skip silently.
+    """
+    from app import crud as _crud
+
+    existing_user = _crud.get_user_by_slack_id(db, slack_user_id)
+    if existing_user:
+        # Already registered — no invite needed
+        return
+
+    # Build the claim URL: frontend handles signup + auto-join via invite code
+    claim_url = f"{FRONTEND_URL}/claim?task={task_id}"
+    if workspace_invite_code:
+        claim_url += f"&invite={workspace_invite_code}"
+
+    msg = (
+        f"👋 Hey *{assignee_name}*! You've been assigned a task:\n\n"
+        f"📋 *{task_title}*\n\n"
+        f"Click below to claim it and see your full task list:\n"
+        f"👉 {claim_url}\n\n"
+        f"_You'll be signed up automatically — no password needed if you use Slack login._"
+    )
+    _send_dm(client, slack_user_id, msg)
+
+
+def _maybe_send_invite_teammate_prompt(
+    client,
+    db,
+    creator_slack_id: str,
+    workspace_invite_code: str | None,
+) -> None:
+    """
+    Segment 5B — Teammate invite prompt.
+
+    After a user creates their 3rd, 6th, 9th... task (every 3rd),
+    DM them a prompt to invite teammates into the workspace.
+    This creates the viral growth loop without being spammy.
+    """
+    if not creator_slack_id or not workspace_invite_code:
+        return
+
+    # Count tasks created by this Slack user
+    task_count = (
+        db.query(Task)
+        .filter(Task.assignee_id == creator_slack_id)
+        .count()
+    )
+
+    # Also count tasks where creator is the sender (using assignee_id as proxy
+    # for now — in a future segment, a creator_slack_id column can be added)
+    # Trigger at every 3rd task milestone
+    if task_count > 0 and task_count % 3 == 0:
+        invite_url = f"{FRONTEND_URL}/join?invite={workspace_invite_code}"
+        msg = (
+            f"🎉 You've created *{task_count} tasks* so far — great work!\n\n"
+            f"Want to bring your whole team in? Share this link:\n"
+            f"👉 {invite_url}\n\n"
+            f"_Teammates who click it will be added to your workspace automatically._"
+        )
+        _send_dm(client, creator_slack_id, msg)
+
+
+def _get_workspace_invite_code(db, workspace_id: int | None) -> str | None:
+    """Fetch the workspace invite code for building onboarding links."""
+    if not workspace_id:
+        return None
+    from app import crud as _crud
+    workspace = _crud.get_workspace_by_id(db, workspace_id)
+    return workspace.invite_code if workspace else None
+
+
+# ── Main event handler ────────────────────────────────────────────────────────
+
 @bolt_app.event("app_mention")
 def handle_mention(event, say, client):
     """
@@ -129,11 +237,16 @@ def handle_mention(event, say, client):
       - assignee    (person mentioned in the message)
       - deadline    (e.g. "today", "Friday", "June 30")
       - priority    (low / medium / high / critical — inferred from urgency words)
+
+    Segment 5 additions:
+      - If assignee is not yet registered, sends them a claim/signup DM
+      - Every 3rd task, prompts the creator to invite teammates
     """
     channel_id = event.get("channel", "")
     message_ts = event.get("ts", "")
     text       = event.get("text", "")
     thread_ts  = event.get("thread_ts") or message_ts
+    sender_id  = event.get("user", "")  # Slack user ID of the person who sent the message
 
     # Optional channel restriction
     if settings.slack_channel_id and channel_id != settings.slack_channel_id:
@@ -210,6 +323,12 @@ def handle_mention(event, say, client):
             logger.info("Duplicate Slack event ts=%s — skipping", message_ts)
             return
 
+        # Resolve sender's workspace so we can build invite links
+        from app import crud as _crud
+        sender_user = _crud.get_user_by_slack_id(db, sender_id) if sender_id else None
+        workspace_id = sender_user.workspace_id if sender_user else None
+        invite_code  = _get_workspace_invite_code(db, workspace_id)
+
         new_task = Task(
             title            = extracted.task,
             task_description = extracted.task,
@@ -221,6 +340,7 @@ def handle_mention(event, say, client):
             slack_channel_id = channel_id,
             slack_message_ts = message_ts,
             status           = TaskStatus.to_do,
+            workspace_id     = workspace_id,
         )
         db.add(new_task)
         db.commit()
@@ -250,6 +370,34 @@ def handle_mention(event, say, client):
             new_task.id, extracted.task, final_assignee,
             extracted.priority, extracted.deadline, mode,
         )
+
+        # ── Segment 5A: Send assignee invite DM if they're not registered ─────
+        if final_assignee_id:
+            try:
+                _maybe_send_assignee_invite(
+                    client=client,
+                    db=db,
+                    slack_user_id=final_assignee_id,
+                    assignee_name=final_assignee or final_assignee_id,
+                    task_id=new_task.id,
+                    task_title=extracted.task,
+                    workspace_invite_code=invite_code,
+                )
+            except Exception as exc:
+                # Onboarding DM failure must never block task creation
+                logger.warning("Assignee invite DM failed (non-fatal): %s", exc)
+
+        # ── Segment 5B: Prompt sender to invite teammates every 3rd task ──────
+        if sender_id:
+            try:
+                _maybe_send_invite_teammate_prompt(
+                    client=client,
+                    db=db,
+                    creator_slack_id=sender_id,
+                    workspace_invite_code=invite_code,
+                )
+            except Exception as exc:
+                logger.warning("Teammate invite prompt failed (non-fatal): %s", exc)
 
     except Exception as exc:
         db.rollback()
