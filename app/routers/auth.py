@@ -348,6 +348,7 @@ async def slack_callback(
     Slack redirects here after the user approves.
     - If user exists → log them in (issue tokens).
     - If user doesn't exist → create account + redirect to onboarding.
+    - Segment 7: marks slack_connected onboarding step for the user.
     """
     if error:
         logger.warning("Slack login denied: %s", error)
@@ -412,6 +413,13 @@ async def slack_callback(
     else:
         logger.info("Existing user via Slack login: id=%d", user.id)
 
+    # Segment 7 — mark slack_connected onboarding step (fire-and-forget)
+    try:
+        from app.routers.onboarding import mark_step_for_user
+        mark_step_for_user(db, user.id, "slack_connected")
+    except Exception as exc:
+        logger.warning("Could not mark slack_connected onboarding step: %s", exc)
+
     access_token, expires_in = create_access_token(user.id)
     refresh_token = create_refresh_token(user.id)
 
@@ -466,13 +474,10 @@ def claim_task(
 
     if not task:
         logger.warning("Claim link hit for non-existent task_id=%d", task_id)
-        # Redirect to generic signup — don't error out
         return RedirectResponse(f"{FRONTEND_URL}/signup")
 
-    # Build frontend URL with context so the signup page can personalise
     params = f"task={task_id}&title={task.title or ''}"
     if invite:
-        # Validate invite code is real before forwarding it
         workspace = crud.get_workspace_by_invite_code(db, invite)
         if workspace:
             params += f"&invite={invite}&workspace={workspace.name}"
