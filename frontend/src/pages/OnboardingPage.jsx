@@ -423,7 +423,7 @@ export default function OnboardingPage({ onComplete }) {
   const isNavigator = selectedRole === "navigator";
   const totalSteps  = isSolo ? 1 : isNavigator ? 3 : 2;
 
-  const handleNext = useCallback(async () => {
+  const handleNext = async () => {
     setError(null);
 
     // Step 0 — role selection
@@ -433,7 +433,6 @@ export default function OnboardingPage({ onComplete }) {
         return;
       }
       if (isSolo) {
-        // Solo — skip workspace, submit immediately
         await submitOnboarding();
         return;
       }
@@ -444,7 +443,10 @@ export default function OnboardingPage({ onComplete }) {
     // Step 1 — team name (navigator) or workspace (others)
     if (step === 1) {
       if (isNavigator) {
-        // Navigator goes to workspace step next
+        if (!teamName.trim()) {
+          setError("Please enter a team name.");
+          return;
+        }
         setStep(2);
         return;
       }
@@ -457,7 +459,7 @@ export default function OnboardingPage({ onComplete }) {
     if (step === 2) {
       await submitOnboarding();
     }
-  }, [step, selectedRole, isSolo, isNavigator]); // eslint-disable-line
+  };
 
   const submitOnboarding = useCallback(async () => {
     setLoading(true);
