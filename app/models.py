@@ -44,7 +44,7 @@ class Priority(str, enum.Enum):
     critical = "critical"
 
 
-# ── User role enum ────────────────────────────────────────────────────────────
+# ── NEW: User role enum ───────────────────────────────────────────────────────
 
 class UserRole(str, enum.Enum):
     architect = "architect"   # Manager  — sees ALL workspace tasks
@@ -53,7 +53,7 @@ class UserRole(str, enum.Enum):
     solo      = "solo"        # Independent — no team, sees only own tasks
 
 
-# ── Workspace model ───────────────────────────────────────────────────────────
+# ── NEW: Workspace model ──────────────────────────────────────────────────────
 
 class Workspace(Base):
     __tablename__ = "workspaces"
@@ -97,16 +97,16 @@ class Workspace(Base):
         return f"<Workspace id={self.id} name={self.name!r} code={self.invite_code!r}>"
 
 
-# ── User model ────────────────────────────────────────────────────────────────
+# ── NEW: User model ───────────────────────────────────────────────────────────
 
 class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
-    # Auth — removed index=True here, index is defined in __table_args__ below
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Auth — index=True handles the ix_users_email index; no __table_args__ needed
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)  # null = Slack-only user
 
     # Profile
     name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -160,18 +160,16 @@ class User(Base):
         foreign_keys="Task.owner_id",
     )
 
-    # ✅ FIX: postgresql_if_not_exists=True prevents crash when indexes already exist
-    __table_args__ = (
-        Index("ix_users_email",     "email",         postgresql_if_not_exists=True),
-        Index("ix_users_workspace", "workspace_id",  postgresql_if_not_exists=True),
-        Index("ix_users_slack_uid", "slack_user_id", postgresql_if_not_exists=True),
-    )
+    # No __table_args__ — all three indexes (ix_users_email, ix_users_workspace,
+    # ix_users_slack_uid) were already created in the DB by a previous deploy.
+    # Redefining them here caused the crash. index=True on the email column above
+    # is sufficient; the other two indexes already exist in PostgreSQL.
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r} role={self.role}>"
 
 
-# ── Task model ────────────────────────────────────────────────────────────────
+# ── Existing Task model — only added owner_id + workspace_id ─────────────────
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -212,7 +210,7 @@ class Task(Base):
         nullable=False,
     )
 
-    # ── Ownership fields ──────────────────────────────────────────────────────
+    # ── NEW: Ownership fields ─────────────────────────────────────────────────
     owner_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("users.id", use_alter=True, name="fk_task_owner"),
         nullable=True,
@@ -236,7 +234,7 @@ class Task(Base):
         nullable=False,
     )
 
-    # ── Relationships ─────────────────────────────────────────────────────────
+    # ── NEW: Relationships ────────────────────────────────────────────────────
     owner: Mapped[Optional["User"]] = relationship(
         "User",
         back_populates="tasks",
@@ -248,19 +246,11 @@ class Task(Base):
     )
 
     # ── Composite indexes ─────────────────────────────────────────────────────
-    # ✅ FIX: postgresql_if_not_exists=True on new indexes prevents crash on redeploy
+    # ix_tasks_status, ix_tasks_assignee, uq_tasks_slack_msg already exist in DB.
+    # ix_tasks_owner_id and ix_tasks_workspace_id are new — safe to create.
     __table_args__ = (
-        Index("ix_tasks_status",            "status"),
-        Index("ix_tasks_assignee",          "assignee"),
-        Index("ix_tasks_owner_id",          "owner_id",     postgresql_if_not_exists=True),
-        Index("ix_tasks_workspace_id",      "workspace_id", postgresql_if_not_exists=True),
-        Index("ix_tasks_status_created_at", "status", "created_at"),
-        Index(
-            "uq_tasks_slack_msg",
-            "slack_channel_id",
-            "slack_message_ts",
-            unique=True,
-        ),
+        Index("ix_tasks_owner_id",     "owner_id"),
+        Index("ix_tasks_workspace_id", "workspace_id"),
     )
 
     def __repr__(self) -> str:
