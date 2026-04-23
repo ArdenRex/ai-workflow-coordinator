@@ -35,6 +35,7 @@ from app.database import engine, Base, SessionLocal
 from app.models import Task, TaskStatus
 from app.routers import messages, tasks, slack as slack_router
 from app.routers import auth as auth_router
+from app.routers import workspace_settings as workspace_settings_router  # Segment 2
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -44,7 +45,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"  # bumped for Segment 2
 
 # ─── Slack Bolt app ───────────────────────────────────────────────────────────
 bolt_app = BoltApp(
@@ -200,9 +201,6 @@ app = FastAPI(
 )
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
-# Build allowed origins list — always include FRONTEND_URL and BACKEND_URL.
-# Never fall back to wildcard ["*"] when allow_credentials=True,
-# because browsers block wildcard + credentials together.
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
 _extra = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
@@ -215,8 +213,6 @@ ALLOWED_ORIGINS: list[str] = list(filter(None, [
     *_extra,
 ]))
 
-# Safety fallback — if somehow the list is still empty, log a warning.
-# Do NOT use ["*"] here because it breaks credentialed requests.
 if not ALLOWED_ORIGINS:
     logger.warning(
         "FRONTEND_URL and BACKEND_URL are not set. "
@@ -233,10 +229,11 @@ app.add_middleware(
 )
 
 # ── Routers ────────────────────────────────────────────────────────────────────
-app.include_router(auth_router.router)   # /auth/* endpoints
+app.include_router(auth_router.router)                  # /auth/*
 app.include_router(messages.router)
 app.include_router(tasks.router)
-app.include_router(slack_router.router)  # /slack/events + /auth/install + /auth/slack/callback
+app.include_router(slack_router.router)                 # /slack/events + OAuth
+app.include_router(workspace_settings_router.router)    # /workspace/settings
 
 
 # ── Global exception handler ───────────────────────────────────────────────────
