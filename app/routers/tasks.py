@@ -5,7 +5,8 @@ GET    /tasks                  →  list all tasks (with optional filters)
 GET    /tasks/{id}             →  get a single task
 PATCH  /tasks/{id}/status      →  update task status
 DELETE /tasks/{id}             →  delete a task
-POST   /tasks/ping-overdue     →  manually trigger overdue ping job (architect only)
+POST   /tasks/ping-overdue     →  manually trigger overdue ping job (Segment 3)
+POST   /tasks/daily-rollup     →  manually trigger daily rollup job (Segment 4)
 """
 
 import logging
@@ -169,7 +170,7 @@ def delete_task(
         ) from exc
 
 
-# ── Segment 3: Manual ping trigger ────────────────────────────────────────────
+# ── Segment 3: Manual overdue ping trigger ────────────────────────────────────
 
 @router.post(
     "/ping-overdue",
@@ -182,12 +183,6 @@ def delete_task(
     status_code=http_status.HTTP_200_OK,
 )
 def trigger_ping_overdue():
-    """
-    Manual trigger for the follow-up ping job.
-
-    In production this endpoint should be protected by an auth dependency
-    (e.g. require_architect role). Wired to the same logic the scheduler runs.
-    """
     try:
         from app.scheduler import run_ping_now
         summary = run_ping_now()
@@ -197,4 +192,35 @@ def trigger_ping_overdue():
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ping job failed: {exc}",
+        )
+
+
+# ── Segment 4: Manual daily rollup trigger ────────────────────────────────────
+
+@router.post(
+    "/daily-rollup",
+    summary="Manually trigger the daily rollup job",
+    description=(
+        "Runs the daily rollup job immediately without waiting for the 9 AM schedule. "
+        "Sends each user a DM with their tasks due today and each manager a team overdue summary. "
+        "Intended for architect/admin use only."
+    ),
+    status_code=http_status.HTTP_200_OK,
+)
+def trigger_daily_rollup():
+    """
+    Manual trigger for the Segment 4 daily rollup job.
+
+    In production this endpoint should be protected by an auth dependency
+    (e.g. require_architect role).
+    """
+    try:
+        from app.scheduler import run_daily_rollup_now
+        summary = run_daily_rollup_now()
+        return {"status": "ok", "result": summary}
+    except Exception as exc:
+        logger.exception("Manual daily rollup trigger failed: %s", exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Daily rollup failed: {exc}",
         )
