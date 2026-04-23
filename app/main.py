@@ -34,7 +34,7 @@ from slack_bolt.adapter.fastapi import SlackRequestHandler
 from app.database import engine, Base, SessionLocal
 from app.models import Task, TaskStatus
 from app.routers import messages, tasks, slack as slack_router
-from app.routers import auth as auth_router  # ✅ NEW
+from app.routers import auth as auth_router
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -200,23 +200,40 @@ app = FastAPI(
 )
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
+# Build allowed origins list — always include FRONTEND_URL and BACKEND_URL.
+# Never fall back to wildcard ["*"] when allow_credentials=True,
+# because browsers block wildcard + credentials together.
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
-ALLOWED_ORIGINS: list[str] = (
-    [o.strip() for o in _raw_origins.split(",") if o.strip()]
-    if _raw_origins
-    else ["*"]
-)
+_extra = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
+_frontend = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+_backend  = os.getenv("BACKEND_URL",  "").strip().rstrip("/")
+
+ALLOWED_ORIGINS: list[str] = list(filter(None, [
+    _frontend,
+    _backend,
+    *_extra,
+]))
+
+# Safety fallback — if somehow the list is still empty, log a warning.
+# Do NOT use ["*"] here because it breaks credentialed requests.
+if not ALLOWED_ORIGINS:
+    logger.warning(
+        "FRONTEND_URL and BACKEND_URL are not set. "
+        "CORS will block all credentialed requests. "
+        "Set FRONTEND_URL in Railway variables."
+    )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins     = ALLOWED_ORIGINS,
-    allow_credentials = True,   # ✅ CHANGED: must be True for cookies (remember me)
+    allow_origins     = ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["*"],
+    allow_credentials = True,
     allow_methods     = ["*"],
     allow_headers     = ["*"],
 )
 
 # ── Routers ────────────────────────────────────────────────────────────────────
-app.include_router(auth_router.router)   # ✅ NEW — /auth/* endpoints
+app.include_router(auth_router.router)   # /auth/* endpoints
 app.include_router(messages.router)
 app.include_router(tasks.router)
 app.include_router(slack_router.router)  # /slack/events + /auth/install + /auth/slack/callback
@@ -224,7 +241,7 @@ app.include_router(slack_router.router)  # /slack/events + /auth/install + /auth
 
 # ── Global exception handler ───────────────────────────────────────────────────
 @app.exception_handler(Exception)
-async def unhandled_exception_handler(request, exc: Exception):
+async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.error(
         "Unhandled exception on %s %s: %s",
         request.method, request.url, exc,
