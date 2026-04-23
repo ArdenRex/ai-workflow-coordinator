@@ -74,6 +74,7 @@ const NAV_ITEMS = [
   { icon: "◈", label: "Compliance", badge: "5"  },
   { icon: "◉", label: "Knowledge",  badge: null },
   { icon: "▲", label: "Reports",    badge: null },
+  { icon: "⊕", label: "Ownership",  badge: null },
   { icon: "⚙", label: "Settings",   badge: null },
 ];
 
@@ -241,7 +242,270 @@ function Sparkline({ color }) {
   );
 }
 
-function PlaceholderPage({ label }) {
+// ── Segment 10: Ownership Graph view ─────────────────────────────────────────
+function OwnershipGraph() {
+  const { user } = useAuth();
+  const API = process.env.REACT_APP_API_URL || "";
+  const [data, setData]         = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
+  const [selected, setSelected] = useState(null); // selected assignee node
+  const [filter, setFilter]     = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (user?.workspace?.id) params.set("workspace_id", user.workspace.id);
+    else if (user?.id)       params.set("owner_id", user.id);
+
+    fetch(`${API}/tasks/graph?${params}`)
+      .then(r => { if (!r.ok) throw new Error("Failed to load graph"); return r.json(); })
+      .then(d => { setData(d); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, [API, user]);
+
+  const PRIORITY_COLOR = { critical: "#f87171", high: "#fb923c", medium: "#fbbf24", low: "#34d399" };
+  const STATUS_COLOR   = { to_do: "#4f8ef7", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
+
+  const nodes = useMemo(() => {
+    if (!data?.nodes) return [];
+    return data.nodes.filter(n =>
+      !filter || n.assignee.toLowerCase().includes(filter.toLowerCase())
+    );
+  }, [data, filter]);
+
+  if (loading) return (
+    <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#4f8ef7", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+        <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading ownership data…</span>
+      </div>
+    </main>
+  );
+
+  if (error) return (
+    <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 32, marginBottom: 12 }}>⚠</div>
+        <p style={{ color: "#f87171", fontSize: 14 }}>{error}</p>
+      </div>
+    </main>
+  );
+
+  const selectedNode = selected ? data?.nodes?.find(n => n.assignee === selected) : null;
+
+  return (
+    <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
+
+      {/* Header */}
+      <header style={{
+        position: "sticky", top: 0, zIndex: 40, height: 60,
+        background: "rgba(13,15,30,0.88)", backdropFilter: "blur(16px)",
+        borderBottom: "1px solid var(--border-glass)",
+        padding: "0 28px", display: "flex", alignItems: "center", gap: 16,
+        margin: "-28px -28px 0",
+      }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>Ownership Graph</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 1 }}>
+            {data?.total_tasks ?? 0} tasks · {data?.total_owners ?? 0} owners
+          </div>
+        </div>
+        <div style={{ flex: 1, maxWidth: 300, position: "relative" }}>
+          <svg style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "var(--color-text-tertiary)", pointerEvents: "none" }} viewBox="0 0 16 16" fill="none">
+            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.3"/>
+            <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+          </svg>
+          <input
+            value={filter} onChange={e => setFilter(e.target.value)}
+            placeholder="Filter by person…"
+            style={{
+              width: "100%", height: 36, padding: "0 14px 0 32px",
+              background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)",
+              borderRadius: 999, fontFamily: "var(--font-sans)", fontSize: 13,
+              color: "var(--color-text-primary)", outline: "none",
+            }}
+            onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+            onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+          />
+        </div>
+      </header>
+
+      {/* Summary pills */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+        {[
+          { label: "Total Tasks",   value: data?.total_tasks,  color: "#4f8ef7" },
+          { label: "Owners",        value: data?.total_owners, color: "#7b5cf0" },
+          { label: "In Progress",   value: nodes.reduce((s, n) => s + n.in_progress, 0), color: "#f59e0b" },
+          { label: "Completed",     value: nodes.reduce((s, n) => s + n.completed,   0), color: "#22d3a8" },
+          { label: "Critical",      value: nodes.reduce((s, n) => s + n.critical,    0), color: "#f87171" },
+        ].map(p => (
+          <div key={p.label} style={{
+            padding: "6px 14px", borderRadius: 999,
+            background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: p.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{p.label}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)" }}>{p.value ?? 0}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Main grid: nodes list + detail panel */}
+      <div style={{ display: "grid", gridTemplateColumns: selectedNode ? "1fr 360px" : "1fr", gap: 20, alignItems: "start" }}>
+
+        {/* Ownership nodes grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+          {nodes.length === 0 && (
+            <div style={{ gridColumn: "1/-1", textAlign: "center", padding: "60px 0", color: "var(--color-text-tertiary)", fontSize: 14 }}>
+              No ownership data found.
+            </div>
+          )}
+          {nodes.map(node => {
+            const isSelected = selected === node.assignee;
+            const completionPct = node.total > 0 ? Math.round((node.completed / node.total) * 100) : 0;
+            return (
+              <div
+                key={node.assignee}
+                role="button" tabIndex={0}
+                onClick={() => setSelected(isSelected ? null : node.assignee)}
+                onKeyDown={e => e.key === "Enter" && setSelected(isSelected ? null : node.assignee)}
+                style={{
+                  background: isSelected
+                    ? "linear-gradient(135deg, rgba(79,142,247,0.15) 0%, rgba(123,92,240,0.15) 100%)"
+                    : "rgba(255,255,255,0.04)",
+                  backdropFilter: "blur(12px)",
+                  border: `1px solid ${isSelected ? "rgba(79,142,247,0.45)" : "var(--border-glass)"}`,
+                  borderRadius: 16, padding: "18px 20px", cursor: "pointer",
+                  transition: "all 0.15s", position: "relative", overflow: "hidden",
+                }}
+                onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.borderColor = "rgba(255,255,255,0.16)"; e.currentTarget.style.transform = "translateY(-2px)"; } }}
+                onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = "var(--border-glass)"; e.currentTarget.style.transform = ""; } }}
+              >
+                {/* Top accent */}
+                {isSelected && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,#4f8ef7,#7b5cf0)", borderRadius: "16px 16px 0 0" }} />}
+
+                {/* Assignee name + initials */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+                    background: "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 12, fontWeight: 700, color: "#fff",
+                    boxShadow: "0 0 12px rgba(79,142,247,0.3)",
+                  }}>
+                    {node.assignee.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{node.assignee}</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 1 }}>{node.total} task{node.total !== 1 ? "s" : ""}</div>
+                  </div>
+                </div>
+
+                {/* Status bar */}
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                    <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Completion</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#22d3a8" }}>{completionPct}%</span>
+                  </div>
+                  <div style={{ height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${completionPct}%`, borderRadius: 999, background: "linear-gradient(90deg,#22d3a8,#06b6d4)", transition: "width 0.5s ease" }} />
+                  </div>
+                </div>
+
+                {/* Status mini-badges */}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {[
+                    { key: "to_do",       label: "To Do"  },
+                    { key: "in_progress", label: "Active" },
+                    { key: "completed",   label: "Done"   },
+                  ].map(s => node[s.key] > 0 && (
+                    <span key={s.key} style={{
+                      padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 500,
+                      background: `${STATUS_COLOR[s.key]}18`,
+                      color: STATUS_COLOR[s.key],
+                      border: `1px solid ${STATUS_COLOR[s.key]}40`,
+                    }}>
+                      {node[s.key]} {s.label}
+                    </span>
+                  ))}
+                  {node.critical > 0 && (
+                    <span style={{
+                      padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 500,
+                      background: "rgba(248,113,113,0.1)", color: "#f87171",
+                      border: "1px solid rgba(248,113,113,0.3)",
+                    }}>🔴 {node.critical} Critical</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Detail panel */}
+        {selectedNode && (
+          <div style={{
+            background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)",
+            border: "1px solid var(--border-glass)", borderRadius: 16, padding: "20px",
+            position: "sticky", top: 80, maxHeight: "calc(100vh - 120px)", overflowY: "auto",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)" }}>{selectedNode.assignee}</div>
+              <button onClick={() => setSelected(null)} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--color-text-tertiary)", fontSize: 16, lineHeight: 1 }}>✕</button>
+            </div>
+
+            {/* Priority breakdown */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--color-text-tertiary)", marginBottom: 8 }}>Priority Breakdown</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {["critical", "high", "medium", "low"].map(p => (
+                  <div key={p} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: PRIORITY_COLOR[p], flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", flex: 1, textTransform: "capitalize" }}>{p}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)" }}>{selectedNode[p]}</span>
+                    <div style={{ width: 60, height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${selectedNode.total > 0 ? (selectedNode[p] / selectedNode.total) * 100 : 0}%`, borderRadius: 999, background: PRIORITY_COLOR[p] }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Task list */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--color-text-tertiary)", marginBottom: 8 }}>All Tasks</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {selectedNode.tasks.map(task => (
+                  <div key={task.id} style={{
+                    padding: "10px 12px", borderRadius: 10,
+                    background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)",
+                  }}>
+                    <div style={{ fontSize: 12, fontWeight: 500, color: "var(--color-text-primary)", marginBottom: 5, lineHeight: 1.4 }}>{task.title}</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: `${STATUS_COLOR[task.status] || "#888"}18`, color: STATUS_COLOR[task.status] || "#888", border: `1px solid ${STATUS_COLOR[task.status] || "#888"}30` }}>
+                        {task.status.replace("_", " ")}
+                      </span>
+                      <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: `${PRIORITY_COLOR[task.priority] || "#888"}18`, color: PRIORITY_COLOR[task.priority] || "#888", border: `1px solid ${PRIORITY_COLOR[task.priority] || "#888"}30` }}>
+                        {task.priority}
+                      </span>
+                      {task.deadline && (
+                        <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: "rgba(255,255,255,0.05)", color: "var(--color-text-tertiary)", border: "1px solid var(--border-glass)" }}>
+                          📅 {task.deadline}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
+
+
   return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
       <div style={{ textAlign: "center" }}>
@@ -575,6 +839,8 @@ function AuthenticatedApp() {
             submitting={submitting} moveTask={moveTask} removeTask={removeTask}
             addTask={addTask} reload={reload} clearError={clearError}
           />
+        ) : activeNav === 5 ? (
+          <OwnershipGraph />
         ) : (
           <PlaceholderPage label={currentNavLabel} />
         )}
