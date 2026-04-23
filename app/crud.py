@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
 
-from app.models import Priority, Task, TaskStatus, User, UserRole, Workspace
+from app.models import Priority, Task, TaskStatus, User, UserRole, Workspace, WorkspaceSettings
 from app.schemas import ExtractedTask, TaskStatusUpdate
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ def verify_password(plain: str, hashed: str) -> bool:
     return pwd_context.verify(plain, hashed)
 
 
-# ─── Existing Task CRUD (completely unchanged) ────────────────────────────────
+# ─── Task CRUD ────────────────────────────────────────────────────────────────
 
 def create_task(
     db: Session,
@@ -41,13 +41,36 @@ def create_task(
     owner_id: Optional[int] = None,
     workspace_id: Optional[int] = None,
 ) -> Task:
-    """Create and persist a new task from AI-extracted data."""
+    """
+    Create and persist a new task from AI-extracted data.
+
+    Segment 2: if a workspace_id is provided, the priority engine rules
+    are applied before saving. Import is done inline to avoid circular imports.
+    """
+    # Apply priority engine rules if we have a workspace
+    final_priority = extracted.priority or Priority.medium
+
+    if workspace_id:
+        try:
+            from app.priority_engine import apply_priority_rules
+            settings = get_workspace_settings(db, workspace_id)
+            final_priority = apply_priority_rules(
+                message=source_message,
+                base_priority=extracted.priority or Priority.medium,
+                urgency=extracted.urgency or "medium",
+                slack_channel_id=slack_channel_id,
+                settings=settings,
+            )
+        except Exception as exc:
+            # Priority engine failure must never block task creation
+            logger.warning("Priority engine error (non-fatal): %s", exc)
+
     task = Task(
         title=extracted.task,
         task_description=extracted.task,
         assignee=extracted.assignee,
         deadline=extracted.deadline,
-        priority=extracted.priority or Priority.medium,
+        priority=final_priority,
         source_message=source_message,
         status=TaskStatus.to_do,
         slack_channel_id=slack_channel_id,
@@ -71,7 +94,6 @@ def create_task(
 
 
 def get_task(db: Session, task_id: int) -> Optional[Task]:
-    """Fetch a single task by ID. Returns None if not found."""
     if task_id <= 0:
         return None
     return db.get(Task, task_id)
@@ -84,17 +106,13 @@ def list_tasks(
     priority: Optional[Priority] = None,
     skip: int = 0,
     limit: int = 50,
-    # NEW optional filters for role-based dashboard
     owner_id: Optional[int] = None,
     workspace_id: Optional[int] = None,
     team_name: Optional[str] = None,
 ) -> tuple[int, list[Task]]:
     """
     List tasks with optional filters.
-    Role-based filtering is applied via owner_id / workspace_id / team_name.
-
-    Returns:
-        (total_count, tasks_page) tuple for pagination.
+    Returns (total_count, tasks_page) tuple for pagination.
     """
     skip = max(0, skip)
     limit = max(1, min(limit, 200))
@@ -112,7 +130,6 @@ def list_tasks(
     if workspace_id is not None:
         stmt = stmt.where(Task.workspace_id == workspace_id)
     if team_name:
-        # Navigator sees tasks where assignee matches their team name
         stmt = stmt.where(Task.assignee.ilike(f"%{team_name.strip()}%"))
 
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -127,11 +144,9 @@ def list_tasks(
 def update_task_status(
     db: Session, task_id: int, update: TaskStatusUpdate
 ) -> Optional[Task]:
-    """Update the status of a task. Returns None if task not found."""
     task = db.get(Task, task_id)
     if not task:
         return None
-
     task.status = update.status
     try:
         db.commit()
@@ -148,11 +163,6 @@ def update_task(
     task_id: int,
     **fields,
 ) -> Optional[Task]:
-    """
-    Partial update for arbitrary task fields.
-    Only updates fields explicitly passed in kwargs.
-    Returns None if task not found.
-    """
     task = db.get(Task, task_id)
     if not task:
         return None
@@ -182,10 +192,6 @@ def get_task_by_slack_ts(
     slack_channel_id: str,
     slack_message_ts: str,
 ) -> Optional[Task]:
-    """
-    Look up a task by its originating Slack message.
-    Used to deduplicate Slack event retries.
-    """
     stmt = select(Task).where(
         Task.slack_channel_id == slack_channel_id,
         Task.slack_message_ts == slack_message_ts,
@@ -193,21 +199,18 @@ def get_task_by_slack_ts(
     return db.scalars(stmt).first()
 
 
-# ─── NEW: User CRUD ───────────────────────────────────────────────────────────
+# ─── User CRUD ────────────────────────────────────────────────────────────────
 
 def get_user_by_email(db: Session, email: str) -> Optional[User]:
-    """Fetch a user by email. Returns None if not found."""
     stmt = select(User).where(User.email == email.strip().lower())
     return db.scalars(stmt).first()
 
 
 def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
-    """Fetch a user by ID. Returns None if not found."""
     return db.get(User, user_id)
 
 
 def get_user_by_slack_id(db: Session, slack_user_id: str) -> Optional[User]:
-    """Fetch a user by their Slack user ID. Returns None if not found."""
     stmt = select(User).where(User.slack_user_id == slack_user_id)
     return db.scalars(stmt).first()
 
@@ -223,7 +226,6 @@ def create_user(
     team_name: Optional[str] = None,
     workspace_id: Optional[int] = None,
 ) -> User:
-    """Create and persist a new user."""
     user = User(
         name=name.strip(),
         email=email.strip().lower(),
@@ -251,18 +253,11 @@ def create_user(
     return user
 
 
-def authenticate_user(
-    db: Session, email: str, password: str
-) -> Optional[User]:
-    """
-    Verify email + password.
-    Returns the User if credentials are valid, None otherwise.
-    """
+def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
     user = get_user_by_email(db, email)
     if not user:
         return None
     if not user.password_hash:
-        # Slack-only user — cannot log in with password
         return None
     if not verify_password(password, user.password_hash):
         return None
@@ -276,15 +271,12 @@ def update_user_onboarding(
     team_name: Optional[str],
     workspace_id: int,
 ) -> Optional[User]:
-    """Update a user's role, team, and workspace after onboarding."""
     user = db.get(User, user_id)
     if not user:
         return None
-
     user.role = role
     user.team_name = team_name
     user.workspace_id = workspace_id
-
     try:
         db.commit()
         db.refresh(user)
@@ -295,14 +287,9 @@ def update_user_onboarding(
     return user
 
 
-# ─── NEW: Workspace CRUD ──────────────────────────────────────────────────────
+# ─── Workspace CRUD ──────────────────────────────────────────────────────────
 
-def create_workspace(
-    db: Session,
-    name: str,
-    owner_id: int,
-) -> Workspace:
-    """Create a new workspace with a unique invite code."""
+def create_workspace(db: Session, name: str, owner_id: int) -> Workspace:
     workspace = Workspace(
         name=name.strip(),
         invite_code=secrets.token_urlsafe(8),
@@ -319,16 +306,110 @@ def create_workspace(
     return workspace
 
 
-def get_workspace_by_invite_code(
-    db: Session, invite_code: str
-) -> Optional[Workspace]:
-    """Fetch a workspace by its invite code. Returns None if not found."""
+def get_workspace_by_invite_code(db: Session, invite_code: str) -> Optional[Workspace]:
     stmt = select(Workspace).where(Workspace.invite_code == invite_code.strip())
     return db.scalars(stmt).first()
 
 
-def get_workspace_by_id(
-    db: Session, workspace_id: int
-) -> Optional[Workspace]:
-    """Fetch a workspace by ID. Returns None if not found."""
+def get_workspace_by_id(db: Session, workspace_id: int) -> Optional[Workspace]:
     return db.get(Workspace, workspace_id)
+
+
+# ─── NEW: Workspace Settings CRUD (Segment 2) ────────────────────────────────
+
+def get_workspace_settings(
+    db: Session,
+    workspace_id: int,
+) -> Optional[WorkspaceSettings]:
+    """
+    Fetch workspace settings. Returns None if no settings row exists yet
+    (means default rules apply — no custom keywords, no channel overrides).
+    """
+    stmt = select(WorkspaceSettings).where(
+        WorkspaceSettings.workspace_id == workspace_id
+    )
+    return db.scalars(stmt).first()
+
+
+def get_or_create_workspace_settings(
+    db: Session,
+    workspace_id: int,
+) -> WorkspaceSettings:
+    """
+    Fetch existing settings or create a default row.
+    Used by the router so managers always have a settings object to edit.
+    """
+    settings = get_workspace_settings(db, workspace_id)
+    if not settings:
+        settings = WorkspaceSettings(
+            workspace_id=workspace_id,
+            keyword_rules=[],
+            high_priority_channels=[],
+            drift_alert_hours=24,
+        )
+        db.add(settings)
+        try:
+            db.commit()
+            db.refresh(settings)
+        except SQLAlchemyError as exc:
+            db.rollback()
+            logger.error(
+                "SQLAlchemyError creating workspace settings for workspace %d: %s",
+                workspace_id, exc, exc_info=True,
+            )
+            raise
+    return settings
+
+
+def update_workspace_settings(
+    db: Session,
+    workspace_id: int,
+    keyword_rules: Optional[list] = None,
+    high_priority_channels: Optional[list] = None,
+    drift_alert_hours: Optional[int] = None,
+) -> WorkspaceSettings:
+    """
+    Update workspace settings. Creates the row if it doesn't exist.
+    Only updates fields that are explicitly passed (not None).
+    """
+    settings = get_or_create_workspace_settings(db, workspace_id)
+
+    if keyword_rules is not None:
+        settings.keyword_rules = keyword_rules
+    if high_priority_channels is not None:
+        settings.high_priority_channels = high_priority_channels
+    if drift_alert_hours is not None:
+        settings.drift_alert_hours = max(1, min(168, drift_alert_hours))
+
+    try:
+        db.commit()
+        db.refresh(settings)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error(
+            "SQLAlchemyError updating workspace settings for workspace %d: %s",
+            workspace_id, exc, exc_info=True,
+        )
+        raise
+    return settings
+
+
+def get_drifting_tasks(
+    db: Session,
+    workspace_id: int,
+) -> list[Task]:
+    """
+    Return all High/Critical tasks in this workspace that are still
+    unstarted (to_do or pending). The caller (scheduler) decides
+    whether each one is past its drift threshold using is_drifting().
+    """
+    stmt = (
+        select(Task)
+        .where(
+            Task.workspace_id == workspace_id,
+            Task.priority.in_([Priority.high, Priority.critical]),
+            Task.status.in_([TaskStatus.to_do, TaskStatus.pending]),
+        )
+        .order_by(Task.created_at.asc())
+    )
+    return list(db.scalars(stmt).all())
