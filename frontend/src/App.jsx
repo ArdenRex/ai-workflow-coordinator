@@ -1,11 +1,14 @@
 // src/App.jsx
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { AuthProvider, useAuth } from "./context/AuthContext";   // ✅ NEW
+import AuthPage from "./pages/AuthPage";                          // ✅ NEW
+import OnboardingPage from "./pages/OnboardingPage";             // ✅ NEW
 import { useTasks } from "./hooks/useTasks";
 import KanbanColumn from "./components/KanbanColumn";
 import AddTaskModal from "./components/AddTaskModal";
-import AddToSlackButton from "./components/AddToSlackButton"; // ✅ ADDED
+import AddToSlackButton from "./components/AddToSlackButton";
 
-// ── CSS variables + animations injected once ──────────────────────────────────
+// ── CSS variables + animations ────────────────────────────────────────────────
 const GLOBAL_STYLES = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -26,12 +29,38 @@ const GLOBAL_STYLES = `
     from { opacity: 0; transform: translateY(12px); }
     to   { opacity: 1; transform: translateY(0); }
   }
-  .fade-up        { animation: fadeUp 0.4s ease both; }
+  .fade-up         { animation: fadeUp 0.4s ease both; }
   .fade-up.delay-1 { animation-delay: 0.07s; }
   .fade-up.delay-2 { animation-delay: 0.14s; }
 `;
 
-// Columns match the actual backend TaskStatus enum values
+// ── Full-screen loading spinner (shown while auth state initialises) ───────────
+function AppLoader() {
+  return (
+    <div style={{
+      minHeight: "100vh", background: "#0d0f1e",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexDirection: "column", gap: 16,
+    }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: 8,
+        background: "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 14, fontWeight: 700, color: "#fff",
+        boxShadow: "0 0 20px rgba(79,142,247,0.4)",
+      }}>AI</div>
+      <div style={{
+        width: 24, height: 24,
+        border: "2px solid rgba(79,142,247,0.2)",
+        borderTopColor: "#4f8ef7",
+        borderRadius: "50%",
+        animation: "spin 0.7s linear infinite",
+      }} />
+    </div>
+  );
+}
+
+// ── Columns / nav config (unchanged) ─────────────────────────────────────────
 const COLUMNS = [
   { status: "to_do",       label: "To Do"       },
   { status: "in_progress", label: "In Progress" },
@@ -55,8 +84,21 @@ const TABS = [
   { label: "Done",        filter: "completed"   },
 ];
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
+// ── Sidebar — now shows real user info + logout ───────────────────────────────
 function Sidebar({ activeNav, onNavChange }) {
+  const { user, logout } = useAuth();                            // ✅ NEW
+
+  const initials = user?.name
+    ? user.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)
+    : "AW";
+
+  const roleLabel = {
+    architect: "Architect",
+    navigator: "Navigator",
+    operator:  "Operator",
+    solo:      "Solo",
+  }[user?.role] || "Member";
+
   return (
     <aside style={{
       position: "fixed", left: 0, top: 0, bottom: 0, width: 220,
@@ -98,8 +140,7 @@ function Sidebar({ activeNav, onNavChange }) {
           return (
             <div
               key={item.label}
-              role="button"
-              tabIndex={0}
+              role="button" tabIndex={0}
               aria-current={isActive ? "page" : undefined}
               onClick={() => onNavChange(idx)}
               onKeyDown={e => e.key === "Enter" && onNavChange(idx)}
@@ -130,35 +171,47 @@ function Sidebar({ activeNav, onNavChange }) {
         })}
       </nav>
 
-      {/* User footer */}
+      {/* ✅ User footer — now shows real name, role, logout button */}
       <div style={{ padding: "14px", borderTop: "1px solid var(--border-glass)" }}>
         <div style={{
           display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
           borderRadius: 10, background: "rgba(255,255,255,0.04)",
-          border: "1px solid var(--border-glass)", cursor: "pointer",
-        }}
-          onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.07)"}
-          onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.04)"}
-        >
+          border: "1px solid var(--border-glass)",
+        }}>
           <div style={{
             width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
             background: "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 11, fontWeight: 700, color: "#fff",
             boxShadow: "0 0 10px rgba(79,142,247,0.35)",
-          }}>AW</div>
+          }}>{initials}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)" }}>AI Workflow</div>
-            <div style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>Admin</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {user?.name || "User"}
+            </div>
+            <div style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{roleLabel}</div>
           </div>
-          <span style={{ fontSize: 12, color: "var(--color-text-tertiary)" }} aria-hidden="true">⋯</span>
+          {/* Logout button */}
+          <button
+            onClick={logout}
+            title="Log out"
+            aria-label="Log out"
+            style={{
+              background: "transparent", border: "none", cursor: "pointer",
+              color: "var(--color-text-tertiary)", fontSize: 14, padding: 2,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              borderRadius: 6, transition: "color 0.15s",
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = "#f87171"}
+            onMouseLeave={e => e.currentTarget.style.color = "var(--color-text-tertiary)"}
+          >⏻</button>
         </div>
       </div>
     </aside>
   );
 }
 
-// ── SVG icons ─────────────────────────────────────────────────────────────────
+// ── SVG icons (unchanged) ─────────────────────────────────────────────────────
 const IconCheckbox = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <rect x="2" y="2" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="1.5"/>
@@ -188,7 +241,6 @@ function Sparkline({ color }) {
   );
 }
 
-// ── Placeholder pages ─────────────────────────────────────────────────────────
 function PlaceholderPage({ label }) {
   return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
@@ -201,11 +253,21 @@ function PlaceholderPage({ label }) {
   );
 }
 
-// ── Dashboard page ────────────────────────────────────────────────────────────
+// ── Dashboard — now role-aware ────────────────────────────────────────────────
 function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError }) {
+  const { user, isArchitect, isNavigator } = useAuth();          // ✅ NEW
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter]       = useState("");
   const [activeTab, setActiveTab] = useState(0);
+
+  // ✅ Role-aware welcome message
+  const roleGreeting = isArchitect
+    ? "Architect View — All workspace tasks"
+    : isNavigator
+      ? `Navigator View — ${user?.team_name || "Your team"} tasks`
+      : user?.role === "solo"
+        ? "Solo Dashboard — Your personal tasks"
+        : "Operator View — Tasks assigned to you";
 
   const columns = useMemo(() => {
     const tabFilter = TABS[activeTab]?.filter;
@@ -277,8 +339,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             aria-label="Search tasks or assignees"
             style={{
               width: "100%", height: 36, padding: "0 14px 0 32px",
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid var(--border-glass)",
+              background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)",
               borderRadius: 999, fontFamily: "var(--font-sans)", fontSize: 13,
               color: "var(--color-text-primary)", outline: "none",
               transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
@@ -299,8 +360,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             <span key={s.label} style={{
               display: "inline-flex", alignItems: "center", gap: 5,
               padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 500,
-              color: "var(--color-text-secondary)",
-              background: "rgba(255,255,255,0.05)",
+              color: "var(--color-text-secondary)", background: "rgba(255,255,255,0.05)",
               border: "1px solid var(--border-glass)",
             }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.color, flexShrink: 0 }} aria-hidden="true" />
@@ -310,8 +370,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
 
           <button onClick={() => reload()} title="Refresh" aria-label="Refresh tasks" disabled={loading}
             style={{
-              width: 36, height: 36, borderRadius: 10,
-              border: "1px solid var(--border-glass)",
+              width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border-glass)",
               background: "transparent", cursor: loading ? "not-allowed" : "pointer",
               color: "var(--color-text-secondary)", fontSize: 15,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -325,15 +384,15 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             style={{
               height: 36, padding: "0 18px", borderRadius: 999, border: "none",
               background: "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)",
-              color: "#fff", fontFamily: "var(--font-sans)",
-              fontSize: 13, fontWeight: 600, cursor: submitting ? "not-allowed" : "pointer",
+              color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
+              cursor: submitting ? "not-allowed" : "pointer",
               display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
               boxShadow: "0 0 20px rgba(79,142,247,0.35)",
-              transition: "opacity 0.15s, transform 0.1s, box-shadow 0.15s",
+              transition: "opacity 0.15s, transform 0.1s",
               opacity: submitting ? 0.6 : 1,
             }}
             onMouseEnter={e => { if (!submitting) { e.currentTarget.style.opacity = "0.9"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = submitting ? "0.6" : "1"; e.currentTarget.style.transform = "translateY(0)"; }}
+            onMouseLeave={e => { e.currentTarget.style.opacity = submitting ? "0.6" : "1"; e.currentTarget.style.transform = ""; }}
           >{submitting ? "Adding…" : "+ New task"}</button>
         </div>
       </header>
@@ -341,24 +400,24 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
       {/* Page body */}
       <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
 
-        {/* ✅ ADDED: Hero row — Welcome text + Add to Slack button side by side */}
+        {/* Hero row */}
         <div className="fade-up" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
           <div>
+            {/* ✅ Personalised greeting */}
             <h1 style={{
               fontSize: 26, fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.15,
               background: "linear-gradient(135deg, #f0f2ff 0%, #a5b4fc 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
-            }}>Welcome Back</h1>
+            }}>
+              Welcome, {user?.name?.split(" ")[0] || "there"} 👋
+            </h1>
             <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 5 }}>
-              Your AI assistant team is ready · {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+              {roleGreeting} · {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </p>
           </div>
 
-          {/* Right side: System Online badge + Add to Slack button */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            {/* ✅ Add to Slack button lives here */}
             <AddToSlackButton />
-
             <div style={{
               padding: "6px 14px", borderRadius: 999,
               background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.25)",
@@ -418,8 +477,6 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         <div className="fade-up delay-2">
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>Task Board</h2>
-
-            {/* Tabs */}
             <div role="tablist" aria-label="Filter tasks" style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 999, padding: 3 }}>
               {TABS.map((tab, i) => (
                 <button key={tab.label} role="tab" aria-selected={activeTab === i} onClick={() => setActiveTab(i)}
@@ -447,17 +504,12 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             <div style={{
               display: "grid",
               gridTemplateColumns: typeof gridCols === "number" ? `repeat(${gridCols}, minmax(0,1fr))` : gridCols,
-              gap: 20,
-              alignItems: "start",
+              gap: 20, alignItems: "start",
             }}>
               {columns.map(col => (
                 <KanbanColumn
-                  key={col.status}
-                  status={col.status}
-                  label={col.label}
-                  tasks={col.tasks}
-                  onMove={moveTask}
-                  onDelete={removeTask}
+                  key={col.status} status={col.status} label={col.label}
+                  tasks={col.tasks} onMove={moveTask} onDelete={removeTask}
                 />
               ))}
             </div>
@@ -474,34 +526,94 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
   );
 }
 
-// ── Root App ──────────────────────────────────────────────────────────────────
-export default function App() {
-  const [activeNav, setActiveNav] = useState(0);
-  const { tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError } = useTasks();
+// ── Authenticated shell — wraps Dashboard with Sidebar ────────────────────────
+function AuthenticatedApp() {
+  const { user, isOnboarded, token } = useAuth();
+  const [activeNav, setActiveNav]   = useState(0);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // ✅ Role-based task filters passed to useTasks
+  const taskFilters = useMemo(() => {
+    if (!user) return {};
+    if (user.role === "architect") return { workspace_id: user.workspace?.id };
+    if (user.role === "navigator") return { workspace_id: user.workspace?.id, team_name: user.team_name };
+    if (user.role === "operator") return { owner_id: user.id };
+    if (user.role === "solo")     return { owner_id: user.id };
+    return {};
+  }, [user]);
+
+  const { tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError } = useTasks(taskFilters);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === "Escape") document.activeElement?.blur();
   }, []);
 
+  // Check if Slack OAuth returned a token in the URL (after Slack login)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get("token");
+    if (urlToken) {
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  // If user hasn't completed onboarding
+  if (!isOnboarded || showOnboarding) {
+    return <OnboardingPage onComplete={() => setShowOnboarding(false)} />;
+  }
+
   const currentNavLabel = NAV_ITEMS[activeNav]?.label;
 
   return (
+    <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)" }} onKeyDown={handleKeyDown}>
+      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} />
+      <div style={{ paddingLeft: 220, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+        {activeNav === 0 ? (
+          <Dashboard
+            tasks={tasks} total={total} loading={loading} error={error}
+            submitting={submitting} moveTask={moveTask} removeTask={removeTask}
+            addTask={addTask} reload={reload} clearError={clearError}
+          />
+        ) : (
+          <PlaceholderPage label={currentNavLabel} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Router — decides which page to show ──────────────────────────────────────
+function AppRouter() {
+  const { isAuthenticated, loading } = useAuth();
+  const [goToOnboarding, setGoToOnboarding] = useState(false);
+
+  // Show spinner while auth state is being restored from storage
+  if (loading) return <AppLoader />;
+
+  // Not logged in → show auth page
+  if (!isAuthenticated) {
+    return (
+      <AuthPage
+        onAuthSuccess={(user, isNew) => {
+          if (isNew) setGoToOnboarding(true);
+        }}
+      />
+    );
+  }
+
+  // Logged in → show dashboard (with onboarding check inside)
+  return <AuthenticatedApp />;
+}
+
+// ── Root App — wraps everything in AuthProvider ───────────────────────────────
+export default function App() {
+  return (
     <>
       <style>{GLOBAL_STYLES}</style>
-      <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)" }} onKeyDown={handleKeyDown}>
-        <Sidebar activeNav={activeNav} onNavChange={setActiveNav} />
-        <div style={{ paddingLeft: 220, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
-          {activeNav === 0 ? (
-            <Dashboard
-              tasks={tasks} total={total} loading={loading} error={error}
-              submitting={submitting} moveTask={moveTask} removeTask={removeTask}
-              addTask={addTask} reload={reload} clearError={clearError}
-            />
-          ) : (
-            <PlaceholderPage label={currentNavLabel} />
-          )}
-        </div>
-      </div>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
     </>
   );
 }
