@@ -5,15 +5,19 @@ GET    /tasks                  →  list all tasks (with optional filters)
 GET    /tasks/{id}             →  get a single task
 PATCH  /tasks/{id}/status      →  update task status
 DELETE /tasks/{id}             →  delete a task
+GET    /tasks/{id}/share-link  →  get the public share URL for a task  [Segment 8]
+GET    /share/{token}          →  public view of a task (no auth)       [Segment 8]
 POST   /tasks/ping-overdue     →  manually trigger overdue ping job (Segment 3)
 POST   /tasks/daily-rollup     →  manually trigger daily rollup job (Segment 4)
 """
 
 import logging
+import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
+from fastapi.responses import HTMLResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -23,6 +27,8 @@ from app.models import Priority, TaskStatus
 from app.schemas import TaskListResponse, TaskResponse, TaskStatusUpdate
 
 logger = logging.getLogger(__name__)
+
+FRONTEND_URL = os.getenv("FRONTEND_URL", "").rstrip("/")
 
 router = APIRouter(
     prefix="/tasks",
@@ -34,14 +40,13 @@ router = APIRouter(
     "",
     response_model=TaskListResponse,
     summary="List all tasks",
-    description="Returns tasks with optional filters. Supports pagination.",
 )
 def list_tasks(
-    status: Optional[TaskStatus] = Query(default=None, description="Filter by task status"),
-    assignee: Optional[str] = Query(default=None, description="Filter by assignee name (partial match)"),
-    priority: Optional[Priority] = Query(default=None, description="Filter by priority"),
-    skip: int = Query(default=0, ge=0, description="Number of records to skip"),
-    limit: int = Query(default=50, ge=1, le=200, description="Max records to return"),
+    status: Optional[TaskStatus] = Query(default=None),
+    assignee: Optional[str] = Query(default=None),
+    priority: Optional[Priority] = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
 ) -> TaskListResponse:
     try:
@@ -59,7 +64,6 @@ def list_tasks(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database error. Please retry.",
         ) from exc
-
     return TaskListResponse(total=total, skip=skip, limit=limit, tasks=tasks)
 
 
@@ -85,7 +89,6 @@ def get_task(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database error. Please retry.",
         ) from exc
-
     if not task:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND,
@@ -98,7 +101,6 @@ def get_task(
     "/{task_id}/status",
     response_model=TaskResponse,
     summary="Update a task's status",
-    description="Valid statuses: to_do, in_progress, completed, cancelled",
 )
 def update_task_status(
     task_id: int,
@@ -118,7 +120,6 @@ def update_task_status(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database error. Please retry.",
         ) from exc
-
     if not task:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND,
@@ -131,7 +132,6 @@ def update_task_status(
     "/{task_id}",
     status_code=http_status.HTTP_204_NO_CONTENT,
     summary="Delete a task",
-    description="Permanently removes a task by ID.",
 )
 def delete_task(
     task_id: int,
@@ -150,13 +150,11 @@ def delete_task(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database error. Please retry.",
         ) from exc
-
     if not task:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND,
             detail=f"Task #{task_id} not found.",
         )
-
     try:
         db.delete(task)
         db.commit()
@@ -170,16 +168,114 @@ def delete_task(
         ) from exc
 
 
+# ── Segment 8: Share link endpoints ──────────────────────────────────────────
+
+@router.get(
+    "/{task_id}/share-link",
+    summary="Get the public share URL for a task",
+    description="Returns the shareable public URL for this task. No auth required to VIEW the link.",
+)
+def get_share_link(
+    task_id: int,
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Returns the share URL for the task.
+    The URL points to the frontend public task view page.
+    Format: https://your-app.vercel.app/t/<share_token>
+    """
+    if task_id <= 0:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="task_id must be a positive integer.",
+        )
+    task = crud.get_task(db, task_id)
+    if not task:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=f"Task #{task_id} not found.",
+        )
+    if not task.share_token:
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="This task has no share token. Please recreate it.",
+        )
+
+    share_url = f"{FRONTEND_URL}/t/{task.share_token}"
+    return {
+        "task_id":   task.id,
+        "share_url": share_url,
+        "token":     task.share_token,
+    }
+
+
+# ── Segment 8: Public task view (no auth) ────────────────────────────────────
+# This is mounted on a SEPARATE router prefix so it lives at /share/{token}
+# not /tasks/share/{token}. It is registered in main.py separately.
+
+share_router = APIRouter(tags=["Public Share"])
+
+
+@share_router.get(
+    "/share/{token}",
+    summary="Public view of a shared task",
+    description="No authentication required. Returns task details for the share page.",
+)
+def public_task_view(
+    token: str,
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Public endpoint — anyone with the link can view the task.
+    Returns enough info to render the public task card:
+      title, priority, status, assignee, deadline, created_at.
+    Does NOT return internal fields like source_message, owner_id, workspace_id.
+    Includes a signup_url so visitors can click "Join" and create an account.
+    """
+    task = crud.get_task_by_share_token(db, token)
+    if not task:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="Task not found or share link is invalid.",
+        )
+
+    signup_url = f"{FRONTEND_URL}?ref=share&task={token}"
+
+    priority_emoji = {
+        "critical": "🔴",
+        "high":     "🟠",
+        "medium":   "🟡",
+        "low":      "🟢",
+    }.get(task.priority.value if hasattr(task.priority, "value") else task.priority, "🟡")
+
+    status_label = {
+        "to_do":       "To Do",
+        "in_progress": "In Progress",
+        "completed":   "Done",
+        "cancelled":   "Cancelled",
+        "pending":     "Pending",
+        "active":      "Active",
+    }.get(task.status.value if hasattr(task.status, "value") else task.status, "To Do")
+
+    return {
+        "id":           task.id,
+        "title":        task.title,
+        "priority":     task.priority,
+        "priority_emoji": priority_emoji,
+        "status":       task.status,
+        "status_label": status_label,
+        "assignee":     task.assignee,
+        "deadline":     task.deadline,
+        "created_at":   task.created_at.isoformat() if task.created_at else None,
+        "signup_url":   signup_url,
+    }
+
+
 # ── Segment 3: Manual overdue ping trigger ────────────────────────────────────
 
 @router.post(
     "/ping-overdue",
     summary="Manually trigger overdue task pings",
-    description=(
-        "Runs the overdue-ping job immediately. "
-        "Sends Slack DMs to assignees of High/Critical tasks past their drift threshold. "
-        "Intended for architect/admin use only."
-    ),
     status_code=http_status.HTTP_200_OK,
 )
 def trigger_ping_overdue():
@@ -200,20 +296,9 @@ def trigger_ping_overdue():
 @router.post(
     "/daily-rollup",
     summary="Manually trigger the daily rollup job",
-    description=(
-        "Runs the daily rollup job immediately without waiting for the 9 AM schedule. "
-        "Sends each user a DM with their tasks due today and each manager a team overdue summary. "
-        "Intended for architect/admin use only."
-    ),
     status_code=http_status.HTTP_200_OK,
 )
 def trigger_daily_rollup():
-    """
-    Manual trigger for the Segment 4 daily rollup job.
-
-    In production this endpoint should be protected by an auth dependency
-    (e.g. require_architect role).
-    """
     try:
         from app.scheduler import run_daily_rollup_now
         summary = run_daily_rollup_now()
