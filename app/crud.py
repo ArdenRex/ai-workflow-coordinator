@@ -476,3 +476,69 @@ def get_managers_for_workspace(db: Session, workspace_id: int) -> list[User]:
         )
     )
     return list(db.scalars(stmt).all())
+
+
+# ─── Segment 10: Ownership Graph Queries ─────────────────────────────────────
+
+def get_ownership_graph(
+    db: Session,
+    workspace_id: Optional[int] = None,
+    owner_id: Optional[int] = None,
+) -> dict:
+    """
+    Returns task ownership data grouped by assignee/owner for the graph view.
+    Each node = a person. Each entry = their task counts by status + priority.
+    """
+    stmt = select(Task)
+    if workspace_id is not None:
+        stmt = stmt.where(Task.workspace_id == workspace_id)
+    if owner_id is not None:
+        stmt = stmt.where(Task.owner_id == owner_id)
+
+    tasks = list(db.scalars(stmt).all())
+
+    # Group by assignee
+    by_assignee: dict[str, dict] = {}
+    for task in tasks:
+        name = (task.assignee or "Unassigned").strip()
+        if name not in by_assignee:
+            by_assignee[name] = {
+                "assignee": name,
+                "total": 0,
+                "to_do": 0,
+                "in_progress": 0,
+                "completed": 0,
+                "cancelled": 0,
+                "critical": 0,
+                "high": 0,
+                "medium": 0,
+                "low": 0,
+                "tasks": [],
+            }
+        node = by_assignee[name]
+        node["total"] += 1
+
+        status_val = task.status.value if hasattr(task.status, "value") else str(task.status)
+        if status_val in node:
+            node[status_val] += 1
+
+        priority_val = task.priority.value if hasattr(task.priority, "value") else str(task.priority)
+        if priority_val in node:
+            node[priority_val] += 1
+
+        node["tasks"].append({
+            "id":       task.id,
+            "title":    task.title or task.task_description,
+            "status":   status_val,
+            "priority": priority_val,
+            "deadline": task.deadline.isoformat() if task.deadline else None,
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+        })
+
+    nodes = sorted(by_assignee.values(), key=lambda x: x["total"], reverse=True)
+
+    return {
+        "total_tasks": len(tasks),
+        "total_owners": len(nodes),
+        "nodes": nodes,
+    }
