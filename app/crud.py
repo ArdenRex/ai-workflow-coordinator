@@ -44,9 +44,8 @@ def create_task(
 ) -> Task:
     """
     Create and persist a new task from AI-extracted data.
-
-    Segment 2: if a workspace_id is provided, the priority engine rules
-    are applied before saving. Import is done inline to avoid circular imports.
+    Segment 2: priority engine applied if workspace_id is provided.
+    Segment 8: share_token generated automatically on creation.
     """
     final_priority = extracted.priority or Priority.medium
 
@@ -76,6 +75,7 @@ def create_task(
         slack_message_ts=slack_message_ts,
         owner_id=owner_id,
         workspace_id=workspace_id,
+        share_token=secrets.token_urlsafe(12),  # ✅ Segment 8: unique share token
     )
     db.add(task)
     try:
@@ -98,6 +98,14 @@ def get_task(db: Session, task_id: int) -> Optional[Task]:
     return db.get(Task, task_id)
 
 
+# ── Segment 8: fetch task by share token ─────────────────────────────────────
+
+def get_task_by_share_token(db: Session, token: str) -> Optional[Task]:
+    """Fetch a task by its public share token. Returns None if not found."""
+    stmt = select(Task).where(Task.share_token == token.strip())
+    return db.scalars(stmt).first()
+
+
 def list_tasks(
     db: Session,
     status: Optional[TaskStatus] = None,
@@ -109,10 +117,7 @@ def list_tasks(
     workspace_id: Optional[int] = None,
     team_name: Optional[str] = None,
 ) -> tuple[int, list[Task]]:
-    """
-    List tasks with optional filters.
-    Returns (total_count, tasks_page) tuple for pagination.
-    """
+    """List tasks with optional filters. Returns (total_count, tasks_page)."""
     skip = max(0, skip)
     limit = max(1, min(limit, 200))
 
@@ -286,7 +291,7 @@ def update_user_onboarding(
     return user
 
 
-# ─── Workspace CRUD ──────────────────────────────────────────────────────────
+# ─── Workspace CRUD ───────────────────────────────────────────────────────────
 
 def create_workspace(db: Session, name: str, owner_id: int) -> Workspace:
     workspace = Workspace(
@@ -385,10 +390,6 @@ def get_drifting_tasks(
     db: Session,
     workspace_id: int,
 ) -> list[Task]:
-    """
-    Return all High/Critical tasks in this workspace that are still
-    unstarted (to_do or pending). Used by Segment 3 scheduler.
-    """
     stmt = (
         select(Task)
         .where(
@@ -403,24 +404,13 @@ def get_drifting_tasks(
 
 # ─── Segment 4: Daily Rollup Queries ─────────────────────────────────────────
 
-def get_tasks_due_today_for_user(
-    db: Session,
-    owner_id: int,
-) -> list[Task]:
-    """
-    Return all active (to_do / in_progress) tasks assigned to owner_id
-    whose deadline falls on today (UTC date). Used by the daily rollup job
-    to build each user's personal DM.
-    """
+def get_tasks_due_today_for_user(db: Session, owner_id: int) -> list[Task]:
     today: date = datetime.now(timezone.utc).date()
-
     stmt = (
         select(Task)
         .where(
             Task.owner_id == owner_id,
             Task.status.in_([TaskStatus.to_do, TaskStatus.in_progress]),
-            # deadline is stored as DATE — cast-free comparison works for both
-            # date and datetime columns because SQLAlchemy handles it.
             Task.deadline == today,
         )
         .order_by(Task.priority.desc(), Task.created_at.asc())
@@ -429,13 +419,7 @@ def get_tasks_due_today_for_user(
 
 
 def get_all_active_users_with_tasks_due_today(db: Session) -> list[User]:
-    """
-    Return every User who has at least one active task due today.
-    Used to fan out the daily rollup DMs without scanning all users.
-    """
     today: date = datetime.now(timezone.utc).date()
-
-    # Subquery: distinct owner_ids that have a task due today
     subq = (
         select(Task.owner_id)
         .where(
@@ -446,12 +430,11 @@ def get_all_active_users_with_tasks_due_today(db: Session) -> list[User]:
         .distinct()
         .subquery()
     )
-
     stmt = (
         select(User)
         .where(
             User.id.in_(select(subq)),
-            User.slack_user_id.isnot(None),  # must have Slack to receive DM
+            User.slack_user_id.isnot(None),
             User.is_active == True,
         )
     )
@@ -462,13 +445,7 @@ def get_overdue_high_priority_tasks_for_workspace(
     db: Session,
     workspace_id: int,
 ) -> list[Task]:
-    """
-    Return all High/Critical tasks in the workspace that are still active
-    AND whose deadline is strictly before today (i.e. overdue).
-    Used to build the manager's team overdue summary DM.
-    """
     today: date = datetime.now(timezone.utc).date()
-
     stmt = (
         select(Task)
         .where(
@@ -484,22 +461,11 @@ def get_overdue_high_priority_tasks_for_workspace(
 
 
 def get_all_workspace_ids(db: Session) -> list[int]:
-    """
-    Return all distinct workspace IDs that have at least one active user.
-    Used by the manager rollup loop to iterate workspaces.
-    """
-    stmt = (
-        select(Workspace.id)
-        .order_by(Workspace.id.asc())
-    )
+    stmt = select(Workspace.id).order_by(Workspace.id.asc())
     return list(db.scalars(stmt).all())
 
 
 def get_managers_for_workspace(db: Session, workspace_id: int) -> list[User]:
-    """
-    Return all users in the workspace with role = architect or manager
-    who have a Slack user ID set (so we can DM them).
-    """
     stmt = (
         select(User)
         .where(
