@@ -364,3 +364,63 @@ class PriorityPreviewResponse(BaseModel):
     final_priority: Priority
     boosted: bool
     explanation: str
+
+
+# ─── Onboarding Checklist Schemas (Segment 7) ────────────────────────────────
+
+class OnboardingStepUpdate(BaseModel):
+    """
+    Payload for POST /onboarding/step.
+    Marks one checklist step as complete for the current user.
+
+    step values:
+        slack_connected      — Step 1: Slack OAuth done
+        first_command_sent   — Step 2: First bot command sent
+        dashboard_viewed     — Step 3: Dashboard opened
+        teammate_invited     — Step 4: Invite sent to a teammate
+    """
+    step: str = Field(
+        ...,
+        description="Step identifier to mark complete.",
+        examples=["slack_connected", "first_command_sent", "dashboard_viewed", "teammate_invited"],
+    )
+
+    @field_validator("step")
+    @classmethod
+    def step_must_be_valid(cls, v: str) -> str:
+        valid = {"slack_connected", "first_command_sent", "dashboard_viewed", "teammate_invited"}
+        if v not in valid:
+            raise ValueError(f"step must be one of: {', '.join(sorted(valid))}")
+        return v
+
+
+class OnboardingProgressResponse(BaseModel):
+    """
+    Full onboarding checklist state returned to the frontend.
+    Use this to render the progress bar and step checkboxes.
+    """
+    user_id: int
+
+    # Step flags
+    slack_connected: bool
+    slack_connected_at: Optional[datetime]
+
+    first_command_sent: bool
+    first_command_sent_at: Optional[datetime]
+
+    dashboard_viewed: bool
+    dashboard_viewed_at: Optional[datetime]
+
+    teammate_invited: bool
+    teammate_invited_at: Optional[datetime]
+
+    # Completion
+    is_completed: bool
+    completed_at: Optional[datetime]
+
+    # Computed helpers (returned from model properties)
+    steps_completed: int        # 0–4
+    total_steps: int            # always 4
+    progress_label: str         # e.g. "3/4 steps to full setup"
+
+    model_config = {"from_attributes": True}
