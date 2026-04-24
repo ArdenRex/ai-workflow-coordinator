@@ -122,6 +122,12 @@ class WorkspaceSettings(Base):
         String(64), nullable=True,
     )
 
+    # Segment 11 — integration credentials (Notion / Jira / Trello)
+    integration_config: Mapped[Optional[dict]] = mapped_column(
+        JSON, nullable=True, default=dict,
+        comment="Stores integration credentials: Notion / Jira / Trello",
+    )
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -366,6 +372,10 @@ ALTER TABLE tasks
 
 ALTER TABLE workspace_settings
     ADD COLUMN IF NOT EXISTS owner_slack_id VARCHAR(64);
+
+-- Segment 11 — integration credentials
+ALTER TABLE workspace_settings
+    ADD COLUMN IF NOT EXISTS integration_config JSONB DEFAULT '{}';
 
 -- Segment 7 — onboarding progress table
 CREATE TABLE IF NOT EXISTS onboarding_progress (
