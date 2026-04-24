@@ -424,3 +424,88 @@ class OnboardingProgressResponse(BaseModel):
     progress_label: str         # e.g. "3/4 steps to full setup"
 
     model_config = {"from_attributes": True}
+
+
+# ─── Segment 11 — Integration Schemas ────────────────────────────────────────
+
+class IntegrationConfig(BaseModel):
+    """
+    Payload for PUT /integrations/config.
+    All fields optional — only supplied keys are merged into stored config.
+
+    Notion:
+        notion_token         — Integration token (secret_…)
+        notion_database_id   — ID of the Notion DB to push pages into
+
+    Jira:
+        jira_base_url        — e.g. https://yourorg.atlassian.net
+        jira_email           — Atlassian account email
+        jira_api_token       — API token from id.atlassian.com
+        jira_project_key     — e.g. "PROJ"
+
+    Trello:
+        trello_api_key       — from trello.com/app-key
+        trello_token         — OAuth token
+        trello_list_id       — ID of the Trello list to add cards to
+    """
+    # Notion
+    notion_token: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    notion_database_id: Optional[str] = Field(default=None, min_length=1, max_length=100)
+
+    # Jira
+    jira_base_url: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    jira_email: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    jira_api_token: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    jira_project_key: Optional[str] = Field(default=None, min_length=1, max_length=20)
+
+    # Trello
+    trello_api_key: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    trello_token: Optional[str] = Field(default=None, min_length=1, max_length=500)
+    trello_list_id: Optional[str] = Field(default=None, min_length=1, max_length=100)
+
+    @field_validator("jira_base_url", mode="before")
+    @classmethod
+    def jira_url_strip(cls, v: Optional[str]) -> Optional[str]:
+        return v.strip().rstrip("/") if isinstance(v, str) else v
+
+    @field_validator("jira_project_key", mode="before")
+    @classmethod
+    def project_key_upper(cls, v: Optional[str]) -> Optional[str]:
+        return v.strip().upper() if isinstance(v, str) else v
+
+
+class IntegrationSyncRequest(BaseModel):
+    """
+    Payload for POST /integrations/{service}/sync.
+    task_ids: list of specific task IDs to push.
+    Omit or pass [] to sync all workspace tasks.
+    """
+    task_ids: Optional[list[int]] = Field(
+        default=None,
+        description="Task IDs to sync. Leave empty to sync all workspace tasks.",
+    )
+
+
+class TaskSyncResult(BaseModel):
+    """Per-task result from a sync operation."""
+    task_id: int
+    success: bool
+    external_id: Optional[str] = None    # Notion page ID / Jira issue key / Trello card ID
+    external_url: Optional[str] = None   # Direct link to the created item
+    error: Optional[str] = None          # Error message if success=False
+
+
+class IntegrationSyncResponse(BaseModel):
+    """Summary returned after a sync operation."""
+    integration: str                     # "notion" | "jira" | "trello"
+    total: int
+    succeeded: int
+    failed: int
+    results: list[TaskSyncResult]
+
+
+class IntegrationStatusResponse(BaseModel):
+    """Which integrations are fully configured for the workspace."""
+    notion_configured: bool
+    jira_configured: bool
+    trello_configured: bool
