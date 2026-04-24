@@ -69,13 +69,14 @@ const COLUMNS = [
 ];
 
 const NAV_ITEMS = [
-  { icon: "⬡", label: "Dashboard",  badge: null },
-  { icon: "✦", label: "Tasks",      badge: null },
-  { icon: "◈", label: "Compliance", badge: "5"  },
-  { icon: "◉", label: "Knowledge",  badge: null },
-  { icon: "▲", label: "Reports",    badge: null },
-  { icon: "⊕", label: "Ownership",  badge: null },
-  { icon: "⚙", label: "Settings",   badge: null },
+  { icon: "⬡", label: "Dashboard",    badge: null },
+  { icon: "✦", label: "Tasks",        badge: null },
+  { icon: "◈", label: "Compliance",   badge: "5"  },
+  { icon: "◉", label: "Knowledge",    badge: null },
+  { icon: "▲", label: "Reports",      badge: null },
+  { icon: "⊕", label: "Ownership",    badge: null },
+  { icon: "⛓", label: "Integrations", badge: null },
+  { icon: "⚙", label: "Settings",     badge: null },
 ];
 
 const TABS = [
@@ -790,6 +791,274 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
   );
 }
 
+// ── Segment 11: Integrations Page ────────────────────────────────────────────
+function IntegrationsPage() {
+  const { token } = useAuth();
+  const API = process.env.REACT_APP_API_URL || "";
+
+  // Status of which integrations are configured
+  const [status, setStatus]   = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Per-service form state
+  const [notion, setNotion]   = useState({ notion_token: "", notion_database_id: "" });
+  const [jira, setJira]       = useState({ jira_base_url: "", jira_email: "", jira_api_token: "", jira_project_key: "" });
+  const [trello, setTrello]   = useState({ trello_api_key: "", trello_token: "", trello_list_id: "" });
+
+  // Sync / save state
+  const [saving, setSaving]   = useState(null);   // "notion" | "jira" | "trello"
+  const [syncing, setSyncing] = useState(null);
+  const [result, setResult]   = useState(null);   // last sync result
+  const [saveMsg, setSaveMsg] = useState(null);
+
+  const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  useEffect(() => {
+    fetch(`${API}/integrations/status`, { headers: authHeaders })
+      .then(r => r.json())
+      .then(d => { setStatus(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  async function handleSave(service, payload) {
+    setSaving(service);
+    setSaveMsg(null);
+    try {
+      const r = await fetch(`${API}/integrations/config`, {
+        method: "PUT", headers: authHeaders, body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setSaveMsg({ service, type: "success", text: "Credentials saved!" });
+        // Refresh status
+        const sr = await fetch(`${API}/integrations/status`, { headers: authHeaders });
+        setStatus(await sr.json());
+      } else {
+        setSaveMsg({ service, type: "error", text: d.detail || "Save failed." });
+      }
+    } catch {
+      setSaveMsg({ service, type: "error", text: "Network error." });
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function handleSync(service) {
+    setSyncing(service);
+    setResult(null);
+    try {
+      const r = await fetch(`${API}/integrations/${service}/sync`, {
+        method: "POST", headers: authHeaders, body: JSON.stringify({ task_ids: null }),
+      });
+      const d = await r.json();
+      setResult({ service, ...d, error: r.ok ? null : (d.detail || "Sync failed.") });
+    } catch {
+      setResult({ service, error: "Network error." });
+    } finally {
+      setSyncing(null);
+    }
+  }
+
+  const card = (children, extra = {}) => (
+    <div style={{
+      background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)",
+      border: "1px solid var(--border-glass)", borderRadius: 16,
+      padding: "22px 24px", ...extra,
+    }}>{children}</div>
+  );
+
+  const field = (label, value, onChange, placeholder, type = "text") => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em" }}>{label}</label>
+      <input
+        type={type} value={value} onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          width: "100%", height: 38, padding: "0 12px",
+          background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)",
+          borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13,
+          color: "var(--color-text-primary)", outline: "none",
+        }}
+        onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+        onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+      />
+    </div>
+  );
+
+  const saveBtn = (service, onClick) => (
+    <button
+      onClick={onClick}
+      disabled={saving === service}
+      style={{
+        height: 36, padding: "0 20px", borderRadius: 8, border: "none",
+        background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)",
+        color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
+        cursor: saving === service ? "not-allowed" : "pointer",
+        opacity: saving === service ? 0.6 : 1, alignSelf: "flex-end",
+      }}
+    >{saving === service ? "Saving…" : "Save credentials"}</button>
+  );
+
+  const syncBtn = (service, configured) => (
+    <button
+      onClick={() => handleSync(service)}
+      disabled={!configured || syncing === service}
+      title={!configured ? "Configure credentials first" : `Sync all tasks to ${service}`}
+      style={{
+        height: 36, padding: "0 18px", borderRadius: 8,
+        border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.05)",
+        color: configured ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
+        fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
+        cursor: !configured || syncing === service ? "not-allowed" : "pointer",
+        opacity: !configured || syncing === service ? 0.5 : 1,
+      }}
+    >{syncing === service ? "Syncing…" : "↑ Sync all tasks"}</button>
+  );
+
+  const statusDot = (configured) => (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600,
+      background: configured ? "rgba(34,211,168,0.12)" : "rgba(255,255,255,0.05)",
+      border: `1px solid ${configured ? "rgba(34,211,168,0.3)" : "var(--border-glass)"}`,
+      color: configured ? "#22d3a8" : "var(--color-text-tertiary)",
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: configured ? "#22d3a8" : "#555a80" }} />
+      {configured ? "Configured" : "Not configured"}
+    </span>
+  );
+
+  const msgBanner = (service) => saveMsg?.service === service ? (
+    <div style={{
+      padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+      background: saveMsg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)",
+      border: `1px solid ${saveMsg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`,
+      color: saveMsg.type === "success" ? "#22d3a8" : "#f87171",
+    }}>{saveMsg.text}</div>
+  ) : null;
+
+  if (loading) return (
+    <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#4f8ef7", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+    </main>
+  );
+
+  return (
+    <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
+
+      {/* Header */}
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Integrations</h1>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+          Push your workspace tasks to Notion, Jira, or Trello with one click. Credentials are stored securely in your workspace settings.
+        </p>
+      </div>
+
+      {/* Last sync result */}
+      {result && (
+        <div style={{
+          padding: "14px 18px", borderRadius: 12,
+          background: result.error ? "rgba(248,113,113,0.1)" : "rgba(34,211,168,0.08)",
+          border: `1px solid ${result.error ? "rgba(248,113,113,0.3)" : "rgba(34,211,168,0.25)"}`,
+          color: result.error ? "#f87171" : "var(--color-text-primary)",
+          fontSize: 13,
+        }}>
+          {result.error ? (
+            <span>⚠ {result.error}</span>
+          ) : (
+            <span>
+              ✅ <strong>{result.integration}</strong> sync complete —{" "}
+              <span style={{ color: "#22d3a8" }}>{result.succeeded} succeeded</span>
+              {result.failed > 0 && <span style={{ color: "#f87171" }}>, {result.failed} failed</span>}
+              {" "}out of {result.total} tasks
+            </span>
+          )}
+          <button onClick={() => setResult(null)} style={{ float: "right", background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: 14, opacity: 0.6 }}>✕</button>
+        </div>
+      )}
+
+      {/* ── Notion ── */}
+      {card(
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>𝓝</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Notion</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Push tasks as pages into a Notion database</div>
+              </div>
+            </div>
+            {statusDot(status?.notion_configured)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {field("Integration Token", notion.notion_token, v => setNotion(p => ({ ...p, notion_token: v })), "secret_...", "password")}
+            {field("Database ID", notion.notion_database_id, v => setNotion(p => ({ ...p, notion_database_id: v })), "xxxxxxxx-xxxx-...")}
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+            {msgBanner("notion")}
+            {saveBtn("notion", () => handleSave("notion", notion))}
+            {syncBtn("notion", status?.notion_configured)}
+          </div>
+        </div>
+      )}
+
+      {/* ── Jira ── */}
+      {card(
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0052cc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 800 }}>J</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Jira</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Create issues in an Atlassian Jira project</div>
+              </div>
+            </div>
+            {statusDot(status?.jira_configured)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {field("Base URL", jira.jira_base_url, v => setJira(p => ({ ...p, jira_base_url: v })), "https://yourorg.atlassian.net")}
+            {field("Project Key", jira.jira_project_key, v => setJira(p => ({ ...p, jira_project_key: v })), "PROJ")}
+            {field("Email", jira.jira_email, v => setJira(p => ({ ...p, jira_email: v })), "you@company.com")}
+            {field("API Token", jira.jira_api_token, v => setJira(p => ({ ...p, jira_api_token: v })), "Your Atlassian API token", "password")}
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+            {msgBanner("jira")}
+            {saveBtn("jira", () => handleSave("jira", jira))}
+            {syncBtn("jira", status?.jira_configured)}
+          </div>
+        </div>
+      )}
+
+      {/* ── Trello ── */}
+      {card(
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0079bf", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 800 }}>T</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Trello</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Add cards to a Trello board list with priority labels</div>
+              </div>
+            </div>
+            {statusDot(status?.trello_configured)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            {field("API Key", trello.trello_api_key, v => setTrello(p => ({ ...p, trello_api_key: v })), "From trello.com/app-key", "password")}
+            {field("Token", trello.trello_token, v => setTrello(p => ({ ...p, trello_token: v })), "OAuth token", "password")}
+            {field("List ID", trello.trello_list_id, v => setTrello(p => ({ ...p, trello_list_id: v })), "Target list ID")}
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+            {msgBanner("trello")}
+            {saveBtn("trello", () => handleSave("trello", trello))}
+            {syncBtn("trello", status?.trello_configured)}
+          </div>
+        </div>
+      )}
+
+    </main>
+  );
+}
+
 // ── Authenticated shell — wraps Dashboard with Sidebar ────────────────────────
 function AuthenticatedApp() {
   const { user, isOnboarded, token } = useAuth();
@@ -841,6 +1110,8 @@ function AuthenticatedApp() {
           />
         ) : activeNav === 5 ? (
           <OwnershipGraph />
+        ) : activeNav === 6 ? (
+          <IntegrationsPage />
         ) : (
           <PlaceholderPage label={currentNavLabel} />
         )}
