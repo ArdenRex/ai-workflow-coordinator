@@ -542,3 +542,43 @@ def get_ownership_graph(
         "total_owners": len(nodes),
         "nodes": nodes,
     }
+
+
+# ─── Segment 11: Integration Config CRUD ─────────────────────────────────────
+
+def get_integration_config(db: Session, workspace_id: int) -> dict:
+    """
+    Return the stored integration credentials dict for a workspace.
+    Returns an empty dict if the workspace or settings don't exist.
+    """
+    settings = get_workspace_settings(db, workspace_id)
+    if not settings:
+        return {}
+    return dict(settings.integration_config or {})
+
+
+def save_integration_config(
+    db: Session,
+    workspace_id: int,
+    incoming: dict,
+) -> dict:
+    """
+    Merge `incoming` key/value pairs into the existing integration_config
+    and persist.  Only supplied keys are overwritten — others are preserved.
+    Returns the full updated config dict.
+    """
+    settings = get_or_create_workspace_settings(db, workspace_id)
+    existing = dict(settings.integration_config or {})
+    existing.update({k: v for k, v in incoming.items() if v is not None})
+    settings.integration_config = existing
+    try:
+        db.commit()
+        db.refresh(settings)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error(
+            "SQLAlchemyError saving integration config for workspace %d: %s",
+            workspace_id, exc, exc_info=True,
+        )
+        raise
+    return dict(settings.integration_config or {})
