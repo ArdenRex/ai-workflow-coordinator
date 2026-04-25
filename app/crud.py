@@ -582,3 +582,85 @@ def save_integration_config(
         )
         raise
     return dict(settings.integration_config or {})
+
+
+# ─── Segment 12: Locale / i18n CRUD ──────────────────────────────────────────
+
+def get_user_locale(db: Session, user_id: int) -> dict:
+    """Return locale prefs for a user. Falls back to defaults if not set."""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        return {"language": "en", "timezone": "UTC", "currency": "USD"}
+    return {
+        "language": user.language or "en",
+        "timezone": user.timezone or "UTC",
+        "currency": user.currency or "USD",
+    }
+
+
+def save_user_locale(
+    db: Session,
+    user_id: int,
+    language: Optional[str] = None,
+    timezone: Optional[str] = None,
+    currency: Optional[str] = None,
+) -> dict:
+    """Persist locale prefs for a user. Only updates supplied fields."""
+    user = get_user_by_id(db, user_id)
+    if not user:
+        raise ValueError(f"User {user_id} not found.")
+    if language is not None:
+        user.language = language
+    if timezone is not None:
+        user.timezone = timezone
+    if currency is not None:
+        user.currency = currency
+    try:
+        db.commit()
+        db.refresh(user)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error("SQLAlchemyError saving locale for user %d: %s", user_id, exc, exc_info=True)
+        raise
+    return {"language": user.language or "en", "timezone": user.timezone or "UTC", "currency": user.currency or "USD"}
+
+
+def get_workspace_locale(db: Session, workspace_id: int) -> dict:
+    """Return workspace-level locale defaults."""
+    settings = get_workspace_settings(db, workspace_id)
+    if not settings:
+        return {"default_language": "en", "default_timezone": "UTC", "default_currency": "USD"}
+    return {
+        "default_language": settings.default_language or "en",
+        "default_timezone": settings.default_timezone or "UTC",
+        "default_currency": settings.default_currency or "USD",
+    }
+
+
+def save_workspace_locale(
+    db: Session,
+    workspace_id: int,
+    default_language: Optional[str] = None,
+    default_timezone: Optional[str] = None,
+    default_currency: Optional[str] = None,
+) -> dict:
+    """Persist workspace locale defaults. Only updates supplied fields."""
+    settings = get_or_create_workspace_settings(db, workspace_id)
+    if default_language is not None:
+        settings.default_language = default_language
+    if default_timezone is not None:
+        settings.default_timezone = default_timezone
+    if default_currency is not None:
+        settings.default_currency = default_currency
+    try:
+        db.commit()
+        db.refresh(settings)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error("SQLAlchemyError saving workspace locale %d: %s", workspace_id, exc, exc_info=True)
+        raise
+    return {
+        "default_language": settings.default_language or "en",
+        "default_timezone": settings.default_timezone or "UTC",
+        "default_currency": settings.default_currency or "USD",
+    }
