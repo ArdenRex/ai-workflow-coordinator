@@ -750,3 +750,95 @@ class TeamsChannelResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ─── Segment 13 — Public API Schemas ─────────────────────────────────────────
+
+class PublicTaskCreate(BaseModel):
+    """Payload for POST /api/v1/tasks — create a task from an external tool."""
+    title: str = Field(..., min_length=1, max_length=500, description="Task title")
+    description: Optional[str] = Field(default=None, max_length=5000)
+    assignee: Optional[str] = Field(default=None, max_length=255)
+    deadline: Optional[str] = Field(default=None, max_length=100, description="ISO date or natural string")
+    priority: Optional[Priority] = Field(default=Priority.medium)
+    status: Optional[TaskStatus] = Field(default=TaskStatus.to_do)
+    source: Optional[str] = Field(default=None, max_length=100, description="e.g. 'notion', 'jira', 'trello'")
+
+    @field_validator("title")
+    @classmethod
+    def title_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("title must not be blank.")
+        return v.strip()
+
+
+class PublicTaskUpdate(BaseModel):
+    """Payload for PUT /api/v1/tasks/{id} — partial update."""
+    task_description: Optional[str] = Field(default=None, max_length=5000)
+    assignee: Optional[str] = Field(default=None, max_length=255)
+    deadline: Optional[str] = Field(default=None, max_length=100)
+    priority: Optional[Priority] = None
+    status: Optional[TaskStatus] = None
+
+
+class PublicTaskResponse(BaseModel):
+    """Task as returned by the public API."""
+    id: int
+    title: str
+    description: Optional[str] = None
+    assignee: Optional[str] = None
+    deadline: Optional[str] = None
+    priority: str
+    status: str
+    workspace_id: Optional[int] = None
+    source_message: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class PublicTaskListResponse(BaseModel):
+    """Paginated list of tasks from the public API."""
+    total: int
+    skip: int = 0
+    limit: int = 50
+    tasks: list[PublicTaskResponse]
+
+
+class ApiKeyCreate(BaseModel):
+    """Payload for POST /api/v1/keys — create a new API key."""
+    name: str = Field(
+        ..., min_length=1, max_length=255,
+        description="Human-readable label, e.g. 'Notion Integration'",
+        examples=["Notion Integration", "Jira Webhook", "Zapier"],
+    )
+
+    @field_validator("name")
+    @classmethod
+    def name_not_blank(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("name must not be blank.")
+        return v.strip()
+
+
+class ApiKeyResponse(BaseModel):
+    """API key as shown in the dashboard (no raw key — only prefix)."""
+    id: int
+    name: str
+    key_prefix: str
+    workspace_id: int
+    is_active: bool
+    last_used_at: Optional[datetime] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ApiKeyCreatedResponse(BaseModel):
+    """Returned once after key creation — includes the full raw key."""
+    id: int
+    name: str
+    key: str          # ← full raw key, shown only once
+    key_prefix: str
+    workspace_id: int
+    is_active: bool
+    created_at: datetime
