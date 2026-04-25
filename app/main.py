@@ -41,6 +41,7 @@ from app.routers import integrations as integrations_router      # Segment 11
 from app.routers import locale as locale_router                  # Segment 12
 from app.routers import viral as viral_router                    # Segment 6
 from app.routers import teams as teams_router                    # Segment 9
+from app.routers import public_api as public_api_router          # Segment 13
 from app.routers.tasks import share_router                       # ✅ Segment 8: public share route
 from app.scheduler import start_scheduler, stop_scheduler        # Segment 3
 
@@ -52,7 +53,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-VERSION = "1.3.0"  # bumped for Segment 9 (Microsoft Teams integration)
+VERSION = "1.4.0"  # bumped for Segment 13 (public REST API + API key management)
 
 # ─── Slack Bolt app ───────────────────────────────────────────────────────────
 bolt_app = BoltApp(
@@ -259,6 +260,7 @@ app.include_router(integrations_router.router)          # /integrations/* (Segme
 app.include_router(locale_router.router)                # /locale/*        (Segment 12)
 app.include_router(viral_router.router)                  # /viral/*         (Segment 6)
 app.include_router(teams_router.router)                  # /teams/*         (Segment 9)
+app.include_router(public_api_router.router)             # /api/v1/*        (Segment 13)
 
 
 # ── Global exception handler ───────────────────────────────────────────────────
