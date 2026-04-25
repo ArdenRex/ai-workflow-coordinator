@@ -39,6 +39,7 @@ from app.routers import workspace_settings as workspace_settings_router
 from app.routers import onboarding as onboarding_router          # Segment 7
 from app.routers import integrations as integrations_router      # Segment 11
 from app.routers import locale as locale_router                  # Segment 12
+from app.routers import viral as viral_router                    # Segment 6
 from app.routers.tasks import share_router                       # ✅ Segment 8: public share route
 from app.scheduler import start_scheduler, stop_scheduler        # Segment 3
 
@@ -50,7 +51,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-VERSION = "1.1.0"  # bumped for Segment 12 (multi-language, multi-timezone, multi-currency)
+VERSION = "1.2.0"  # bumped for Segment 6 (viral onboarding + social proof)
 
 # ─── Slack Bolt app ───────────────────────────────────────────────────────────
 bolt_app = BoltApp(
@@ -255,6 +256,7 @@ app.include_router(workspace_settings_router.router)    # /workspace/settings
 app.include_router(onboarding_router.router)            # /onboarding/*  (Segment 7)
 app.include_router(integrations_router.router)          # /integrations/* (Segment 11)
 app.include_router(locale_router.router)                # /locale/*        (Segment 12)
+app.include_router(viral_router.router)                  # /viral/*         (Segment 6)
 
 
 # ── Global exception handler ───────────────────────────────────────────────────
