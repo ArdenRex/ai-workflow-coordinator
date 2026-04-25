@@ -76,6 +76,7 @@ const NAV_ITEMS = [
   { icon: "▲", label: "Reports",      badge: null },
   { icon: "⊕", label: "Ownership",    badge: null },
   { icon: "⛓", label: "Integrations", badge: null },
+  { icon: "🌐", label: "Locale",       badge: null },
   { icon: "⚙", label: "Settings",     badge: null },
 ];
 
@@ -1059,6 +1060,297 @@ function IntegrationsPage() {
   );
 }
 
+// ── Segment 12: Locale Page ───────────────────────────────────────────────────
+function LocalePage() {
+  const { user, token } = useAuth();
+  const API = process.env.REACT_APP_API_URL || "";
+  const isArchitect = user?.role === "architect";
+
+  const [options, setOptions]           = useState(null);
+  const [userLocale, setUserLocale]     = useState(null);
+  const [wsLocale, setWsLocale]         = useState(null);
+  const [loading, setLoading]           = useState(true);
+  const [saving, setSaving]             = useState(null); // "user" | "workspace"
+  const [saveMsg, setSaveMsg]           = useState(null);
+
+  // Form state — user prefs
+  const [lang, setLang]     = useState("en");
+  const [tz, setTz]         = useState("UTC");
+  const [curr, setCurr]     = useState("USD");
+
+  // Form state — workspace defaults
+  const [wsLang, setWsLang] = useState("en");
+  const [wsTz, setWsTz]     = useState("UTC");
+  const [wsCurr, setWsCurr] = useState("USD");
+
+  const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API}/locale/options`).then(r => r.json()),
+      fetch(`${API}/locale/settings`, { headers: authHeaders }).then(r => r.json()),
+      isArchitect ? fetch(`${API}/locale/workspace`, { headers: authHeaders }).then(r => r.json()) : Promise.resolve(null),
+    ]).then(([opts, ul, wl]) => {
+      setOptions(opts);
+      setUserLocale(ul);
+      setLang(ul?.language || "en");
+      setTz(ul?.timezone || "UTC");
+      setCurr(ul?.currency || "USD");
+      if (wl) {
+        setWsLocale(wl);
+        setWsLang(wl?.default_language || "en");
+        setWsTz(wl?.default_timezone || "UTC");
+        setWsCurr(wl?.default_currency || "USD");
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  async function handleSaveUser() {
+    setSaving("user"); setSaveMsg(null);
+    try {
+      const r = await fetch(`${API}/locale/settings`, {
+        method: "PUT", headers: authHeaders,
+        body: JSON.stringify({ language: lang, timezone: tz, currency: curr }),
+      });
+      const d = await r.json();
+      if (r.ok) { setUserLocale(d); setSaveMsg({ scope: "user", type: "success", text: "Your locale preferences saved!" }); }
+      else setSaveMsg({ scope: "user", type: "error", text: d.detail || "Save failed." });
+    } catch { setSaveMsg({ scope: "user", type: "error", text: "Network error." }); }
+    finally { setSaving(null); }
+  }
+
+  async function handleSaveWorkspace() {
+    setSaving("workspace"); setSaveMsg(null);
+    try {
+      const r = await fetch(`${API}/locale/workspace`, {
+        method: "PUT", headers: authHeaders,
+        body: JSON.stringify({ default_language: wsLang, default_timezone: wsTz, default_currency: wsCurr }),
+      });
+      const d = await r.json();
+      if (r.ok) { setWsLocale(d); setSaveMsg({ scope: "workspace", type: "success", text: "Workspace locale defaults saved!" }); }
+      else setSaveMsg({ scope: "workspace", type: "error", text: d.detail || "Save failed." });
+    } catch { setSaveMsg({ scope: "workspace", type: "error", text: "Network error." }); }
+    finally { setSaving(null); }
+  }
+
+  const selectStyle = {
+    width: "100%", height: 38, padding: "0 12px",
+    background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)",
+    borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13,
+    color: "var(--color-text-primary)", outline: "none", cursor: "pointer",
+    appearance: "none", WebkitAppearance: "none",
+  };
+
+  const labelStyle = { fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", marginBottom: 6, display: "block" };
+
+  const card = (children) => (
+    <div style={{
+      background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)",
+      border: "1px solid var(--border-glass)", borderRadius: 16, padding: "22px 24px",
+    }}>{children}</div>
+  );
+
+  const msgBanner = (scope) => saveMsg?.scope === scope ? (
+    <div style={{
+      padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+      background: saveMsg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)",
+      border: `1px solid ${saveMsg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`,
+      color: saveMsg.type === "success" ? "#22d3a8" : "#f87171",
+    }}>{saveMsg.text}</div>
+  ) : null;
+
+  const saveBtn = (scope, onClick) => (
+    <button onClick={onClick} disabled={saving === scope} style={{
+      height: 36, padding: "0 20px", borderRadius: 8, border: "none",
+      background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)",
+      color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
+      cursor: saving === scope ? "not-allowed" : "pointer",
+      opacity: saving === scope ? 0.6 : 1,
+    }}>{saving === scope ? "Saving…" : "Save"}</button>
+  );
+
+  // Current display values for the summary pills
+  const langLabel = options?.languages?.[lang] || lang;
+  const currLabel = options?.currencies?.[curr] || curr;
+
+  if (loading) return (
+    <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#4f8ef7", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+    </main>
+  );
+
+  return (
+    <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 780 }}>
+
+      {/* Header */}
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Locale &amp; Preferences</h1>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+          Set your language, timezone, and currency. Changes apply immediately to your account.
+        </p>
+      </div>
+
+      {/* Current summary pills */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {[
+          { label: "Language", value: langLabel, icon: "🌐" },
+          { label: "Timezone", value: tz, icon: "🕐" },
+          { label: "Currency", value: currLabel, icon: "💱" },
+        ].map(p => (
+          <div key={p.label} style={{
+            padding: "6px 14px", borderRadius: 999,
+            background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.25)",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span style={{ fontSize: 14 }}>{p.icon}</span>
+            <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{p.label}:</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#4f8ef7" }}>{p.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* ── User Locale Card ── */}
+      {card(
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(79,142,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>👤</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>My Preferences</div>
+              <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Applied to your account only</div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            {/* Language */}
+            <div>
+              <label style={labelStyle}>Language</label>
+              <div style={{ position: "relative" }}>
+                <select value={lang} onChange={e => setLang(e.target.value)} style={selectStyle}
+                  onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+                  onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+                >
+                  {options && Object.entries(options.languages).map(([code, name]) => (
+                    <option key={code} value={code}>{name}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+
+            {/* Timezone */}
+            <div>
+              <label style={labelStyle}>Timezone</label>
+              <div style={{ position: "relative" }}>
+                <select value={tz} onChange={e => setTz(e.target.value)} style={selectStyle}
+                  onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+                  onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+                >
+                  {options?.timezones?.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+
+            {/* Currency */}
+            <div>
+              <label style={labelStyle}>Currency</label>
+              <div style={{ position: "relative" }}>
+                <select value={curr} onChange={e => setCurr(e.target.value)} style={selectStyle}
+                  onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+                  onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+                >
+                  {options && Object.entries(options.currencies).map(([code, label]) => (
+                    <option key={code} value={code}>{label}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
+            {msgBanner("user")}
+            {saveBtn("user", handleSaveUser)}
+          </div>
+        </div>
+      )}
+
+      {/* ── Workspace Locale Card (Architect only) ── */}
+      {isArchitect && card(
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(123,92,240,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏢</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Workspace Defaults</div>
+              <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Applied to new members who haven't set their own preferences</div>
+            </div>
+            <span style={{
+              marginLeft: "auto", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600,
+              background: "rgba(123,92,240,0.15)", border: "1px solid rgba(123,92,240,0.3)", color: "#7b5cf0",
+            }}>Architect only</span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Default Language</label>
+              <div style={{ position: "relative" }}>
+                <select value={wsLang} onChange={e => setWsLang(e.target.value)} style={selectStyle}>
+                  {options && Object.entries(options.languages).map(([code, name]) => (
+                    <option key={code} value={code}>{name}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Default Timezone</label>
+              <div style={{ position: "relative" }}>
+                <select value={wsTz} onChange={e => setWsTz(e.target.value)} style={selectStyle}>
+                  {options?.timezones?.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Default Currency</label>
+              <div style={{ position: "relative" }}>
+                <select value={wsCurr} onChange={e => setWsCurr(e.target.value)} style={selectStyle}>
+                  {options && Object.entries(options.currencies).map(([code, label]) => (
+                    <option key={code} value={code}>{label}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
+            {msgBanner("workspace")}
+            {saveBtn("workspace", handleSaveWorkspace)}
+          </div>
+        </div>
+      )}
+
+      {/* Info box */}
+      <div style={{
+        padding: "14px 18px", borderRadius: 12,
+        background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)",
+        fontSize: 12, color: "var(--color-text-tertiary)", lineHeight: 1.7,
+      }}>
+        <strong style={{ color: "var(--color-text-secondary)" }}>ℹ How locale settings work</strong><br />
+        Your personal settings override workspace defaults. Timezone affects how deadlines and timestamps are displayed throughout the app.
+        Currency is used for any budget or cost fields. Language preference is stored and will power UI translations in a future release.
+      </div>
+
+    </main>
+  );
+}
+
 // ── Authenticated shell — wraps Dashboard with Sidebar ────────────────────────
 function AuthenticatedApp() {
   const { user, isOnboarded, token } = useAuth();
@@ -1112,6 +1404,8 @@ function AuthenticatedApp() {
           <OwnershipGraph />
         ) : activeNav === 6 ? (
           <IntegrationsPage />
+        ) : activeNav === 7 ? (
+          <LocalePage />
         ) : (
           <PlaceholderPage label={currentNavLabel} />
         )}
