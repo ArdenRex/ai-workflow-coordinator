@@ -679,3 +679,16 @@ class LocaleOptionsResponse(BaseModel):
     languages: dict[str, str]    # {"en": "English", ...}
     timezones: list[str]
     currencies: dict[str, str]   # {"USD": "US Dollar ($)", ...}
+
+
+# ─── Segment 6 — Viral Onboarding / Social Proof Schemas ─────────────────────
+
+class WorkspaceStatsResponse(BaseModel):
+    """Social proof metrics shown on the dashboard."""
+    tasks_this_month:   int
+    total_tasks:        int
+    active_members:     int
+    top_assignee:       Optional[str] = None
+    top_assignee_count: int = 0
+    completion_rate:    float = 0.0
+    done_tasks:         int = 0
