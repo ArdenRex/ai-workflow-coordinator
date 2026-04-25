@@ -664,3 +664,112 @@ def save_workspace_locale(
         "default_timezone": settings.default_timezone or "UTC",
         "default_currency": settings.default_currency or "USD",
     }
+
+
+# ─── Segment 6: Viral Onboarding — Social Proof Stats ────────────────────────
+
+def get_workspace_stats(db: Session, workspace_id: int) -> dict:
+    """
+    Returns social proof metrics for a workspace:
+    - tasks created this month
+    - active members (users with at least 1 task)
+    - top assignee by task count
+    """
+    from sqlalchemy import extract
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+
+    # Tasks created this month
+    monthly_stmt = select(func.count()).where(
+        Task.workspace_id == workspace_id,
+        extract("year",  Task.created_at) == now.year,
+        extract("month", Task.created_at) == now.month,
+    )
+    monthly_count: int = db.scalar(monthly_stmt) or 0
+
+    # Total tasks in workspace
+    total_stmt = select(func.count()).where(Task.workspace_id == workspace_id)
+    total_count: int = db.scalar(total_stmt) or 0
+
+    # Active members = distinct assignees with tasks
+    from sqlalchemy import distinct
+    active_stmt = select(func.count(distinct(Task.assignee))).where(
+        Task.workspace_id == workspace_id,
+        Task.assignee.isnot(None),
+    )
+    active_members: int = db.scalar(active_stmt) or 0
+
+    # Top assignee this month
+    from sqlalchemy import desc
+    top_stmt = (
+        select(Task.assignee, func.count().label("cnt"))
+        .where(
+            Task.workspace_id == workspace_id,
+            Task.assignee.isnot(None),
+            extract("year",  Task.created_at) == now.year,
+            extract("month", Task.created_at) == now.month,
+        )
+        .group_by(Task.assignee)
+        .order_by(desc("cnt"))
+        .limit(1)
+    )
+    top_row = db.execute(top_stmt).first()
+    top_assignee = top_row[0] if top_row else None
+    top_assignee_count = top_row[1] if top_row else 0
+
+    # Completion rate
+    done_stmt = select(func.count()).where(
+        Task.workspace_id == workspace_id,
+        Task.status == TaskStatus.completed,
+    )
+    done_count: int = db.scalar(done_stmt) or 0
+    completion_rate = round((done_count / total_count * 100) if total_count else 0, 1)
+
+    return {
+        "tasks_this_month":    monthly_count,
+        "total_tasks":         total_count,
+        "active_members":      active_members,
+        "top_assignee":        top_assignee,
+        "top_assignee_count":  top_assignee_count,
+        "completion_rate":     completion_rate,
+        "done_tasks":          done_count,
+    }
+
+
+def get_pending_invite(db: Session, workspace_id: int, assignee_name: str) -> Optional["PendingInvite"]:
+    """Check if an invite already exists for this assignee in this workspace."""
+    from app.models import PendingInvite
+    stmt = select(PendingInvite).where(
+        PendingInvite.workspace_id == workspace_id,
+        PendingInvite.assignee_name == assignee_name,
+    )
+    return db.scalars(stmt).first()
+
+
+def create_pending_invite(
+    db: Session,
+    workspace_id: int,
+    assignee_name: str,
+    assignee_slack_id: Optional[str],
+    task_id: int,
+) -> "PendingInvite":
+    """Record a viral invite sent to an unregistered assignee."""
+    from app.models import PendingInvite
+    import secrets
+    invite = PendingInvite(
+        workspace_id      = workspace_id,
+        assignee_name     = assignee_name,
+        assignee_slack_id = assignee_slack_id,
+        task_id           = task_id,
+        invite_token      = secrets.token_urlsafe(16),
+    )
+    db.add(invite)
+    try:
+        db.commit()
+        db.refresh(invite)
+    except Exception as exc:
+        db.rollback()
+        logger.error("Error creating pending invite: %s", exc)
+        raise
+    return invite
