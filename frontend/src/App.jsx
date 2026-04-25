@@ -77,6 +77,8 @@ const NAV_ITEMS = [
   { icon: "⊕", label: "Ownership",    badge: null },
   { icon: "⛓", label: "Integrations", badge: null },
   { icon: "🌐", label: "Locale",       badge: null },
+  { icon: "💬", label: "Teams",        badge: null },
+  { icon: "🔑", label: "API",          badge: null },
   { icon: "⚙", label: "Settings",     badge: null },
 ];
 
@@ -1351,6 +1353,308 @@ function LocalePage() {
   );
 }
 
+// ── TeamsPage — Segment 9: Microsoft Teams Integration ───────────────────────
+function TeamsPage() {
+  const { token, user } = useAuth();
+  const API = import.meta.env.VITE_API_URL ?? "";
+  const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const isArchitect = user?.role === "architect";
+
+  const [status, setStatus]     = useState(null);
+  const [channels, setChannels] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [msg, setMsg]           = useState(null);
+  const [tenantId, setTenantId] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [chForm, setChForm]     = useState({ channel_id: "", channel_name: "", service_url: "", conversation_id: "" });
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API}/teams/status`,   { headers: authHeaders }).then(r => r.json()),
+      fetch(`${API}/teams/channels`, { headers: authHeaders }).then(r => r.json()),
+    ]).then(([s, ch]) => {
+      setStatus(s); setTenantId(s?.tenant_id || "");
+      setChannels(Array.isArray(ch) ? ch : []); setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  async function handleSaveConfig() {
+    setSaving(true); setMsg(null);
+    try {
+      const r = await fetch(`${API}/teams/config`, { method: "PUT", headers: authHeaders, body: JSON.stringify({ tenant_id: tenantId }) });
+      const d = await r.json();
+      if (r.ok) { setStatus(s => ({ ...s, connected: true, tenant_id: tenantId })); setMsg({ type: "success", text: "Teams tenant ID saved!" }); }
+      else setMsg({ type: "error", text: d.detail || "Save failed." });
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDisconnect() {
+    if (!window.confirm("Disconnect Teams from this workspace?")) return;
+    setSaving(true);
+    try {
+      await fetch(`${API}/teams/config`, { method: "DELETE", headers: authHeaders });
+      setStatus(s => ({ ...s, connected: false, tenant_id: null })); setTenantId(""); setMsg({ type: "success", text: "Teams disconnected." });
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+    finally { setSaving(false); }
+  }
+
+  async function handleRegisterChannel(e) {
+    e.preventDefault(); setSaving(true); setMsg(null);
+    try {
+      const r = await fetch(`${API}/teams/channels`, { method: "POST", headers: authHeaders, body: JSON.stringify(chForm) });
+      const d = await r.json();
+      if (r.ok) { setChannels(ch => [...ch, d]); setChForm({ channel_id: "", channel_name: "", service_url: "", conversation_id: "" }); setShowForm(false); setMsg({ type: "success", text: `Channel "${d.channel_name}" registered!` }); }
+      else setMsg({ type: "error", text: d.detail || "Registration failed." });
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+    finally { setSaving(false); }
+  }
+
+  async function handleRemoveChannel(id, name) {
+    if (!window.confirm(`Remove channel "${name}"?`)) return;
+    try {
+      await fetch(`${API}/teams/channels/${id}`, { method: "DELETE", headers: authHeaders });
+      setChannels(ch => ch.filter(c => c.id !== id)); setMsg({ type: "success", text: `Channel "${name}" removed.` });
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+  }
+
+  const inp = { width: "100%", height: 38, padding: "0 12px", background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" };
+  const lbl = { fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", marginBottom: 6, display: "block" };
+  const card = (ch) => <div style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", border: "1px solid var(--border-glass)", borderRadius: 16, padding: "22px 24px" }}>{ch}</div>;
+
+  if (loading) return <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#4f8ef7", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /></main>;
+
+  return (
+    <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 820 }}>
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Microsoft Teams</h1>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Connect your workspace to Microsoft Teams. Create tasks directly from Teams channels by mentioning the bot.</p>
+      </div>
+      {msg && <div style={{ padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: msg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`, color: msg.type === "success" ? "#22d3a8" : "#f87171" }}>{msg.text}</div>}
+      {card(<div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: status?.connected ? "rgba(34,211,168,0.12)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>💬</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Teams Connection</div>
+            <div style={{ fontSize: 12, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: status?.connected ? "#22d3a8" : "#6b7280", display: "inline-block" }} />
+              <span style={{ color: status?.connected ? "#22d3a8" : "var(--color-text-tertiary)" }}>{status?.connected ? `Connected — Tenant: ${status.tenant_id}` : "Not connected"}</span>
+            </div>
+          </div>
+          {status?.connected && isArchitect && <button onClick={handleDisconnect} disabled={saving} style={{ height: 32, padding: "0 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Disconnect</button>}
+        </div>
+        <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(79,142,247,0.06)", border: "1px solid rgba(79,142,247,0.15)", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.8 }}>
+          <strong style={{ color: "#4f8ef7", display: "block", marginBottom: 6 }}>⚙ Setup Instructions</strong>
+          1. Azure Portal → create a Bot resource → enable Teams channel.<br />
+          2. Set <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>TEAMS_APP_ID</code> and <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>TEAMS_APP_SECRET</code> in Railway.<br />
+          3. Set messaging endpoint: <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>{status?.webhook_url || `${API}/teams/webhook`}</code><br />
+          4. Paste your Azure AD Tenant ID below and save.
+        </div>
+        {isArchitect && <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <label style={lbl}>Azure AD Tenant ID</label>
+          <div style={{ display: "flex", gap: 10 }}>
+            <input value={tenantId} onChange={e => setTenantId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style={{ ...inp, flex: 1 }} />
+            <button onClick={handleSaveConfig} disabled={saving || !tenantId.trim()} style={{ height: 38, padding: "0 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: (saving || !tenantId.trim()) ? 0.6 : 1 }}>{saving ? "Saving…" : "Save"}</button>
+          </div>
+        </div>}
+      </div>)}
+      {card(<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div><div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Registered Channels</div><div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Channels that receive proactive task notifications</div></div>
+          {isArchitect && <button onClick={() => setShowForm(f => !f)} style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "1px solid rgba(79,142,247,0.3)", background: "rgba(79,142,247,0.08)", color: "#4f8ef7", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{showForm ? "Cancel" : "+ Add Channel"}</button>}
+        </div>
+        {showForm && isArchitect && <div style={{ padding: 18, borderRadius: 12, background: "rgba(79,142,247,0.05)", border: "1px solid rgba(79,142,247,0.15)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {[["channel_name","Channel Name","#general"],["channel_id","Channel ID","19:abc@thread.tacv2"],["service_url","Service URL","https://smba.trafficmanager.net/…"],["conversation_id","Conversation ID","19:abc@thread.tacv2"]].map(([k, label, ph]) => (
+              <div key={k}><label style={lbl}>{label}</label><input value={chForm[k]} onChange={e => setChForm(f => ({ ...f, [k]: e.target.value }))} placeholder={ph} style={inp} /></div>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+            <button onClick={handleRegisterChannel} disabled={saving || !chForm.channel_id || !chForm.channel_name} style={{ height: 36, padding: "0 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{saving ? "Registering…" : "Register Channel"}</button>
+          </div>
+        </div>}
+        {channels.length === 0 ? <div style={{ padding: 28, textAlign: "center", color: "var(--color-text-tertiary)", fontSize: 13, border: "1px dashed var(--border-glass)", borderRadius: 10 }}>No channels registered yet.{isArchitect && " Click \"+ Add Channel\" to register."}</div>
+        : channels.map(ch => (
+          <div key={ch.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)" }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(79,142,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>💬</div>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{ch.channel_name}</div><div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2, fontFamily: "var(--font-mono)" }}>{ch.channel_id}</div></div>
+            <div style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.25)", color: "#22d3a8" }}>Active</div>
+            {isArchitect && <button onClick={() => handleRemoveChannel(ch.id, ch.channel_name)} style={{ height: 28, padding: "0 12px", borderRadius: 6, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.06)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Remove</button>}
+          </div>
+        ))}
+      </div>)}
+    </main>
+  );
+}
+
+// ── ApiPage — Segment 13: Public REST API & Key Management ────────────────────
+function ApiPage() {
+  const { token, user } = useAuth();
+  const API = import.meta.env.VITE_API_URL ?? "";
+  const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const isArchitect = user?.role === "architect";
+  const BACKEND = API || "https://your-backend.railway.app";
+
+  const [keys, setKeys]           = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [creating, setCreating]   = useState(false);
+  const [msg, setMsg]             = useState(null);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [revealedKey, setRevealedKey] = useState(null); // { id, key }
+  const [copied, setCopied]       = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/api/v1/keys`, { headers: authHeaders })
+      .then(r => r.json()).then(d => { setKeys(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  async function handleCreateKey() {
+    if (!newKeyName.trim()) return;
+    setCreating(true); setMsg(null); setRevealedKey(null);
+    try {
+      const r = await fetch(`${API}/api/v1/keys`, {
+        method: "POST", headers: authHeaders,
+        body: JSON.stringify({ name: newKeyName.trim() }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setRevealedKey({ id: d.id, key: d.key, name: d.name });
+        setKeys(k => [{ id: d.id, name: d.name, key_prefix: d.key_prefix, workspace_id: d.workspace_id, is_active: true, created_at: d.created_at }, ...k]);
+        setNewKeyName("");
+        setMsg({ type: "success", text: "API key created! Copy it now — it won't be shown again." });
+      } else {
+        setMsg({ type: "error", text: d.detail || "Failed to create key." });
+      }
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+    finally { setCreating(false); }
+  }
+
+  async function handleRevoke(id, name) {
+    if (!window.confirm(`Revoke key "${name}"? Any integrations using it will stop working.`)) return;
+    try {
+      await fetch(`${API}/api/v1/keys/${id}`, { method: "DELETE", headers: authHeaders });
+      setKeys(k => k.filter(key => key.id !== id));
+      if (revealedKey?.id === id) setRevealedKey(null);
+      setMsg({ type: "success", text: `Key "${name}" revoked.` });
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+  }
+
+  function copyKey(key) {
+    navigator.clipboard.writeText(key).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  }
+
+  const inp = { width: "100%", height: 38, padding: "0 12px", background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" };
+  const card = (ch, extra = {}) => <div style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", border: "1px solid var(--border-glass)", borderRadius: 16, padding: "22px 24px", ...extra }}>{ch}</div>;
+
+  const ENDPOINTS = [
+    { method: "POST",   path: "/api/v1/tasks",       desc: "Create a task from Notion, Jira, Zapier, etc." },
+    { method: "GET",    path: "/api/v1/tasks",        desc: "List tasks (supports ?status=, ?assignee=, ?priority=, ?skip=, ?limit=)" },
+    { method: "GET",    path: "/api/v1/tasks/{id}",   desc: "Get a single task by ID" },
+    { method: "PUT",    path: "/api/v1/tasks/{id}",   desc: "Update status, priority, assignee, or deadline" },
+    { method: "DELETE", path: "/api/v1/tasks/{id}",   desc: "Cancel a task (sets status to cancelled)" },
+  ];
+
+  const METHOD_COLORS = { POST: "#22d3a8", GET: "#4f8ef7", PUT: "#f59e0b", DELETE: "#f87171" };
+
+  if (loading) return <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#4f8ef7", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /></main>;
+
+  return (
+    <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Public API</h1>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+          Connect Notion, Jira, Trello, Zapier, or any tool to your workspace using API keys. All endpoints use <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>X-API-Key</code> header authentication.
+        </p>
+      </div>
+
+      {msg && <div style={{ padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: msg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`, color: msg.type === "success" ? "#22d3a8" : "#f87171" }}>{msg.text}</div>}
+
+      {/* Revealed key banner */}
+      {revealedKey && (
+        <div style={{ padding: "16px 20px", borderRadius: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>⚠ Copy your API key now — it won't be shown again</div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <code style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: 12, background: "rgba(0,0,0,0.3)", padding: "8px 12px", borderRadius: 8, color: "#e8eaf6", wordBreak: "break-all" }}>{revealedKey.key}</code>
+            <button onClick={() => copyKey(revealedKey.key)} style={{ height: 36, padding: "0 16px", borderRadius: 8, border: "none", background: copied ? "rgba(34,211,168,0.2)" : "rgba(245,158,11,0.2)", color: copied ? "#22d3a8" : "#f59e0b", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+              {copied ? "✓ Copied!" : "Copy"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Key management */}
+      {card(<div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>API Keys</div>
+
+        {isArchitect && (
+          <div style={{ display: "flex", gap: 10 }}>
+            <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)} placeholder="Key name, e.g. Notion Integration" style={{ ...inp, flex: 1 }}
+              onKeyDown={e => e.key === "Enter" && handleCreateKey()}
+              onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+              onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+            />
+            <button onClick={handleCreateKey} disabled={creating || !newKeyName.trim()} style={{ height: 38, padding: "0 20px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: (creating || !newKeyName.trim()) ? 0.6 : 1 }}>
+              {creating ? "Creating…" : "Generate Key"}
+            </button>
+          </div>
+        )}
+
+        {keys.length === 0 ? (
+          <div style={{ padding: 28, textAlign: "center", color: "var(--color-text-tertiary)", fontSize: 13, border: "1px dashed var(--border-glass)", borderRadius: 10 }}>
+            No API keys yet.{isArchitect && " Generate your first key above to start integrating."}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {keys.map(k => (
+              <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)" }}>
+                <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(79,142,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🔑</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{k.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2, fontFamily: "var(--font-mono)" }}>
+                    {k.key_prefix}•••••••••••••••••••••••
+                    {k.last_used_at && <span style={{ marginLeft: 10 }}>Last used: {new Date(k.last_used_at).toLocaleDateString()}</span>}
+                  </div>
+                </div>
+                <div style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.25)", color: "#22d3a8" }}>Active</div>
+                {isArchitect && <button onClick={() => handleRevoke(k.id, k.name)} style={{ height: 28, padding: "0 12px", borderRadius: 6, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.06)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Revoke</button>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>)}
+
+      {/* Endpoint reference */}
+      {card(<div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>📖 Endpoint Reference</div>
+        <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", fontFamily: "var(--font-mono)", marginBottom: 4 }}>Base URL: {BACKEND}</div>
+        {ENDPOINTS.map(e => (
+          <div key={e.path} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)" }}>
+            <span style={{ flex: "0 0 60px", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: METHOD_COLORS[e.method] }}>{e.method}</span>
+            <code style={{ flex: "0 0 220px", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--color-text-primary)" }}>{e.path}</code>
+            <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{e.desc}</span>
+          </div>
+        ))}
+        <div style={{ marginTop: 4, padding: "14px 16px", borderRadius: 10, background: "rgba(79,142,247,0.05)", border: "1px solid rgba(79,142,247,0.12)", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.8 }}>
+          <strong style={{ color: "#4f8ef7" }}>Example request:</strong><br />
+          <code style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#e8eaf6" }}>
+            curl -X POST {BACKEND}/api/v1/tasks \<br />
+            &nbsp;&nbsp;-H "X-API-Key: sk_live_..." \<br />
+            &nbsp;&nbsp;-H "Content-Type: application/json" \<br />
+            &nbsp;&nbsp;-d {'\'{"title":"Fix payment bug","assignee":"ali","priority":"high"}\''}
+          </code>
+        </div>
+      </div>)}
+
+      {/* Full docs link */}
+      <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", fontSize: 12, color: "var(--color-text-tertiary)" }}>
+        📄 Full interactive API docs available at <code style={{ color: "#4f8ef7", fontFamily: "var(--font-mono)" }}>{BACKEND}/docs</code> (FastAPI Swagger UI — no auth needed).
+      </div>
+    </main>
+  );
+}
+
 // ── Authenticated shell — wraps Dashboard with Sidebar ────────────────────────
 function AuthenticatedApp() {
   const { user, isOnboarded, token } = useAuth();
@@ -1406,6 +1710,10 @@ function AuthenticatedApp() {
           <IntegrationsPage />
         ) : activeNav === 7 ? (
           <LocalePage />
+        ) : activeNav === 8 ? (
+          <TeamsPage />
+        ) : activeNav === 9 ? (
+          <ApiPage />
         ) : (
           <PlaceholderPage label={currentNavLabel} />
         )}
