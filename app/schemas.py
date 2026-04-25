@@ -692,3 +692,61 @@ class WorkspaceStatsResponse(BaseModel):
     top_assignee_count: int = 0
     completion_rate:    float = 0.0
     done_tasks:         int = 0
+
+
+# ─── Segment 9 — Microsoft Teams Schemas ─────────────────────────────────────
+
+class TeamsConfigUpdate(BaseModel):
+    """Payload for PUT /teams/config — save the Azure AD tenant ID."""
+    tenant_id: Optional[str] = Field(
+        default=None,
+        description="Azure AD / Teams tenant ID (from Azure portal).",
+        examples=["xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"],
+    )
+
+    @field_validator("tenant_id", mode="before")
+    @classmethod
+    def tenant_strip(cls, v: Optional[str]) -> Optional[str]:
+        return v.strip() if isinstance(v, str) else v
+
+
+class TeamsConfigResponse(BaseModel):
+    """Returned after saving Teams config."""
+    tenant_id: Optional[str] = None
+    updated: bool = True
+
+
+class TeamsStatusResponse(BaseModel):
+    """Connection status returned by GET /teams/status."""
+    connected: bool
+    tenant_id: Optional[str] = None
+    bot_configured: bool
+    webhook_url: str
+    channel_count: int = 0
+
+
+class TeamsChannelCreate(BaseModel):
+    """Payload for POST /teams/channels — register a channel."""
+    channel_id: str = Field(..., description="Teams channel ID")
+    channel_name: str = Field(..., description="Human-readable channel name", max_length=255)
+    service_url: str = Field(..., description="Bot Framework service URL for this channel")
+    conversation_id: str = Field(..., description="Teams conversation ID for proactive messages")
+
+    @field_validator("channel_id", "service_url", "conversation_id", mode="before")
+    @classmethod
+    def strip_whitespace(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
+
+
+class TeamsChannelResponse(BaseModel):
+    """A registered Teams channel."""
+    id: int
+    workspace_id: int
+    channel_id: str
+    channel_name: str
+    service_url: str
+    conversation_id: str
+    is_active: bool
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
