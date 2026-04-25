@@ -128,6 +128,11 @@ class WorkspaceSettings(Base):
         comment="Stores integration credentials: Notion / Jira / Trello",
     )
 
+    # Segment 12 — workspace-level locale defaults (overridden per user)
+    default_language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, default="en")
+    default_timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default="UTC")
+    default_currency: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, default="USD")
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -165,6 +170,12 @@ class User(Base):
     )
     slack_user_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True)
     slack_team_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+    # Segment 12 — per-user locale preferences
+    language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, default="en")
+    timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default="UTC")
+    currency: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, default="USD")
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -376,6 +387,17 @@ ALTER TABLE workspace_settings
 -- Segment 11 — integration credentials
 ALTER TABLE workspace_settings
     ADD COLUMN IF NOT EXISTS integration_config JSONB DEFAULT '{}';
+
+-- Segment 12 — locale preferences
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS language VARCHAR(10) DEFAULT 'en',
+    ADD COLUMN IF NOT EXISTS timezone VARCHAR(64) DEFAULT 'UTC',
+    ADD COLUMN IF NOT EXISTS currency VARCHAR(8)  DEFAULT 'USD';
+
+ALTER TABLE workspace_settings
+    ADD COLUMN IF NOT EXISTS default_language VARCHAR(10) DEFAULT 'en',
+    ADD COLUMN IF NOT EXISTS default_timezone VARCHAR(64) DEFAULT 'UTC',
+    ADD COLUMN IF NOT EXISTS default_currency VARCHAR(8)  DEFAULT 'USD';
 
 -- Segment 7 — onboarding progress table
 CREATE TABLE IF NOT EXISTS onboarding_progress (
