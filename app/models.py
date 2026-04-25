@@ -132,6 +132,11 @@ class WorkspaceSettings(Base):
     default_language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, default="en")
     default_timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default="UTC")
     default_currency: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, default="USD")
+\n    # Segment 9 — Microsoft Teams integration
+    teams_tenant_id: Mapped[Optional[str]] = mapped_column(
+        String(128), nullable=True,
+        comment="Azure AD tenant ID — links workspace to a Teams organisation",
+    )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -373,50 +378,55 @@ class OnboardingProgress(Base):
 
 
 
-# ── PendingInvite (Segment 6 — Viral Onboarding) ──────────────────────────────
 
-class PendingInvite(Base):
+# ── TeamsChannel (Segment 9) ──────────────────────────────────────────────────
+
+class TeamsChannel(Base):
     """
-    Tracks viral invite DMs sent to unregistered Slack users who were
-    assigned a task. When they click the link, they are redirected to signup
-    with workspace + task context pre-filled.
+    Stores registered Microsoft Teams channels for proactive notifications.
+    One workspace can have multiple channels registered.
     """
-    __tablename__ = "pending_invites"
+    __tablename__ = "teams_channels"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     workspace_id: Mapped[int] = mapped_column(
-        ForeignKey("workspaces.id", name="fk_pinvite_workspace"),
+        ForeignKey("workspaces.id", name="fk_teams_channel_workspace"),
         nullable=False,
-    )
-    task_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("tasks.id", name="fk_pinvite_task", use_alter=True),
-        nullable=True,
+        index=True,
     )
 
-    assignee_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    assignee_slack_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-
-    invite_token: Mapped[str] = mapped_column(
-        String(32), nullable=False, unique=True, index=True,
+    channel_id: Mapped[str] = mapped_column(
+        String(255), nullable=False,
+        comment="Teams channel ID from Bot Framework activity",
     )
 
-    claimed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    claimed_at: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), nullable=True,
+    channel_name: Mapped[str] = mapped_column(
+        String(255), nullable=False,
     )
-    claimed_user_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("users.id", name="fk_pinvite_claimed_user", use_alter=True),
-        nullable=True,
+
+    service_url: Mapped[str] = mapped_column(
+        String(512), nullable=False,
+        comment="Bot Connector Service URL for this Teams region",
     )
+
+    conversation_id: Mapped[str] = mapped_column(
+        String(512), nullable=False,
+        comment="Conversation ID for sending proactive messages",
+    )
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,
     )
 
-    def __repr__(self) -> str:
-        return f"<PendingInvite id={self.id} assignee={self.assignee_name!r} claimed={self.claimed}>"
+    __table_args__ = (
+        Index("ix_teams_channels_workspace_id", "workspace_id"),
+    )
 
+    def __repr__(self) -> str:
+        return f"<TeamsChannel id={self.id} name={self.channel_name!r} workspace_id={self.workspace_id}>"
 
 # ── Migration helper ──────────────────────────────────────────────────────────
 MIGRATION_SQL = """
@@ -463,23 +473,26 @@ CREATE TABLE IF NOT EXISTS onboarding_progress (
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Segment 6 — viral onboarding invite tracking
-CREATE TABLE IF NOT EXISTS pending_invites (
-    id                  SERIAL PRIMARY KEY,
-    workspace_id        INTEGER NOT NULL REFERENCES workspaces(id),
-    task_id             INTEGER REFERENCES tasks(id),
-    assignee_name       VARCHAR(255) NOT NULL,
-    assignee_slack_id   VARCHAR(64),
-    invite_token        VARCHAR(32) NOT NULL UNIQUE,
-    claimed             BOOLEAN NOT NULL DEFAULT FALSE,
-    claimed_at          TIMESTAMPTZ,
-    claimed_user_id     INTEGER REFERENCES users(id),
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
 -- Back-fill tasks with NULL status
 UPDATE tasks
 SET    status = 'to_do'
 WHERE  status IS NULL
    OR  status NOT IN ('to_do', 'pending', 'active', 'in_progress', 'completed', 'cancelled');
+
+-- Segment 9 — Microsoft Teams integration
+ALTER TABLE workspace_settings
+    ADD COLUMN IF NOT EXISTS teams_tenant_id VARCHAR(128);
+
+CREATE TABLE IF NOT EXISTS teams_channels (
+    id              SERIAL PRIMARY KEY,
+    workspace_id    INTEGER NOT NULL REFERENCES workspaces(id),
+    channel_id      VARCHAR(255) NOT NULL,
+    channel_name    VARCHAR(255) NOT NULL,
+    service_url     VARCHAR(512) NOT NULL,
+    conversation_id VARCHAR(512) NOT NULL,
+    is_active       BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_teams_channels_workspace_id ON teams_channels(workspace_id);
 """
