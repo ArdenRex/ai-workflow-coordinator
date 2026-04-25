@@ -428,6 +428,61 @@ class TeamsChannel(Base):
     def __repr__(self) -> str:
         return f"<TeamsChannel id={self.id} name={self.channel_name!r} workspace_id={self.workspace_id}>"
 
+
+
+# ── ApiKey (Segment 13) ───────────────────────────────────────────────────────
+
+class ApiKey(Base):
+    """
+    Workspace-scoped API keys for the public REST API.
+    The actual key value is hashed — only key_prefix is stored in plaintext
+    for display purposes.
+    """
+    __tablename__ = "api_keys"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    workspace_id: Mapped[int] = mapped_column(
+        ForeignKey("workspaces.id", name="fk_api_key_workspace"),
+        nullable=False,
+        index=True,
+    )
+
+    name: Mapped[str] = mapped_column(
+        String(255), nullable=False,
+        comment="Human-readable label, e.g. Notion Integration",
+    )
+
+    key_hash: Mapped[str] = mapped_column(
+        String(128), nullable=False, unique=True,
+        comment="SHA-256 hash of the raw API key",
+    )
+
+    key_prefix: Mapped[str] = mapped_column(
+        String(16), nullable=False,
+        comment="First 8 chars of the raw key shown in UI, e.g. sk_live_ab",
+    )
+
+    created_by: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", name="fk_api_key_creator"), nullable=True,
+    )
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    __table_args__ = (
+        Index("ix_api_keys_workspace_id", "workspace_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<ApiKey id={self.id} prefix={self.key_prefix!r} workspace_id={self.workspace_id}>"
 # ── Migration helper ──────────────────────────────────────────────────────────
 MIGRATION_SQL = """
 -- Run this once in Railway Query tab if columns don't auto-migrate:
@@ -495,4 +550,19 @@ CREATE TABLE IF NOT EXISTS teams_channels (
 );
 
 CREATE INDEX IF NOT EXISTS ix_teams_channels_workspace_id ON teams_channels(workspace_id);
+
+-- Segment 13 — Public API keys
+CREATE TABLE IF NOT EXISTS api_keys (
+    id           SERIAL PRIMARY KEY,
+    workspace_id INTEGER NOT NULL REFERENCES workspaces(id),
+    name         VARCHAR(255) NOT NULL,
+    key_hash     VARCHAR(128) NOT NULL UNIQUE,
+    key_prefix   VARCHAR(16)  NOT NULL,
+    created_by   INTEGER REFERENCES users(id),
+    is_active    BOOLEAN NOT NULL DEFAULT TRUE,
+    last_used_at TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_api_keys_workspace_id ON api_keys(workspace_id);
 """
