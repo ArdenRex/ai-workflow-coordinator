@@ -773,3 +773,136 @@ def create_pending_invite(
         logger.error("Error creating pending invite: %s", exc)
         raise
     return invite
+
+
+# ─── Segment 9: Microsoft Teams CRUD ─────────────────────────────────────────
+
+def get_teams_config(db: Session, workspace_id: int) -> dict:
+    """Return Teams config keys from workspace integration_config."""
+    settings = get_workspace_settings(db, workspace_id)
+    if not settings:
+        return {}
+    cfg = dict(settings.integration_config or {})
+    return {
+        "teams_tenant_id": cfg.get("teams_tenant_id"),
+    }
+
+
+def save_teams_config(
+    db: Session,
+    workspace_id: int,
+    tenant_id: Optional[str] = None,
+    clear: bool = False,
+) -> dict:
+    """
+    Persist Teams tenant ID into workspace integration_config.
+    Pass clear=True to disconnect Teams (removes tenant_id key).
+    """
+    from sqlalchemy.exc import SQLAlchemyError
+    settings = get_or_create_workspace_settings(db, workspace_id)
+    cfg = dict(settings.integration_config or {})
+
+    if clear:
+        cfg.pop("teams_tenant_id", None)
+        # Also persist to dedicated column if present
+        if hasattr(settings, "teams_tenant_id"):
+            settings.teams_tenant_id = None
+    else:
+        if tenant_id is not None:
+            cfg["teams_tenant_id"] = tenant_id.strip()
+            if hasattr(settings, "teams_tenant_id"):
+                settings.teams_tenant_id = tenant_id.strip()
+
+    settings.integration_config = cfg
+    try:
+        db.commit()
+        db.refresh(settings)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error("SQLAlchemyError saving Teams config for workspace %d: %s", workspace_id, exc)
+        raise
+    return dict(settings.integration_config or {})
+
+
+def get_workspace_settings_by_teams_tenant(
+    db: Session,
+    tenant_id: str,
+) -> Optional["WorkspaceSettings"]:
+    """Find workspace settings by Teams tenant ID."""
+    if not tenant_id:
+        return None
+    stmt = select(WorkspaceSettings).where(
+        WorkspaceSettings.teams_tenant_id == tenant_id.strip()
+    )
+    return db.scalars(stmt).first()
+
+
+def list_teams_channels(db: Session, workspace_id: int) -> list:
+    """Return all registered Teams channels for a workspace."""
+    from app.models import TeamsChannel
+    stmt = (
+        select(TeamsChannel)
+        .where(
+            TeamsChannel.workspace_id == workspace_id,
+            TeamsChannel.is_active == True,
+        )
+        .order_by(TeamsChannel.created_at.asc())
+    )
+    return list(db.scalars(stmt).all())
+
+
+def create_teams_channel(
+    db: Session,
+    workspace_id: int,
+    channel_id: str,
+    channel_name: str,
+    service_url: str,
+    conversation_id: str,
+) -> "TeamsChannel":
+    """Register a Teams channel for proactive task notifications."""
+    from app.models import TeamsChannel
+    from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+
+    channel = TeamsChannel(
+        workspace_id    = workspace_id,
+        channel_id      = channel_id.strip(),
+        channel_name    = channel_name.strip(),
+        service_url     = service_url.strip(),
+        conversation_id = conversation_id.strip(),
+        is_active       = True,
+    )
+    db.add(channel)
+    try:
+        db.commit()
+        db.refresh(channel)
+    except IntegrityError as exc:
+        db.rollback()
+        logger.error("IntegrityError creating Teams channel: %s", exc)
+        raise
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error("SQLAlchemyError creating Teams channel: %s", exc)
+        raise
+    return channel
+
+
+def delete_teams_channel(
+    db: Session,
+    channel_db_id: int,
+    workspace_id: int,
+) -> bool:
+    """Soft-delete (deactivate) a registered Teams channel. Returns True if found."""
+    from app.models import TeamsChannel
+    from sqlalchemy.exc import SQLAlchemyError
+
+    channel = db.get(TeamsChannel, channel_db_id)
+    if not channel or channel.workspace_id != workspace_id:
+        return False
+    channel.is_active = False
+    try:
+        db.commit()
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error("SQLAlchemyError deleting Teams channel %d: %s", channel_db_id, exc)
+        raise
+    return True
