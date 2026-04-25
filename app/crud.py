@@ -906,3 +906,97 @@ def delete_teams_channel(
         logger.error("SQLAlchemyError deleting Teams channel %d: %s", channel_db_id, exc)
         raise
     return True
+
+
+# ─── Segment 13: Public API — API Key CRUD ────────────────────────────────────
+
+import hashlib
+
+def _hash_key(raw_key: str) -> str:
+    """SHA-256 hash of the raw key for safe storage."""
+    return hashlib.sha256(raw_key.encode()).hexdigest()
+
+
+def create_api_key(
+    db: Session,
+    workspace_id: int,
+    name: str,
+    created_by: Optional[int] = None,
+) -> tuple[str, "ApiKey"]:
+    """
+    Generate a new API key.
+    Returns (raw_key, ApiKey ORM object).
+    The raw_key is only available at creation time — store it securely.
+    """
+    from app.models import ApiKey
+    from sqlalchemy.exc import SQLAlchemyError
+
+    raw_key    = f"sk_live_{secrets.token_urlsafe(32)}"
+    key_hash   = _hash_key(raw_key)
+    key_prefix = raw_key[:12]   # "sk_live_XXXX"
+
+    api_key = ApiKey(
+        workspace_id = workspace_id,
+        name         = name.strip(),
+        key_hash     = key_hash,
+        key_prefix   = key_prefix,
+        created_by   = created_by,
+        is_active    = True,
+    )
+    db.add(api_key)
+    try:
+        db.commit()
+        db.refresh(api_key)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        logger.error("SQLAlchemyError creating API key: %s", exc, exc_info=True)
+        raise
+    return raw_key, api_key
+
+
+def get_api_key_by_value(db: Session, raw_key: str) -> Optional["ApiKey"]:
+    """Look up an ApiKey by its raw value (hashes it first)."""
+    from app.models import ApiKey
+    key_hash = _hash_key(raw_key)
+    stmt = select(ApiKey).where(ApiKey.key_hash == key_hash)
+    return db.scalars(stmt).first()
+
+
+def touch_api_key(db: Session, key_id: int) -> None:
+    """Update last_used_at timestamp for an API key."""
+    from app.models import ApiKey
+    from datetime import datetime, timezone
+    key = db.get(ApiKey, key_id)
+    if key:
+        key.last_used_at = datetime.now(timezone.utc)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+
+
+def list_api_keys(db: Session, workspace_id: int) -> list["ApiKey"]:
+    """List all active API keys for a workspace."""
+    from app.models import ApiKey
+    stmt = (
+        select(ApiKey)
+        .where(ApiKey.workspace_id == workspace_id, ApiKey.is_active == True)
+        .order_by(ApiKey.created_at.desc())
+    )
+    return list(db.scalars(stmt).all())
+
+
+def revoke_api_key(db: Session, key_id: int, workspace_id: int) -> bool:
+    """Revoke (deactivate) an API key. Returns True if found."""
+    from app.models import ApiKey
+    key = db.get(ApiKey, key_id)
+    if not key or key.workspace_id != workspace_id:
+        return False
+    key.is_active = False
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.error("SQLAlchemyError revoking API key %d: %s", key_id, exc)
+        raise
+    return True
