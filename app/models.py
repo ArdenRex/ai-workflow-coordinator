@@ -372,6 +372,52 @@ class OnboardingProgress(Base):
         )
 
 
+
+# ── PendingInvite (Segment 6 — Viral Onboarding) ──────────────────────────────
+
+class PendingInvite(Base):
+    """
+    Tracks viral invite DMs sent to unregistered Slack users who were
+    assigned a task. When they click the link, they are redirected to signup
+    with workspace + task context pre-filled.
+    """
+    __tablename__ = "pending_invites"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    workspace_id: Mapped[int] = mapped_column(
+        ForeignKey("workspaces.id", name="fk_pinvite_workspace"),
+        nullable=False,
+    )
+    task_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("tasks.id", name="fk_pinvite_task", use_alter=True),
+        nullable=True,
+    )
+
+    assignee_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    assignee_slack_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+
+    invite_token: Mapped[str] = mapped_column(
+        String(32), nullable=False, unique=True, index=True,
+    )
+
+    claimed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    claimed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    claimed_user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", name="fk_pinvite_claimed_user", use_alter=True),
+        nullable=True,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<PendingInvite id={self.id} assignee={self.assignee_name!r} claimed={self.claimed}>"
+
+
 # ── Migration helper ──────────────────────────────────────────────────────────
 MIGRATION_SQL = """
 -- Run this once in Railway Query tab if columns don't auto-migrate:
@@ -415,6 +461,20 @@ CREATE TABLE IF NOT EXISTS onboarding_progress (
     completed_at           TIMESTAMPTZ,
     created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Segment 6 — viral onboarding invite tracking
+CREATE TABLE IF NOT EXISTS pending_invites (
+    id                  SERIAL PRIMARY KEY,
+    workspace_id        INTEGER NOT NULL REFERENCES workspaces(id),
+    task_id             INTEGER REFERENCES tasks(id),
+    assignee_name       VARCHAR(255) NOT NULL,
+    assignee_slack_id   VARCHAR(64),
+    invite_token        VARCHAR(32) NOT NULL UNIQUE,
+    claimed             BOOLEAN NOT NULL DEFAULT FALSE,
+    claimed_at          TIMESTAMPTZ,
+    claimed_user_id     INTEGER REFERENCES users(id),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Back-fill tasks with NULL status
