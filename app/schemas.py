@@ -509,3 +509,173 @@ class IntegrationStatusResponse(BaseModel):
     notion_configured: bool
     jira_configured: bool
     trello_configured: bool
+
+
+# ─── Segment 12 — Locale / i18n Schemas ──────────────────────────────────────
+
+SUPPORTED_LANGUAGES: dict[str, str] = {
+    "en":    "English",
+    "ar":    "Arabic",
+    "zh":    "Chinese (Simplified)",
+    "zh-TW": "Chinese (Traditional)",
+    "fr":    "French",
+    "de":    "German",
+    "hi":    "Hindi",
+    "id":    "Indonesian",
+    "it":    "Italian",
+    "ja":    "Japanese",
+    "ko":    "Korean",
+    "ms":    "Malay",
+    "pt":    "Portuguese",
+    "ru":    "Russian",
+    "es":    "Spanish",
+    "sv":    "Swedish",
+    "tr":    "Turkish",
+    "ur":    "Urdu",
+    "vi":    "Vietnamese",
+}
+
+SUPPORTED_CURRENCIES: dict[str, str] = {
+    "USD": "US Dollar ($)",
+    "EUR": "Euro (€)",
+    "GBP": "British Pound (£)",
+    "JPY": "Japanese Yen (¥)",
+    "CNY": "Chinese Yuan (¥)",
+    "INR": "Indian Rupee (₹)",
+    "PKR": "Pakistani Rupee (₨)",
+    "AED": "UAE Dirham (د.إ)",
+    "SAR": "Saudi Riyal (﷼)",
+    "CAD": "Canadian Dollar (CA$)",
+    "AUD": "Australian Dollar (A$)",
+    "CHF": "Swiss Franc (CHF)",
+    "SGD": "Singapore Dollar (S$)",
+    "MYR": "Malaysian Ringgit (RM)",
+    "BRL": "Brazilian Real (R$)",
+    "KRW": "South Korean Won (₩)",
+    "TRY": "Turkish Lira (₺)",
+    "SEK": "Swedish Krona (kr)",
+    "NOK": "Norwegian Krone (kr)",
+    "IDR": "Indonesian Rupiah (Rp)",
+}
+
+# Common IANA timezones grouped by region (frontend uses this for the picker)
+SUPPORTED_TIMEZONES: list[str] = [
+    "UTC",
+    "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+    "America/Toronto", "America/Vancouver", "America/Sao_Paulo", "America/Mexico_City",
+    "America/Buenos_Aires", "America/Bogota",
+    "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Madrid",
+    "Europe/Rome", "Europe/Amsterdam", "Europe/Stockholm", "Europe/Moscow",
+    "Europe/Istanbul",
+    "Asia/Dubai", "Asia/Riyadh", "Asia/Karachi", "Asia/Kolkata",
+    "Asia/Dhaka", "Asia/Bangkok", "Asia/Singapore", "Asia/Shanghai",
+    "Asia/Tokyo", "Asia/Seoul", "Asia/Jakarta", "Asia/Manila",
+    "Asia/Kuala_Lumpur", "Asia/Ho_Chi_Minh",
+    "Africa/Cairo", "Africa/Lagos", "Africa/Nairobi",
+    "Australia/Sydney", "Australia/Melbourne", "Pacific/Auckland",
+]
+
+
+class UserLocaleUpdate(BaseModel):
+    """Payload for PUT /locale/settings — update the current user's locale prefs."""
+    language: Optional[str] = Field(default=None, description="BCP-47 language tag, e.g. 'en', 'ar', 'zh'")
+    timezone: Optional[str] = Field(default=None, description="IANA timezone, e.g. 'Asia/Karachi'")
+    currency: Optional[str] = Field(default=None, description="ISO 4217 currency code, e.g. 'PKR'")
+
+    @field_validator("language", mode="before")
+    @classmethod
+    def validate_language(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        if v not in SUPPORTED_LANGUAGES:
+            raise ValueError(f"Unsupported language '{v}'. Supported: {list(SUPPORTED_LANGUAGES.keys())}")
+        return v
+
+    @field_validator("currency", mode="before")
+    @classmethod
+    def validate_currency(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip().upper()
+        if v not in SUPPORTED_CURRENCIES:
+            raise ValueError(f"Unsupported currency '{v}'. Supported: {list(SUPPORTED_CURRENCIES.keys())}")
+        return v
+
+    @field_validator("timezone", mode="before")
+    @classmethod
+    def validate_timezone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        if v not in SUPPORTED_TIMEZONES:
+            raise ValueError(f"Unsupported timezone '{v}'.")
+        return v
+
+
+class WorkspaceLocaleUpdate(BaseModel):
+    """Payload for PUT /locale/workspace — update workspace-level locale defaults (Architect only)."""
+    default_language: Optional[str] = Field(default=None)
+    default_timezone: Optional[str] = Field(default=None)
+    default_currency: Optional[str] = Field(default=None)
+
+    @field_validator("default_language", mode="before")
+    @classmethod
+    def validate_language(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        if v not in SUPPORTED_LANGUAGES:
+            raise ValueError(f"Unsupported language '{v}'.")
+        return v
+
+    @field_validator("default_currency", mode="before")
+    @classmethod
+    def validate_currency(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip().upper()
+        if v not in SUPPORTED_CURRENCIES:
+            raise ValueError(f"Unsupported currency '{v}'.")
+        return v
+
+    @field_validator("default_timezone", mode="before")
+    @classmethod
+    def validate_timezone(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v = v.strip()
+        if v not in SUPPORTED_TIMEZONES:
+            raise ValueError(f"Unsupported timezone '{v}'.")
+        return v
+
+
+class UserLocaleResponse(BaseModel):
+    """Current locale settings for the authenticated user."""
+    user_id: int
+    language: str
+    language_label: str
+    timezone: str
+    currency: str
+    currency_label: str
+
+    model_config = {"from_attributes": True}
+
+
+class WorkspaceLocaleResponse(BaseModel):
+    """Workspace-level locale defaults."""
+    workspace_id: int
+    default_language: str
+    default_language_label: str
+    default_timezone: str
+    default_currency: str
+    default_currency_label: str
+
+    model_config = {"from_attributes": True}
+
+
+class LocaleOptionsResponse(BaseModel):
+    """All supported languages, timezones, currencies — used to populate dropdowns."""
+    languages: dict[str, str]    # {"en": "English", ...}
+    timezones: list[str]
+    currencies: dict[str, str]   # {"USD": "US Dollar ($)", ...}
