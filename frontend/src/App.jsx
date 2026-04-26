@@ -1088,10 +1088,11 @@ function LocalePage() {
   const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
   useEffect(() => {
+    const safe = (p) => p.catch(() => null);
     Promise.all([
-      fetch(`${API}/locale/options`).then(r => r.json()),
-      fetch(`${API}/locale/settings`, { headers: authHeaders }).then(r => r.json()),
-      isArchitect ? fetch(`${API}/locale/workspace`, { headers: authHeaders }).then(r => r.json()) : Promise.resolve(null),
+      safe(fetch(`${API}/locale/options`).then(r => r.ok ? r.json() : null)),
+      safe(fetch(`${API}/locale/settings`, { headers: authHeaders }).then(r => r.ok ? r.json() : null)),
+      isArchitect ? safe(fetch(`${API}/locale/workspace`, { headers: authHeaders }).then(r => r.ok ? r.json() : null)) : Promise.resolve(null),
     ]).then(([opts, ul, wl]) => {
       setOptions(opts);
       setUserLocale(ul);
