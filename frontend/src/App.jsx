@@ -509,7 +509,7 @@ function OwnershipGraph() {
   );
 }
 
-
+function PlaceholderPage({ label }) {
   return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
       <div style={{ textAlign: "center" }}>
