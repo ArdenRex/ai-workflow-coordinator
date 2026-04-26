@@ -67,6 +67,29 @@ def list_tasks(
     return TaskListResponse(total=total, skip=skip, limit=limit, tasks=tasks)
 
 
+# ── Segment 10: Ownership graph endpoint ──────────────────────────────────────
+
+@router.get(
+    "/graph",
+    summary="Get ownership graph data",
+    description="Returns task counts grouped by assignee for the ownership graph view.",
+)
+def get_ownership_graph(
+    workspace_id: Optional[int] = Query(default=None),
+    owner_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+) -> dict:
+    try:
+        data = crud.get_ownership_graph(db, workspace_id=workspace_id, owner_id=owner_id)
+    except Exception as exc:
+        logger.exception("Error fetching ownership graph: %s", exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database error. Please retry.",
+        ) from exc
+    return data
+
+
 @router.get(
     "/{task_id}",
     response_model=TaskResponse,
@@ -309,26 +332,3 @@ def trigger_daily_rollup():
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Daily rollup failed: {exc}",
         )
-
-
-# ── Segment 10: Ownership graph endpoint ──────────────────────────────────────
-
-@router.get(
-    "/graph",
-    summary="Get ownership graph data",
-    description="Returns task counts grouped by assignee for the ownership graph view.",
-)
-def get_ownership_graph(
-    workspace_id: Optional[int] = Query(default=None),
-    owner_id: Optional[int] = Query(default=None),
-    db: Session = Depends(get_db),
-) -> dict:
-    try:
-        data = crud.get_ownership_graph(db, workspace_id=workspace_id, owner_id=owner_id)
-    except Exception as exc:
-        logger.exception("Error fetching ownership graph: %s", exc)
-        raise HTTPException(
-            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Database error. Please retry.",
-        ) from exc
-    return data
