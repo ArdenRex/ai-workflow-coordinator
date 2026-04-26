@@ -1356,7 +1356,7 @@ function LocalePage() {
 // ── TeamsPage — Segment 9: Microsoft Teams Integration ───────────────────────
 function TeamsPage() {
   const { token, user } = useAuth();
-  const API = import.meta.env.VITE_API_URL ?? "";
+  const API = process.env.REACT_APP_API_URL || "";
   const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const isArchitect = user?.role === "architect";
 
@@ -1491,7 +1491,7 @@ function TeamsPage() {
 // ── ApiPage — Segment 13: Public REST API & Key Management ────────────────────
 function ApiPage() {
   const { token, user } = useAuth();
-  const API = import.meta.env.VITE_API_URL ?? "";
+  const API = process.env.REACT_APP_API_URL || "";
   const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const isArchitect = user?.role === "architect";
   const BACKEND = API || "https://your-backend.railway.app";
