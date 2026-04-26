@@ -20,7 +20,6 @@ async function request(path, options = {}) {
   try {
     res = await fetch(url, {
       ...options,
-      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
