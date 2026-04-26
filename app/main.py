@@ -233,17 +233,13 @@ ALLOWED_ORIGINS: list[str] = list(filter(None, [
     *_extra,
 ]))
 
-if not ALLOWED_ORIGINS:
-    logger.warning(
-        "FRONTEND_URL and BACKEND_URL are not set. "
-        "CORS will block all credentialed requests. "
-        "Set FRONTEND_URL in Railway variables."
-    )
+logger.info("CORS allowed origins: %s", ALLOWED_ORIGINS)
 
+# Always allow all origins — tighten after launch if needed
 app.add_middleware(
     CORSMiddleware,
-    allow_origins     = ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["*"],
-    allow_credentials = True,
+    allow_origins     = ["*"],
+    allow_credentials = False,
     allow_methods     = ["*"],
     allow_headers     = ["*"],
 )
