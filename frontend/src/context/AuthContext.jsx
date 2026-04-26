@@ -64,7 +64,6 @@ async function apiFetch(path, options = {}, token = null) {
   const res = await fetch(`${BASE}${path}`, {
     ...options,
     headers,
-    credentials: "include",  // send cookies (refresh token)
   });
   return res;
 }
