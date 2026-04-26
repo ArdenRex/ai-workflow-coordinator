@@ -132,7 +132,8 @@ class WorkspaceSettings(Base):
     default_language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, default="en")
     default_timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default="UTC")
     default_currency: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, default="USD")
-\n    # Segment 9 — Microsoft Teams integration
+
+    # Segment 9 — Microsoft Teams integration
     teams_tenant_id: Mapped[Optional[str]] = mapped_column(
         String(128), nullable=True,
         comment="Azure AD tenant ID — links workspace to a Teams organisation",
