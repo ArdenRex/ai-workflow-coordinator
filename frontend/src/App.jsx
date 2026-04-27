@@ -8,6 +8,9 @@ import KanbanColumn from "./components/KanbanColumn";
 import AddTaskModal from "./components/AddTaskModal";
 import AddToSlackButton from "./components/AddToSlackButton";
 
+// ── API base URL — env var with hardcoded fallback ───────────────────────────
+const BASE_URL = process.env.REACT_APP_API_URL || "https://ai-workflow-coordinator-api-production.up.railway.app";
+
 // ── CSS variables + animations ────────────────────────────────────────────────
 const GLOBAL_STYLES = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -249,7 +252,7 @@ function Sparkline({ color }) {
 // ── Segment 10: Ownership Graph view ─────────────────────────────────────────
 function OwnershipGraph() {
   const { user } = useAuth();
-  const API = process.env.REACT_APP_API_URL || "";
+  const API = BASE_URL;
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState(null);
@@ -512,7 +515,7 @@ function OwnershipGraph() {
 // ── Tasks Page ────────────────────────────────────────────────────────────────
 function TasksPage() {
   const { token, isArchitect, isNavigator } = useAuth();
-  const API = process.env.REACT_APP_API_URL || "";
+  const API = BASE_URL;
 
   const [tasks, setTasks]         = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -1124,7 +1127,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
 // ── Segment 11: Integrations Page ────────────────────────────────────────────
 function IntegrationsPage() {
   const { token } = useAuth();
-  const API = process.env.REACT_APP_API_URL || "";
+  const API = BASE_URL;
 
   // Status of which integrations are configured
   const [status, setStatus]   = useState(null);
@@ -1392,7 +1395,7 @@ function IntegrationsPage() {
 // ── Segment 12: Locale Page ───────────────────────────────────────────────────
 function LocalePage() {
   const { user, token } = useAuth();
-  const API = process.env.REACT_APP_API_URL || "";
+  const API = BASE_URL;
   const isArchitect = user?.role === "architect";
 
   const [options, setOptions]           = useState(null);
@@ -1685,7 +1688,7 @@ function LocalePage() {
 // ── TeamsPage — Segment 9: Microsoft Teams Integration ───────────────────────
 function TeamsPage() {
   const { token, user } = useAuth();
-  const API = process.env.REACT_APP_API_URL || "";
+  const API = BASE_URL;
   const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const isArchitect = user?.role === "architect";
 
@@ -1820,7 +1823,7 @@ function TeamsPage() {
 // ── ApiPage — Segment 13: Public REST API & Key Management ────────────────────
 function ApiPage() {
   const { token, user } = useAuth();
-  const API = process.env.REACT_APP_API_URL || "";
+  const API = BASE_URL;
   const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
   const isArchitect = user?.role === "architect";
   const BACKEND = API || "https://your-backend.railway.app";
