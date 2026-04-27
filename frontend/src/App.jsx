@@ -1327,6 +1327,305 @@ function CompliancePage() {
   );
 }
 
+
+// ── Knowledge Page ────────────────────────────────────────────────────────────
+function KnowledgePage() {
+  const { token, user, isArchitect, isNavigator } = useAuth();
+  const API = BASE_URL;
+  const hdrs = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  const [notes, setNotes]         = useState([]);
+  const [search, setSearch]       = useState("");
+  const [category, setCategory]   = useState("all");
+  const [showForm, setShowForm]   = useState(false);
+  const [editNote, setEditNote]   = useState(null);
+  const [viewNote, setViewNote]   = useState(null);
+  const [submitting, setSub]      = useState(false);
+  const [successMsg, setSuccess]  = useState(null);
+  const [form, setForm]           = useState({ title: "", body: "", category: "general", pinned: false });
+
+  // Knowledge base is stored locally in localStorage (no backend endpoint needed)
+  const STORAGE_KEY = `kb_notes_${user?.workspace?.id || "default"}`;
+
+  const loadNotes = useCallback(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      setNotes(stored ? JSON.parse(stored) : SAMPLE_NOTES);
+    } catch { setNotes(SAMPLE_NOTES); }
+  }, [STORAGE_KEY]);
+
+  useEffect(() => { loadNotes(); }, [loadNotes]);
+
+  const saveNotes = (updated) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    setNotes(updated);
+  };
+
+  const SAMPLE_NOTES = [
+    { id: 1, title: "How to create tasks via Slack", body: "Mention the bot with: @bot create task @assignee task title by YYYY-MM-DD\n\nPriority keywords: URGENT, HIGH PRIORITY, LOW PRIORITY\n\nThe bot will auto-assign based on @mention.", category: "guide", pinned: true, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 2, title: "Role permissions overview", body: "Architect — Full access: create, edit, delete tasks, manage workspace, view all reports.\n\nNavigator — Team lead: create and edit tasks for their team, view team reports.\n\nOperator — Team member: view and update status of assigned tasks only.", category: "policy", pinned: true, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 3, title: "API integration guide", body: "Use the API page to generate an API key.\n\nEndpoints:\nPOST /api/v1/tasks — create a task\nGET /api/v1/tasks — list tasks\nPUT /api/v1/tasks/{id} — update a task\n\nPass your key in: X-API-Key: your_key_here", category: "technical", pinned: false, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  ];
+
+  const CATEGORIES = [
+    { value: "all",       label: "All Notes" },
+    { value: "general",   label: "General" },
+    { value: "guide",     label: "Guides" },
+    { value: "policy",    label: "Policies" },
+    { value: "technical", label: "Technical" },
+    { value: "meeting",   label: "Meeting Notes" },
+  ];
+
+  const CAT_COLOR = {
+    general:   "#4f8ef7",
+    guide:     "#22d3a8",
+    policy:    "#a78bfa",
+    technical: "#f59e0b",
+    meeting:   "#f87171",
+  };
+
+  const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(null), 3000); };
+
+  const handleSave = () => {
+    if (!form.title.trim()) return;
+    setSub(true);
+    try {
+      if (editNote) {
+        const updated = notes.map(n => n.id === editNote.id
+          ? { ...n, ...form, updated_at: new Date().toISOString() }
+          : n
+        );
+        saveNotes(updated);
+        flash("Note updated ✓");
+      } else {
+        const newNote = {
+          id: Date.now(),
+          ...form,
+          author: user?.name || "You",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        saveNotes([newNote, ...notes]);
+        flash("Note created ✓");
+      }
+      setShowForm(false);
+      setEditNote(null);
+    } finally { setSub(false); }
+  };
+
+  const handleDelete = (id) => {
+    if (!window.confirm("Delete this note?")) return;
+    saveNotes(notes.filter(n => n.id !== id));
+    if (viewNote?.id === id) setViewNote(null);
+    flash("Note deleted");
+  };
+
+  const handlePin = (id) => {
+    saveNotes(notes.map(n => n.id === id ? { ...n, pinned: !n.pinned } : n));
+  };
+
+  const openEdit = (note) => {
+    setForm({ title: note.title, body: note.body, category: note.category, pinned: note.pinned });
+    setEditNote(note);
+    setShowForm(true);
+  };
+
+  const openCreate = () => {
+    setForm({ title: "", body: "", category: "general", pinned: false });
+    setEditNote(null);
+    setShowForm(true);
+  };
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return notes
+      .filter(n => {
+        const matchQ = !q || n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q);
+        const matchC = category === "all" || n.category === category;
+        return matchQ && matchC;
+      })
+      .sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return new Date(b.updated_at) - new Date(a.updated_at);
+      });
+  }, [notes, search, category]);
+
+  const catCounts = useMemo(() => {
+    const counts = {};
+    notes.forEach(n => { counts[n.category] = (counts[n.category] || 0) + 1; });
+    return counts;
+  }, [notes]);
+
+  const formatDate = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+  const inputStyle = { width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", boxSizing: "border-box" };
+  const labelStyle = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5, display: "block" };
+
+  return (
+    <>
+      {/* Topbar */}
+      <header style={{ position: "sticky", top: 0, zIndex: 40, height: 60, background: "rgba(13,15,30,0.88)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid var(--border-glass)", padding: "0 28px", display: "flex", alignItems: "center", gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>Knowledge Base</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{notes.length} notes · team wiki & guides</div>
+        </div>
+
+        {/* Search */}
+        <div style={{ flex: 1, maxWidth: 320, position: "relative" }}>
+          <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", width: 13, height: 13, color: "var(--color-text-tertiary)", pointerEvents: "none" }} viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.3"/><path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search notes…" style={{ ...inputStyle, paddingLeft: 30, borderRadius: 999, padding: "0 14px 0 30px", height: 36 }} />
+        </div>
+
+        {/* Category filter */}
+        <select value={category} onChange={e => setCategory(e.target.value)} style={{ height: 34, padding: "0 10px", background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--color-text-primary)", cursor: "pointer", outline: "none" }}>
+          {CATEGORIES.map(c => (
+            <option key={c.value} value={c.value} style={{ background: "#1e2140", color: "#f0f2ff" }}>
+              {c.label} {c.value !== "all" && catCounts[c.value] ? `(${catCounts[c.value]})` : ""}
+            </option>
+          ))}
+        </select>
+
+        <button onClick={openCreate} style={{ height: 36, padding: "0 18px", borderRadius: 999, border: "none", background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 0 20px rgba(79,142,247,0.3)", marginLeft: "auto" }}>
+          + New Note
+        </button>
+      </header>
+
+      <main style={{ flex: 1, padding: "24px 28px 40px", display: "flex", gap: 20 }}>
+
+        {/* Left — note grid */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+          {successMsg && (
+            <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.3)", color: "#22d3a8", fontSize: 13, fontWeight: 600 }}>✓ {successMsg}</div>
+          )}
+
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "60px 0", color: "var(--color-text-tertiary)" }}>
+              <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>◉</div>
+              <div style={{ fontSize: 14, marginBottom: 6 }}>No notes found</div>
+              <div style={{ fontSize: 12 }}>Try a different search or create a new note</div>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14, alignContent: "start" }}>
+              {filtered.map(note => (
+                <div key={note.id}
+                  onClick={() => setViewNote(note)}
+                  style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${viewNote?.id === note.id ? "#4f8ef7" : "var(--border-glass)"}`, borderRadius: 14, padding: "16px 18px", cursor: "pointer", transition: "all 0.15s", position: "relative", overflow: "hidden" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.transform = ""; }}>
+
+                  {/* Category stripe */}
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: CAT_COLOR[note.category] || "#4f8ef7" }} />
+
+                  {/* Header row */}
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.3, flex: 1 }}>{note.title}</div>
+                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                      {note.pinned && <span title="Pinned" style={{ fontSize: 12 }}>📌</span>}
+                    </div>
+                  </div>
+
+                  {/* Body preview */}
+                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5, marginBottom: 12, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+                    {note.body}
+                  </div>
+
+                  {/* Footer */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: `${CAT_COLOR[note.category] || "#4f8ef7"}18`, color: CAT_COLOR[note.category] || "#4f8ef7", border: `1px solid ${CAT_COLOR[note.category] || "#4f8ef7"}33`, textTransform: "capitalize" }}>{note.category}</span>
+                    <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{formatDate(note.updated_at)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right — note viewer */}
+        {viewNote && (
+          <div style={{ width: 360, flexShrink: 0, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 16, padding: "20px 22px", height: "fit-content", position: "sticky", top: 80 }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: CAT_COLOR[viewNote.category] || "#4f8ef7", borderRadius: "16px 16px 0 0" }} />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, gap: 8 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.3, flex: 1 }}>{viewNote.title}</div>
+              <button onClick={() => setViewNote(null)} style={{ width: 26, height: 26, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-tertiary)", cursor: "pointer", fontSize: 14, flexShrink: 0 }}>×</button>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: `${CAT_COLOR[viewNote.category] || "#4f8ef7"}18`, color: CAT_COLOR[viewNote.category] || "#4f8ef7", border: `1px solid ${CAT_COLOR[viewNote.category] || "#4f8ef7"}33`, textTransform: "capitalize" }}>{viewNote.category}</span>
+              <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>by {viewNote.author}</span>
+              <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{formatDate(viewNote.updated_at)}</span>
+            </div>
+
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap", marginBottom: 20, maxHeight: 400, overflowY: "auto" }}>{viewNote.body}</div>
+
+            <div style={{ display: "flex", gap: 8, borderTop: "1px solid var(--border-glass)", paddingTop: 14 }}>
+              <button onClick={() => handlePin(viewNote.id)} style={{ flex: 1, height: 32, borderRadius: 7, border: "1px solid var(--border-glass)", background: viewNote.pinned ? "rgba(79,142,247,0.12)" : "transparent", color: viewNote.pinned ? "#4f8ef7" : "var(--color-text-secondary)", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "var(--font-sans)" }}>
+                {viewNote.pinned ? "📌 Pinned" : "Pin"}
+              </button>
+              {(isArchitect || isNavigator) && (
+                <button onClick={() => { openEdit(viewNote); setViewNote(null); }} style={{ flex: 1, height: 32, borderRadius: 7, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "var(--font-sans)" }}>Edit</button>
+              )}
+              {isArchitect && (
+                <button onClick={() => handleDelete(viewNote.id)} style={{ height: 32, width: 32, borderRadius: 7, border: "1px solid rgba(248,113,113,0.3)", background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 14, fontFamily: "var(--font-sans)" }}>✕</button>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Create / Edit Modal */}
+      {showForm && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
+          <div style={{ width: 520, background: "#141628", border: "1px solid var(--border-glass)", borderRadius: 20, padding: "28px 28px 24px", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)" }}>{editNote ? "Edit Note" : "New Note"}</div>
+              <button onClick={() => setShowForm(false)} style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 16 }}>×</button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={labelStyle}>Title *</label>
+                <input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="Note title…" style={inputStyle} />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "end" }}>
+                <div>
+                  <label style={labelStyle}>Category</label>
+                  <select value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} style={{ ...inputStyle, cursor: "pointer" }}>
+                    {CATEGORIES.filter(c => c.value !== "all").map(c => (
+                      <option key={c.value} value={c.value} style={{ background: "#1e2140", color: "#f0f2ff" }}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, marginBottom: 8 }}>Pin</label>
+                  <div onClick={() => setForm(f => ({...f, pinned: !f.pinned}))} style={{ width: 44, height: 24, borderRadius: 999, background: form.pinned ? "#4f8ef7" : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
+                    <div style={{ position: "absolute", top: 2, left: form.pinned ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Content</label>
+                <textarea value={form.body} onChange={e => setForm(f => ({...f, body: e.target.value}))} rows={8} placeholder="Write your note here… supports plain text and line breaks." style={{ ...inputStyle, height: "auto", padding: "10px 12px", resize: "vertical", lineHeight: 1.6 }} />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
+              <button onClick={() => setShowForm(false)} style={{ height: 38, padding: "0 18px", borderRadius: 8, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", fontFamily: "var(--font-sans)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
+              <button onClick={handleSave} disabled={submitting || !form.title.trim()} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: !form.title.trim() ? 0.5 : 1 }}>
+                {submitting ? "Saving…" : editNote ? "Save Changes" : "Create Note"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function PlaceholderPage({ label }) {
   return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
@@ -2528,6 +2827,8 @@ function AuthenticatedApp() {
           <TasksPage />
         ) : activeNav === 2 ? (
           <CompliancePage />
+        ) : activeNav === 3 ? (
+          <KnowledgePage />
         ) : activeNav === 4 ? (
           <ReportsPage />
         ) : activeNav === 5 ? (
