@@ -514,11 +514,15 @@ function OwnershipGraph() {
 
 // ── Tasks Page ────────────────────────────────────────────────────────────────
 function TasksPage() {
-  const { token, isArchitect, isNavigator } = useAuth();
+  const { token, isArchitect, isNavigator, user } = useAuth();
   const API = BASE_URL;
 
-  const [tasks, setTasks]         = useState([]);
-  const [loading, setLoading]     = useState(true);
+  // Reuse the same useTasks hook that Dashboard uses — already handles auth
+  const taskFilters = user?.role === "operator" ? { assignee_id: user.id }
+    : user?.role === "navigator"                ? { team_id: user.team_id }
+    : {};
+  const { tasks, loading, error: taskError, submitting: hookSub, moveTask, removeTask, addTask, reload } = useTasks(taskFilters);
+
   const [search, setSearch]       = useState("");
   const [statusFilter, setStatus] = useState("all");
   const [priorityFilter, setPri]  = useState("all");
@@ -528,23 +532,15 @@ function TasksPage() {
   const [error, setError]         = useState(null);
   const [successMsg, setSuccess]  = useState(null);
 
+  // Merge hook error with local error
+  const displayError = error || taskError;
+
   // Form state
   const [form, setForm] = useState({ title: "", assignee: "", priority: "medium", deadline: "", description: "" });
 
   const hdrs = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const r = await fetch(`${API}/tasks/?limit=200`, { headers: hdrs });
-      if (!r.ok) throw new Error("Failed to load");
-      const d = await r.json();
-      setTasks(Array.isArray(d) ? d : d.tasks || []);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
-  }, [token]);
-
-  useEffect(() => { load(); }, [load]);
+  const load = reload;
 
   const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(null), 3000); };
 
@@ -578,13 +574,10 @@ function TasksPage() {
         });
         if (!r.ok) throw new Error("Update failed");
         flash("Task updated ✓");
+        reload();
       } else {
         const msg = `${form.priority === "high" ? "URGENT " : ""}create task ${form.assignee ? `@${form.assignee}` : ""} ${form.title}${form.deadline ? ` by ${form.deadline}` : ""}`;
-        const r = await fetch(`${API}/tasks/`, {
-          method: "POST", headers: hdrs,
-          body: JSON.stringify({ message: msg, channel: "manual", workspace_id: 1 }),
-        });
-        if (!r.ok) throw new Error("Create failed");
+        await addTask(msg);
         flash("Task created ✓");
       }
       setShowForm(false);
@@ -595,19 +588,14 @@ function TasksPage() {
 
   const changeStatus = async (taskId, newStatus) => {
     try {
-      await fetch(`${API}/tasks/${taskId}/status`, {
-        method: "PUT", headers: hdrs,
-        body: JSON.stringify({ status: newStatus }),
-      });
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+      await moveTask(taskId, newStatus);
     } catch (e) { setError("Status update failed"); }
   };
 
   const deleteTask = async (taskId) => {
     if (!window.confirm("Delete this task?")) return;
     try {
-      await fetch(`${API}/tasks/${taskId}`, { method: "DELETE", headers: hdrs });
-      setTasks(prev => prev.filter(t => t.id !== taskId));
+      await removeTask(taskId);
       flash("Task deleted");
     } catch { setError("Delete failed"); }
   };
@@ -686,9 +674,9 @@ function TasksPage() {
         {successMsg && (
           <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(34,211,168,0.12)", border:"1px solid rgba(34,211,168,0.3)", color:"#22d3a8", fontSize:13, fontWeight:600, marginBottom:16 }}>✓ {successMsg}</div>
         )}
-        {error && (
+        {displayError && (
           <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.25)", color:"#f87171", fontSize:13, marginBottom:16, display:"flex", justifyContent:"space-between" }}>
-            <span>⚠ {error}</span>
+            <span>⚠ {displayError}</span>
             <button onClick={() => setError(null)} style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer", fontSize:16 }}>×</button>
           </div>
         )}
