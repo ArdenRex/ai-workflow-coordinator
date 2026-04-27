@@ -1139,11 +1139,12 @@ function LocalePage() {
 
   const selectStyle = {
     width: "100%", height: 38, padding: "0 12px",
-    background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)",
+    background: "#1e2140", border: "1px solid var(--border-glass)",
     borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13,
-    color: "var(--color-text-primary)", outline: "none", cursor: "pointer",
+    color: "#f0f2ff", outline: "none", cursor: "pointer",
     appearance: "none", WebkitAppearance: "none",
   };
+  const optStyle = { background: "#1e2140", color: "#f0f2ff" };
 
   const labelStyle = { fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", marginBottom: 6, display: "block" };
 
@@ -1234,7 +1235,7 @@ function LocalePage() {
                   onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
                 >
                   {options && Object.entries(options.languages).map(([code, name]) => (
-                    <option key={code} value={code}>{name}</option>
+                    <option style={optStyle} key={code} value={code}>{name}</option>
                   ))}
                 </select>
                 <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
@@ -1250,7 +1251,7 @@ function LocalePage() {
                   onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
                 >
                   {options?.timezones?.map(t => (
-                    <option key={t} value={t}>{t}</option>
+                    <option style={optStyle} key={t} value={t}>{t}</option>
                   ))}
                 </select>
                 <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
@@ -1266,7 +1267,7 @@ function LocalePage() {
                   onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
                 >
                   {options && Object.entries(options.currencies).map(([code, label]) => (
-                    <option key={code} value={code}>{label}</option>
+                    <option style={optStyle} key={code} value={code}>{label}</option>
                   ))}
                 </select>
                 <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
@@ -1302,7 +1303,7 @@ function LocalePage() {
               <div style={{ position: "relative" }}>
                 <select value={wsLang} onChange={e => setWsLang(e.target.value)} style={selectStyle}>
                   {options && Object.entries(options.languages).map(([code, name]) => (
-                    <option key={code} value={code}>{name}</option>
+                    <option style={optStyle} key={code} value={code}>{name}</option>
                   ))}
                 </select>
                 <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
@@ -1313,7 +1314,7 @@ function LocalePage() {
               <div style={{ position: "relative" }}>
                 <select value={wsTz} onChange={e => setWsTz(e.target.value)} style={selectStyle}>
                   {options?.timezones?.map(t => (
-                    <option key={t} value={t}>{t}</option>
+                    <option style={optStyle} key={t} value={t}>{t}</option>
                   ))}
                 </select>
                 <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
@@ -1324,7 +1325,7 @@ function LocalePage() {
               <div style={{ position: "relative" }}>
                 <select value={wsCurr} onChange={e => setWsCurr(e.target.value)} style={selectStyle}>
                   {options && Object.entries(options.currencies).map(([code, label]) => (
-                    <option key={code} value={code}>{label}</option>
+                    <option style={optStyle} key={code} value={code}>{label}</option>
                   ))}
                 </select>
                 <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
