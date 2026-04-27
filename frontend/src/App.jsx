@@ -1086,6 +1086,247 @@ function ReportsPage() {
   );
 }
 
+
+// ── Compliance Page ───────────────────────────────────────────────────────────
+function CompliancePage() {
+  const { user } = useAuth();
+  const taskFilters = user?.role === "operator" ? { assignee_id: user.id }
+    : user?.role === "navigator"                ? { team_id: user.team_id }
+    : {};
+  const { tasks, loading } = useTasks(taskFilters);
+
+  const [activeTab, setActiveTab] = useState("overdue");
+
+  const now = new Date();
+
+  const compliance = useMemo(() => {
+    if (!tasks.length) return null;
+
+    // Overdue tasks (past deadline, not done/cancelled)
+    const overdue = tasks.filter(t =>
+      t.deadline && new Date(t.deadline) < now &&
+      t.status !== "completed" && t.status !== "cancelled"
+    ).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+
+    // Unassigned tasks
+    const unassigned = tasks.filter(t =>
+      !t.assignee && t.status !== "completed" && t.status !== "cancelled"
+    );
+
+    // Stale tasks — in_progress for more than 7 days
+    const stale = tasks.filter(t => {
+      if (t.status !== "in_progress") return false;
+      const updated = new Date(t.updated_at || t.created_at);
+      return (now - updated) > 7 * 86400000;
+    });
+
+    // No-deadline tasks (active, no deadline set)
+    const noDeadline = tasks.filter(t =>
+      !t.deadline && t.status !== "completed" && t.status !== "cancelled"
+    );
+
+    // High priority not started
+    const highNotStarted = tasks.filter(t =>
+      (t.priority === "high" || t.priority === "critical") && t.status === "to_do"
+    );
+
+    // Compliance score (0-100)
+    const issues = overdue.length + unassigned.length + stale.length + highNotStarted.length;
+    const score = Math.max(0, Math.round(100 - (issues / Math.max(tasks.length, 1)) * 100));
+
+    // Audit log — recent task activity (simulate from task data)
+    const recent = [...tasks]
+      .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+      .slice(0, 20);
+
+    return { overdue, unassigned, stale, noDeadline, highNotStarted, score, issues, recent };
+  }, [tasks]);
+
+  const TABS = [
+    { key: "overdue",        label: "Overdue",          badge: compliance?.overdue.length },
+    { key: "unassigned",     label: "Unassigned",        badge: compliance?.unassigned.length },
+    { key: "stale",          label: "Stale (7d+)",       badge: compliance?.stale.length },
+    { key: "high_priority",  label: "High Not Started",  badge: compliance?.highNotStarted.length },
+    { key: "audit",          label: "Audit Log",         badge: null },
+  ];
+
+  const currentList =
+    activeTab === "overdue"       ? compliance?.overdue :
+    activeTab === "unassigned"    ? compliance?.unassigned :
+    activeTab === "stale"         ? compliance?.stale :
+    activeTab === "high_priority" ? compliance?.highNotStarted :
+    compliance?.recent;
+
+  const STATUS_C = { to_do: "#4f8ef7", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
+  const STATUS_L = { to_do: "To Do", in_progress: "In Progress", completed: "Done", cancelled: "Cancelled" };
+  const PRI_C    = { critical: "#f43f5e", high: "#f87171", medium: "#f59e0b", low: "#22d3a8" };
+
+  const scoreColor = !compliance ? "#4f8ef7"
+    : compliance.score >= 80 ? "#22d3a8"
+    : compliance.score >= 50 ? "#f59e0b"
+    : "#f87171";
+
+  const daysSince = (dateStr) => {
+    const d = dateStr ? Math.floor((now - new Date(dateStr)) / 86400000) : null;
+    if (d === null) return "—";
+    if (d === 0) return "Today";
+    if (d === 1) return "Yesterday";
+    return `${d}d ago`;
+  };
+
+  const daysOverdue = (dateStr) => {
+    if (!dateStr) return "";
+    const d = Math.floor((now - new Date(dateStr)) / 86400000);
+    return d > 0 ? `${d}d overdue` : "Due today";
+  };
+
+  return (
+    <>
+      {/* Topbar */}
+      <header style={{ position: "sticky", top: 0, zIndex: 40, height: 60, background: "rgba(13,15,30,0.88)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid var(--border-glass)", padding: "0 28px", display: "flex", alignItems: "center", gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>Compliance</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Task health monitoring & audit trail</div>
+        </div>
+        {compliance && (
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Compliance Score</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: scoreColor, letterSpacing: "-0.03em" }}>{compliance.score}<span style={{ fontSize: 13, fontWeight: 500 }}>%</span></div>
+            <div style={{ width: 80, height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${compliance.score}%`, background: scoreColor, borderRadius: 999, transition: "width 0.6s ease" }} />
+            </div>
+          </div>
+        )}
+      </header>
+
+      <main style={{ flex: 1, padding: "24px 28px 40px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+        {loading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+            <div style={{ width: 28, height: 28, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#4f8ef7", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+          </div>
+        ) : !compliance ? (
+          <div style={{ textAlign: "center", padding: "80px 0", color: "var(--color-text-tertiary)" }}>
+            <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>◈</div>
+            <div>No tasks to analyse yet</div>
+          </div>
+        ) : (
+          <>
+            {/* Score cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
+              {[
+                { label: "Overdue",          value: compliance.overdue.length,          color: compliance.overdue.length ? "#f87171" : "#22d3a8",  icon: "⏰" },
+                { label: "Unassigned",       value: compliance.unassigned.length,       color: compliance.unassigned.length ? "#f59e0b" : "#22d3a8", icon: "👤" },
+                { label: "Stale (7d+)",      value: compliance.stale.length,            color: compliance.stale.length ? "#f59e0b" : "#22d3a8",     icon: "💤" },
+                { label: "High Not Started", value: compliance.highNotStarted.length,   color: compliance.highNotStarted.length ? "#f87171" : "#22d3a8", icon: "🔴" },
+                { label: "No Deadline",      value: compliance.noDeadline.length,       color: compliance.noDeadline.length > 3 ? "#f59e0b" : "#22d3a8", icon: "📅" },
+              ].map(m => (
+                <div key={m.label} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${m.value && m.color !== "#22d3a8" ? m.color + "33" : "var(--border-glass)"}`, borderRadius: 14, padding: "16px 16px 14px", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.7 }} />
+                  <div style={{ fontSize: 18, marginBottom: 6 }}>{m.icon}</div>
+                  <div style={{ fontSize: 26, fontWeight: 700, color: m.color, lineHeight: 1, marginBottom: 4 }}>{m.value}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{m.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Compliance score bar */}
+            <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", gap: 20 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Overall Health</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: scoreColor }}>{compliance.score}%</div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ height: 10, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${compliance.score}%`, background: `linear-gradient(90deg, ${scoreColor}, ${scoreColor}cc)`, borderRadius: 999, transition: "width 0.8s ease" }} />
+                </div>
+              </div>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+                {compliance.issues === 0 ? "✅ All tasks healthy" : `${compliance.issues} issue${compliance.issues !== 1 ? "s" : ""} need attention`}
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", borderRadius: 16, overflow: "hidden" }}>
+              {/* Tab bar */}
+              <div style={{ display: "flex", borderBottom: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.02)" }}>
+                {TABS.map(tab => (
+                  <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ flex: 1, padding: "12px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", fontFamily: "var(--font-sans)", background: activeTab === tab.key ? "rgba(79,142,247,0.12)" : "transparent", color: activeTab === tab.key ? "#4f8ef7" : "var(--color-text-secondary)", borderBottom: activeTab === tab.key ? "2px solid #4f8ef7" : "2px solid transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                    {tab.label}
+                    {tab.badge !== null && tab.badge !== undefined && (
+                      <span style={{ minWidth: 18, height: 18, borderRadius: 999, background: tab.badge > 0 ? (tab.key === "audit" ? "#4f8ef7" : "#f87171") : "rgba(255,255,255,0.1)", color: "#fff", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{tab.badge}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab content */}
+              <div style={{ minHeight: 200 }}>
+                {/* Table header */}
+                {activeTab !== "audit" && (
+                  <div style={{ display: "grid", gridTemplateColumns: activeTab === "overdue" ? "2fr 1fr 100px 110px 120px" : "2fr 1fr 100px 110px", gap: 0, padding: "9px 18px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.02)" }}>
+                    {["Task", "Assignee", "Priority", "Status", activeTab === "overdue" ? "Overdue" : null].filter(Boolean).map(h => (
+                      <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.07em" }}>{h}</div>
+                    ))}
+                  </div>
+                )}
+
+                {!currentList || currentList.length === 0 ? (
+                  <div style={{ padding: "40px 0", textAlign: "center" }}>
+                    <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.3 }}>✓</div>
+                    <div style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>
+                      {activeTab === "audit" ? "No recent activity" : "No issues found — looking good!"}
+                    </div>
+                  </div>
+                ) : activeTab === "audit" ? (
+                  <div>
+                    {currentList.map((t, i) => (
+                      <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 18px", borderBottom: i < currentList.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_C[t.status] || "#4f8ef7", flexShrink: 0 }} />
+                        <div style={{ flex: 1, fontSize: 13, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title || t.task_description || "Untitled"}</div>
+                        <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", flexShrink: 0 }}>{t.assignee || "Unassigned"}</div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: STATUS_C[t.status], flexShrink: 0, minWidth: 70, textAlign: "right" }}>{STATUS_L[t.status]}</div>
+                        <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", flexShrink: 0, minWidth: 70, textAlign: "right" }}>{daysSince(t.updated_at || t.created_at)}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div>
+                    {currentList.map((t, i) => {
+                      const pri = t.priority || "medium";
+                      const st  = t.status || "to_do";
+                      const title = t.title || t.task_description || "Untitled";
+                      return (
+                        <div key={t.id} style={{ display: "grid", gridTemplateColumns: activeTab === "overdue" ? "2fr 1fr 100px 110px 120px" : "2fr 1fr 100px 110px", gap: 0, padding: "12px 18px", borderBottom: i < currentList.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none", alignItems: "center" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }} title={title}>{title}</div>
+                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{t.assignee || <span style={{ color: "var(--color-text-tertiary)" }}>—</span>}</div>
+                          <div>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: `${PRI_C[pri] || "#f59e0b"}18`, color: PRI_C[pri] || "#f59e0b", border: `1px solid ${PRI_C[pri] || "#f59e0b"}33`, textTransform: "capitalize" }}>{pri}</span>
+                          </div>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: STATUS_C[st], background: `${STATUS_C[st]}18`, border: `1px solid ${STATUS_C[st]}33`, borderRadius: 999, padding: "2px 8px" }}>{STATUS_L[st]}</span>
+                          </div>
+                          {activeTab === "overdue" && (
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "#f87171" }}>{daysOverdue(t.deadline)}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </main>
+    </>
+  );
+}
+
 function PlaceholderPage({ label }) {
   return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
@@ -2285,6 +2526,8 @@ function AuthenticatedApp() {
           />
         ) : activeNav === 1 ? (
           <TasksPage />
+        ) : activeNav === 2 ? (
+          <CompliancePage />
         ) : activeNav === 4 ? (
           <ReportsPage />
         ) : activeNav === 5 ? (
