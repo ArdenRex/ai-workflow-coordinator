@@ -827,6 +827,265 @@ function TasksPage() {
   );
 }
 
+
+// ── Reports Page ──────────────────────────────────────────────────────────────
+function ReportsPage() {
+  const { user } = useAuth();
+  const taskFilters = user?.role === "operator" ? { assignee_id: user.id }
+    : user?.role === "navigator"                ? { team_id: user.team_id }
+    : {};
+  const { tasks, loading } = useTasks(taskFilters);
+
+  const [range, setRange] = useState(30); // days
+
+  const now = new Date();
+
+  const stats = useMemo(() => {
+    if (!tasks.length) return null;
+    const cutoff = new Date(now - range * 86400000);
+    const inRange = tasks.filter(t => new Date(t.created_at) >= cutoff);
+
+    const byStatus = { to_do: 0, in_progress: 0, completed: 0, cancelled: 0 };
+    tasks.forEach(t => { if (byStatus[t.status] !== undefined) byStatus[t.status]++; });
+
+    const byPriority = { high: 0, medium: 0, low: 0, critical: 0 };
+    tasks.forEach(t => { const p = t.priority || "medium"; if (byPriority[p] !== undefined) byPriority[p]++; });
+
+    // Assignee leaderboard
+    const assigneeCounts = {};
+    tasks.forEach(t => {
+      if (t.assignee) {
+        if (!assigneeCounts[t.assignee]) assigneeCounts[t.assignee] = { total: 0, done: 0 };
+        assigneeCounts[t.assignee].total++;
+        if (t.status === "completed") assigneeCounts[t.assignee].done++;
+      }
+    });
+    const leaderboard = Object.entries(assigneeCounts)
+      .map(([name, d]) => ({ name, total: d.total, done: d.done, rate: d.total ? Math.round(d.done / d.total * 100) : 0 }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8);
+
+    // Daily creation trend (last 14 days)
+    const trend = [];
+    for (let i = 13; i >= 0; i--) {
+      const day = new Date(now - i * 86400000);
+      const label = day.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const count = tasks.filter(t => {
+        const d = new Date(t.created_at);
+        return d.toDateString() === day.toDateString();
+      }).length;
+      trend.push({ label, count });
+    }
+
+    // Overdue
+    const overdue = tasks.filter(t =>
+      t.deadline && new Date(t.deadline) < now && t.status !== "completed" && t.status !== "cancelled"
+    );
+
+    const completionRate = tasks.length ? Math.round(byStatus.completed / tasks.length * 100) : 0;
+    const avgPerDay = range > 0 ? (inRange.length / range).toFixed(1) : 0;
+
+    return { byStatus, byPriority, leaderboard, trend, overdue, completionRate, avgPerDay, inRange: inRange.length };
+  }, [tasks, range]);
+
+  const maxTrend = stats ? Math.max(...stats.trend.map(d => d.count), 1) : 1;
+
+  const Card = ({ children, style }) => (
+    <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 16, padding: "20px 22px", ...style }}>{children}</div>
+  );
+
+  const SectionTitle = ({ children }) => (
+    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 14 }}>{children}</div>
+  );
+
+  const STATUS_C = { to_do: "#4f8ef7", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
+  const STATUS_L = { to_do: "To Do", in_progress: "In Progress", completed: "Done", cancelled: "Cancelled" };
+  const PRI_C    = { critical: "#f43f5e", high: "#f87171", medium: "#f59e0b", low: "#22d3a8" };
+
+  return (
+    <>
+      {/* Topbar */}
+      <header style={{ position: "sticky", top: 0, zIndex: 40, height: 60, background: "rgba(13,15,30,0.88)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid var(--border-glass)", padding: "0 28px", display: "flex", alignItems: "center", gap: 16 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>Reports</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Workspace analytics & performance</div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 4, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 999, padding: 3 }}>
+          {[7, 14, 30, 90].map(d => (
+            <button key={d} onClick={() => setRange(d)} style={{ padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", fontFamily: "var(--font-sans)", background: range === d ? "linear-gradient(135deg,#4f8ef7,#7b5cf0)" : "transparent", color: range === d ? "#fff" : "var(--color-text-secondary)", transition: "all 0.15s" }}>
+              {d}d
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <main style={{ flex: 1, padding: "24px 28px 40px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+        {loading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+            <div style={{ width: 28, height: 28, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#4f8ef7", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+          </div>
+        ) : !stats ? (
+          <div style={{ textAlign: "center", padding: "80px 0", color: "var(--color-text-tertiary)" }}>
+            <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>▲</div>
+            <div style={{ fontSize: 14 }}>No data yet — create some tasks to see reports</div>
+          </div>
+        ) : (
+          <>
+            {/* KPI row */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+              {[
+                { label: "Total Tasks", value: tasks.length, sub: `${stats.inRange} in last ${range}d`, color: "#4f8ef7" },
+                { label: "Completed", value: stats.byStatus.completed, sub: `${stats.completionRate}% completion rate`, color: "#22d3a8" },
+                { label: "Overdue", value: stats.overdue.length, sub: stats.overdue.length ? "Need attention" : "All on track ✓", color: stats.overdue.length ? "#f87171" : "#22d3a8" },
+                { label: "Avg / Day", value: stats.avgPerDay, sub: `Tasks created per day`, color: "#a78bfa" },
+              ].map(m => (
+                <Card key={m.label} style={{ position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.8 }} />
+                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{m.label}</div>
+                  <div style={{ fontSize: 32, fontWeight: 700, color: m.color, lineHeight: 1, marginBottom: 4 }}>{m.value}</div>
+                  <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{m.sub}</div>
+                </Card>
+              ))}
+            </div>
+
+            {/* Charts row */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+
+              {/* Status breakdown */}
+              <Card>
+                <SectionTitle>Task Status Breakdown</SectionTitle>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {Object.entries(STATUS_L).map(([key, label]) => {
+                    const count = stats.byStatus[key] || 0;
+                    const pct = tasks.length ? Math.round(count / tasks.length * 100) : 0;
+                    return (
+                      <div key={key}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                          <span style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_C[key], display: "inline-block" }} />{label}
+                          </span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: STATUS_C[key] }}>{count} <span style={{ fontWeight: 400, color: "var(--color-text-tertiary)" }}>({pct}%)</span></span>
+                        </div>
+                        <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: STATUS_C[key], borderRadius: 999, transition: "width 0.6s cubic-bezier(.4,0,.2,1)" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Completion ring */}
+                <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ position: "relative", width: 70, height: 70, flexShrink: 0 }}>
+                    <svg viewBox="0 0 36 36" style={{ width: 70, height: 70, transform: "rotate(-90deg)" }}>
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="#22d3a8" strokeWidth="3"
+                        strokeDasharray={`${stats.completionRate * 0.942} 94.2`}
+                        strokeLinecap="round" />
+                    </svg>
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#22d3a8" }}>
+                      {stats.completionRate}%
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Completion Rate</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 3 }}>{stats.byStatus.completed} of {tasks.length} tasks done</div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Priority breakdown */}
+              <Card>
+                <SectionTitle>Priority Distribution</SectionTitle>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {Object.entries(PRI_C).map(([key, color]) => {
+                    const count = stats.byPriority[key] || 0;
+                    if (!count) return null;
+                    const pct = tasks.length ? Math.round(count / tasks.length * 100) : 0;
+                    return (
+                      <div key={key}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                          <span style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6, textTransform: "capitalize" }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "inline-block" }} />{key}
+                          </span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color }}>{count} <span style={{ fontWeight: 400, color: "var(--color-text-tertiary)" }}>({pct}%)</span></span>
+                        </div>
+                        <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 999, transition: "width 0.6s cubic-bezier(.4,0,.2,1)" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Overdue alert */}
+                {stats.overdue.length > 0 && (
+                  <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-glass)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>⚠ Overdue Tasks ({stats.overdue.length})</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 110, overflowY: "auto" }}>
+                      {stats.overdue.map(t => (
+                        <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>{t.title || t.task_description}</span>
+                          <span style={{ fontSize: 11, color: "#f87171", flexShrink: 0 }}>{new Date(t.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Activity trend */}
+            <Card>
+              <SectionTitle>Task Creation Trend — Last 14 Days</SectionTitle>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 100 }}>
+                {stats.trend.map((d, i) => (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <div style={{ fontSize: 10, color: "var(--color-text-tertiary)", fontWeight: 600 }}>{d.count || ""}</div>
+                    <div style={{ width: "100%", borderRadius: "4px 4px 0 0", background: d.count ? "linear-gradient(180deg,#7b5cf0,#4f8ef7)" : "rgba(255,255,255,0.05)", transition: "height 0.5s cubic-bezier(.4,0,.2,1)", height: `${Math.max(4, (d.count / maxTrend) * 80)}px`, minHeight: 4 }}
+                      title={`${d.label}: ${d.count} task${d.count !== 1 ? "s" : ""}`}
+                    />
+                    <div style={{ fontSize: 9, color: "var(--color-text-tertiary)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", width: "100%", textOverflow: "ellipsis" }}>{i % 2 === 0 ? d.label : ""}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Leaderboard */}
+            <Card>
+              <SectionTitle>Team Leaderboard — Tasks by Assignee</SectionTitle>
+              {stats.leaderboard.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--color-text-tertiary)", textAlign: "center", padding: "20px 0" }}>No assignee data yet</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                  {stats.leaderboard.map((person, i) => (
+                    <div key={person.name} style={{ display: "grid", gridTemplateColumns: "28px 1fr 80px 80px 100px", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: i < stats.leaderboard.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? "#f59e0b" : i === 1 ? "#9ca3af" : i === 2 ? "#b45309" : "var(--color-text-tertiary)", textAlign: "center" }}>#{i + 1}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 28, height: 28, borderRadius: "50%", background: `hsl(${(person.name.charCodeAt(0) * 37) % 360},60%,50%)`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{person.name[0]?.toUpperCase()}</span>
+                        <span style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>{person.name}</span>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#4f8ef7", textAlign: "center" }}>{person.total} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--color-text-tertiary)" }}>tasks</span></div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#22d3a8", textAlign: "center" }}>{person.done} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--color-text-tertiary)" }}>done</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ flex: 1, height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${person.rate}%`, background: person.rate >= 75 ? "#22d3a8" : person.rate >= 40 ? "#f59e0b" : "#f87171", borderRadius: 999 }} />
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", minWidth: 32 }}>{person.rate}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+      </main>
+    </>
+  );
+}
+
 function PlaceholderPage({ label }) {
   return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
@@ -2026,6 +2285,8 @@ function AuthenticatedApp() {
           />
         ) : activeNav === 1 ? (
           <TasksPage />
+        ) : activeNav === 4 ? (
+          <ReportsPage />
         ) : activeNav === 5 ? (
           <OwnershipGraph />
         ) : activeNav === 6 ? (
