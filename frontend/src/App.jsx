@@ -509,6 +509,333 @@ function OwnershipGraph() {
   );
 }
 
+// ── Tasks Page ────────────────────────────────────────────────────────────────
+function TasksPage() {
+  const { token, isArchitect, isNavigator } = useAuth();
+  const API = process.env.REACT_APP_API_URL || "";
+
+  const [tasks, setTasks]         = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [search, setSearch]       = useState("");
+  const [statusFilter, setStatus] = useState("all");
+  const [priorityFilter, setPri]  = useState("all");
+  const [showForm, setShowForm]   = useState(false);
+  const [editTask, setEditTask]   = useState(null);
+  const [submitting, setSub]      = useState(false);
+  const [error, setError]         = useState(null);
+  const [successMsg, setSuccess]  = useState(null);
+
+  // Form state
+  const [form, setForm] = useState({ title: "", assignee: "", priority: "medium", deadline: "", description: "" });
+
+  const hdrs = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/tasks/?limit=200`, { headers: hdrs });
+      if (!r.ok) throw new Error("Failed to load");
+      const d = await r.json();
+      setTasks(Array.isArray(d) ? d : d.tasks || []);
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }, [token]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(null), 3000); };
+
+  const openCreate = () => {
+    setForm({ title: "", assignee: "", priority: "medium", deadline: "", description: "" });
+    setEditTask(null);
+    setShowForm(true);
+  };
+
+  const openEdit = (t) => {
+    setForm({
+      title: t.title || t.task_description || "",
+      assignee: t.assignee || "",
+      priority: t.priority || "medium",
+      deadline: t.deadline ? t.deadline.slice(0, 10) : "",
+      description: t.task_description || "",
+    });
+    setEditTask(t);
+    setShowForm(true);
+  };
+
+  const handleSubmit = async () => {
+    if (!form.title.trim()) return;
+    setSub(true);
+    try {
+      if (editTask) {
+        const r = await fetch(`${API}/tasks/${editTask.id}`, {
+          method: "PUT",
+          headers: hdrs,
+          body: JSON.stringify({ title: form.title, assignee: form.assignee, priority: form.priority, deadline: form.deadline || null, task_description: form.description }),
+        });
+        if (!r.ok) throw new Error("Update failed");
+        flash("Task updated ✓");
+      } else {
+        const msg = `${form.priority === "high" ? "URGENT " : ""}create task ${form.assignee ? `@${form.assignee}` : ""} ${form.title}${form.deadline ? ` by ${form.deadline}` : ""}`;
+        const r = await fetch(`${API}/tasks/`, {
+          method: "POST", headers: hdrs,
+          body: JSON.stringify({ message: msg, channel: "manual", workspace_id: 1 }),
+        });
+        if (!r.ok) throw new Error("Create failed");
+        flash("Task created ✓");
+      }
+      setShowForm(false);
+      load();
+    } catch (e) { setError(e.message); }
+    finally { setSub(false); }
+  };
+
+  const changeStatus = async (taskId, newStatus) => {
+    try {
+      await fetch(`${API}/tasks/${taskId}/status`, {
+        method: "PUT", headers: hdrs,
+        body: JSON.stringify({ status: newStatus }),
+      });
+      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    } catch (e) { setError("Status update failed"); }
+  };
+
+  const deleteTask = async (taskId) => {
+    if (!window.confirm("Delete this task?")) return;
+    try {
+      await fetch(`${API}/tasks/${taskId}`, { method: "DELETE", headers: hdrs });
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      flash("Task deleted");
+    } catch { setError("Delete failed"); }
+  };
+
+  const filtered = useMemo(() => tasks.filter(t => {
+    const q = search.toLowerCase();
+    const matchQ = !q || (t.title || t.task_description || "").toLowerCase().includes(q) || (t.assignee || "").toLowerCase().includes(q);
+    const matchS = statusFilter === "all" || t.status === statusFilter;
+    const matchP = priorityFilter === "all" || (t.priority || "medium") === priorityFilter;
+    return matchQ && matchS && matchP;
+  }), [tasks, search, statusFilter, priorityFilter]);
+
+  const PRIORITY_COLOR = { high: "#f87171", medium: "#f59e0b", low: "#22d3a8" };
+  const STATUS_COLOR   = { to_do: "#4f8ef7", in_progress: "#a78bfa", completed: "#22d3a8", cancelled: "#6b7280" };
+  const STATUS_LABEL   = { to_do: "To Do", in_progress: "In Progress", completed: "Done", cancelled: "Cancelled" };
+
+  const pill = (color, label) => (
+    <span style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"2px 9px", borderRadius:999, fontSize:11, fontWeight:600, background:`${color}18`, color, border:`1px solid ${color}33` }}>
+      <span style={{ width:5, height:5, borderRadius:"50%", background:color }} />{label}
+    </span>
+  );
+
+  const counts = useMemo(() => ({
+    all: tasks.length,
+    to_do: tasks.filter(t => t.status === "to_do").length,
+    in_progress: tasks.filter(t => t.status === "in_progress").length,
+    completed: tasks.filter(t => t.status === "completed").length,
+  }), [tasks]);
+
+  const inputStyle = {
+    width:"100%", height:38, padding:"0 12px",
+    background:"rgba(255,255,255,0.06)", border:"1px solid var(--border-glass)",
+    borderRadius:8, fontFamily:"var(--font-sans)", fontSize:13,
+    color:"var(--color-text-primary)", outline:"none",
+    boxSizing:"border-box",
+  };
+  const labelStyle = { fontSize:11, fontWeight:600, color:"var(--color-text-secondary)", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:5, display:"block" };
+
+  return (
+    <>
+      {/* Topbar */}
+      <header style={{ position:"sticky", top:0, zIndex:40, height:60, background:"rgba(13,15,30,0.88)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:"1px solid var(--border-glass)", padding:"0 28px", display:"flex", alignItems:"center", gap:14 }}>
+        <div>
+          <div style={{ fontSize:15, fontWeight:700, color:"var(--color-text-primary)", letterSpacing:"-0.02em" }}>Tasks</div>
+          <div style={{ fontSize:11, color:"var(--color-text-tertiary)" }}>{counts.all} total · {counts.in_progress} in progress</div>
+        </div>
+
+        {/* Search */}
+        <div style={{ flex:1, maxWidth:320, position:"relative" }}>
+          <svg style={{ position:"absolute", left:10, top:"50%", transform:"translateY(-50%)", width:13, height:13, color:"var(--color-text-tertiary)", pointerEvents:"none" }} viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.3"/><path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search tasks or assignees…" style={{ ...inputStyle, paddingLeft:30, borderRadius:999, height:36 }} />
+        </div>
+
+        {/* Status filter */}
+        <div style={{ display:"flex", gap:3, background:"rgba(255,255,255,0.04)", border:"1px solid var(--border-glass)", borderRadius:999, padding:3 }}>
+          {[["all","All"], ["to_do","To Do"], ["in_progress","In Progress"], ["completed","Done"]].map(([val, lbl]) => (
+            <button key={val} onClick={() => setStatus(val)} style={{ padding:"4px 12px", borderRadius:999, fontSize:12, fontWeight:600, cursor:"pointer", border:"none", fontFamily:"var(--font-sans)", background:statusFilter===val?"linear-gradient(135deg,#4f8ef7,#7b5cf0)":"transparent", color:statusFilter===val?"#fff":"var(--color-text-secondary)", transition:"all 0.15s" }}>{lbl}</button>
+          ))}
+        </div>
+
+        {/* Priority filter */}
+        <select value={priorityFilter} onChange={e => setPri(e.target.value)} style={{ height:34, padding:"0 10px", background:"rgba(255,255,255,0.06)", border:"1px solid var(--border-glass)", borderRadius:8, fontFamily:"var(--font-sans)", fontSize:12, color:"var(--color-text-primary)", cursor:"pointer", outline:"none" }}>
+          <option value="all" style={{background:"#1e2140",color:"#f0f2ff"}}>All Priorities</option>
+          <option value="high" style={{background:"#1e2140",color:"#f0f2ff"}}>🔴 High</option>
+          <option value="medium" style={{background:"#1e2140",color:"#f0f2ff"}}>🟡 Medium</option>
+          <option value="low" style={{background:"#1e2140",color:"#f0f2ff"}}>🟢 Low</option>
+        </select>
+
+        <button onClick={openCreate} style={{ height:36, padding:"0 18px", borderRadius:999, border:"none", background:"linear-gradient(135deg,#4f8ef7,#7b5cf0)", color:"#fff", fontFamily:"var(--font-sans)", fontSize:13, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap", boxShadow:"0 0 20px rgba(79,142,247,0.35)", marginLeft:"auto" }}>
+          + New Task
+        </button>
+      </header>
+
+      <main style={{ flex:1, padding:"24px 28px 40px" }}>
+        {/* Flash messages */}
+        {successMsg && (
+          <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(34,211,168,0.12)", border:"1px solid rgba(34,211,168,0.3)", color:"#22d3a8", fontSize:13, fontWeight:600, marginBottom:16 }}>✓ {successMsg}</div>
+        )}
+        {error && (
+          <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.25)", color:"#f87171", fontSize:13, marginBottom:16, display:"flex", justifyContent:"space-between" }}>
+            <span>⚠ {error}</span>
+            <button onClick={() => setError(null)} style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer", fontSize:16 }}>×</button>
+          </div>
+        )}
+
+        {/* Summary cards */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:24 }}>
+          {[
+            { label:"Total Tasks", value:counts.all, color:"#4f8ef7" },
+            { label:"To Do", value:counts.to_do, color:"#a78bfa" },
+            { label:"In Progress", value:counts.in_progress, color:"#f59e0b" },
+            { label:"Completed", value:counts.completed, color:"#22d3a8" },
+          ].map(m => (
+            <div key={m.label} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid var(--border-glass)", borderRadius:14, padding:"16px 18px", position:"relative", overflow:"hidden" }}>
+              <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:m.color, opacity:0.7 }} />
+              <div style={{ fontSize:11, fontWeight:600, color:"var(--color-text-secondary)", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>{m.label}</div>
+              <div style={{ fontSize:28, fontWeight:700, color:m.color }}>{loading ? "—" : m.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Task table */}
+        <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid var(--border-glass)", borderRadius:16, overflow:"hidden" }}>
+          {/* Table header */}
+          <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 100px 110px 130px 120px", gap:0, padding:"10px 18px", borderBottom:"1px solid var(--border-glass)", background:"rgba(255,255,255,0.03)" }}>
+            {["Task", "Assignee", "Priority", "Status", "Deadline", "Actions"].map(h => (
+              <div key={h} style={{ fontSize:11, fontWeight:700, color:"var(--color-text-tertiary)", textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</div>
+            ))}
+          </div>
+
+          {loading ? (
+            <div style={{ padding:"48px 0", textAlign:"center" }}>
+              <div style={{ width:24, height:24, border:"2px solid rgba(79,142,247,0.2)", borderTopColor:"#4f8ef7", borderRadius:"50%", animation:"spin 0.7s linear infinite", margin:"0 auto 10px" }} />
+              <div style={{ fontSize:13, color:"var(--color-text-tertiary)" }}>Loading tasks…</div>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding:"48px 0", textAlign:"center" }}>
+              <div style={{ fontSize:36, marginBottom:10, opacity:0.3 }}>✦</div>
+              <div style={{ fontSize:14, color:"var(--color-text-tertiary)" }}>No tasks found</div>
+              <div style={{ fontSize:12, color:"var(--color-text-tertiary)", marginTop:4 }}>Try changing filters or create a new task</div>
+            </div>
+          ) : (
+            filtered.map((t, i) => {
+              const pri   = t.priority || "medium";
+              const st    = t.status || "to_do";
+              const title = t.title || t.task_description || "Untitled";
+              return (
+                <div key={t.id} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 100px 110px 130px 120px", gap:0, padding:"13px 18px", borderBottom: i < filtered.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems:"center", transition:"background 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.03)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                >
+                  {/* Title */}
+                  <div style={{ fontSize:13, color:"var(--color-text-primary)", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:12 }} title={title}>{title}</div>
+
+                  {/* Assignee */}
+                  <div style={{ fontSize:12, color:"var(--color-text-secondary)", display:"flex", alignItems:"center", gap:6 }}>
+                    {t.assignee ? (
+                      <><span style={{ width:22, height:22, borderRadius:"50%", background:"linear-gradient(135deg,#4f8ef7,#7b5cf0)", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0 }}>{t.assignee[0]?.toUpperCase()}</span>{t.assignee}</>
+                    ) : <span style={{ color:"var(--color-text-tertiary)" }}>Unassigned</span>}
+                  </div>
+
+                  {/* Priority */}
+                  <div>{pill(PRIORITY_COLOR[pri] || "#f59e0b", pri.charAt(0).toUpperCase()+pri.slice(1))}</div>
+
+                  {/* Status */}
+                  <div>
+                    <select value={st} onChange={e => changeStatus(t.id, e.target.value)}
+                      style={{ fontSize:11, fontWeight:600, background:`${STATUS_COLOR[st] || "#4f8ef7"}18`, color:STATUS_COLOR[st] || "#4f8ef7", border:`1px solid ${STATUS_COLOR[st] || "#4f8ef7"}33`, borderRadius:999, padding:"3px 8px", cursor:"pointer", outline:"none", fontFamily:"var(--font-sans)" }}>
+                      {Object.entries(STATUS_LABEL).map(([v,l]) => <option key={v} value={v} style={{background:"#1e2140",color:"#f0f2ff"}}>{l}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Deadline */}
+                  <div style={{ fontSize:12, color: t.deadline && new Date(t.deadline) < new Date() ? "#f87171" : "var(--color-text-secondary)" }}>
+                    {t.deadline ? new Date(t.deadline).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" }) : <span style={{ color:"var(--color-text-tertiary)" }}>—</span>}
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display:"flex", gap:6 }}>
+                    {(isArchitect || isNavigator) && (
+                      <button onClick={() => openEdit(t)} title="Edit" style={{ width:28, height:28, borderRadius:7, border:"1px solid var(--border-glass)", background:"transparent", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}
+                        onMouseEnter={e => { e.currentTarget.style.background="rgba(79,142,247,0.15)"; e.currentTarget.style.color="#4f8ef7"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="var(--color-text-secondary)"; }}>✎</button>
+                    )}
+                    {isArchitect && (
+                      <button onClick={() => deleteTask(t.id)} title="Delete" style={{ width:28, height:28, borderRadius:7, border:"1px solid var(--border-glass)", background:"transparent", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}
+                        onMouseEnter={e => { e.currentTarget.style.background="rgba(248,113,113,0.12)"; e.currentTarget.style.color="#f87171"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="var(--color-text-secondary)"; }}>✕</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </main>
+
+      {/* Create / Edit Modal */}
+      {showForm && (
+        <div style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(6px)", display:"flex", alignItems:"center", justifyContent:"center" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
+          <div style={{ width:480, background:"#141628", border:"1px solid var(--border-glass)", borderRadius:20, padding:"28px 28px 24px", boxShadow:"0 24px 80px rgba(0,0,0,0.6)" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
+              <div style={{ fontSize:16, fontWeight:700, color:"var(--color-text-primary)" }}>{editTask ? "Edit Task" : "Create Task"}</div>
+              <button onClick={() => setShowForm(false)} style={{ width:28, height:28, borderRadius:"50%", border:"1px solid var(--border-glass)", background:"transparent", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:16 }}>×</button>
+            </div>
+
+            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+              <div>
+                <label style={labelStyle}>Task Title *</label>
+                <input value={form.title} onChange={e => setForm(f => ({...f, title:e.target.value}))} placeholder="What needs to be done?" style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>Assignee</label>
+                <input value={form.assignee} onChange={e => setForm(f => ({...f, assignee:e.target.value}))} placeholder="username or name" style={inputStyle} />
+              </div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                <div>
+                  <label style={labelStyle}>Priority</label>
+                  <select value={form.priority} onChange={e => setForm(f => ({...f, priority:e.target.value}))} style={{ ...inputStyle, cursor:"pointer" }}>
+                    <option value="high" style={{background:"#1e2140",color:"#f0f2ff"}}>🔴 High</option>
+                    <option value="medium" style={{background:"#1e2140",color:"#f0f2ff"}}>🟡 Medium</option>
+                    <option value="low" style={{background:"#1e2140",color:"#f0f2ff"}}>🟢 Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Deadline</label>
+                  <input type="date" value={form.deadline} onChange={e => setForm(f => ({...f, deadline:e.target.value}))} style={{ ...inputStyle, colorScheme:"dark" }} />
+                </div>
+              </div>
+              {editTask && (
+                <div>
+                  <label style={labelStyle}>Description</label>
+                  <textarea value={form.description} onChange={e => setForm(f => ({...f, description:e.target.value}))} rows={3} placeholder="Additional details…" style={{ ...inputStyle, height:"auto", padding:"10px 12px", resize:"vertical" }} />
+                </div>
+              )}
+            </div>
+
+            <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:22 }}>
+              <button onClick={() => setShowForm(false)} style={{ height:38, padding:"0 18px", borderRadius:8, border:"1px solid var(--border-glass)", background:"transparent", color:"var(--color-text-secondary)", fontFamily:"var(--font-sans)", fontSize:13, cursor:"pointer" }}>Cancel</button>
+              <button onClick={handleSubmit} disabled={submitting || !form.title.trim()} style={{ height:38, padding:"0 22px", borderRadius:8, border:"none", background:"linear-gradient(135deg,#4f8ef7,#7b5cf0)", color:"#fff", fontFamily:"var(--font-sans)", fontSize:13, fontWeight:600, cursor:submitting ? "not-allowed" : "pointer", opacity:submitting ? 0.7 : 1 }}>
+                {submitting ? "Saving…" : editTask ? "Save Changes" : "Create Task"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function PlaceholderPage({ label }) {
   return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
@@ -1706,6 +2033,8 @@ function AuthenticatedApp() {
             submitting={submitting} moveTask={moveTask} removeTask={removeTask}
             addTask={addTask} reload={reload} clearError={clearError}
           />
+        ) : activeNav === 1 ? (
+          <TasksPage />
         ) : activeNav === 5 ? (
           <OwnershipGraph />
         ) : activeNav === 6 ? (
