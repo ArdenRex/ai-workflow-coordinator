@@ -4156,7 +4156,7 @@ function FeedbackButton({ user, token, currentPage }) {
 
 const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
 
-function BillingWall({ user, token, status, daysLeft, onSuccess }) {
+function BillingWall({ user, token, status, isNewUser, daysLeft, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
 
@@ -4184,7 +4184,6 @@ function BillingWall({ user, token, status, daysLeft, onSuccess }) {
     }
   };
 
-  const isExpired   = status === "trialing" || status === "past_due" || status === "cancelled";
   const isPastDue   = status === "past_due";
   const isCancelled = status === "cancelled";
 
@@ -4211,13 +4210,13 @@ function BillingWall({ user, token, status, daysLeft, onSuccess }) {
 
         <div style={{ padding: "36px 40px 40px" }}>
           {/* Icon */}
-          <div style={{ width: 64, height: 64, borderRadius: 18, background: isPastDue ? "rgba(245,158,11,0.15)" : isCancelled ? "rgba(239,68,68,0.15)" : "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, marginBottom: 24 }}>
-            {isPastDue ? "⚠️" : isCancelled ? "🔒" : "🚀"}
+          <div style={{ width: 64, height: 64, borderRadius: 18, background: isPastDue ? "rgba(245,158,11,0.15)" : isCancelled ? "rgba(239,68,68,0.15)" : isNewUser ? "rgba(16,185,129,0.15)" : "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, marginBottom: 24 }}>
+            {isPastDue ? "⚠️" : isCancelled ? "🔒" : isNewUser ? "🎉" : "🚀"}
           </div>
 
           {/* Heading */}
           <div style={{ fontSize: 22, fontWeight: 700, color: "#f1f3fc", marginBottom: 10, fontFamily: "var(--font-display)" }}>
-            {isPastDue ? "Payment Failed" : isCancelled ? "Subscription Ended" : "Your Free Trial Has Ended"}
+            {isPastDue ? "Payment Failed" : isCancelled ? "Subscription Ended" : isNewUser ? "Start Your 7-Day Free Trial" : "Your Free Trial Has Ended"}
           </div>
 
           {/* Subtext */}
@@ -4226,6 +4225,8 @@ function BillingWall({ user, token, status, daysLeft, onSuccess }) {
               ? "We couldn't process your last payment. Please update your payment details to continue using AI Workflow Coordinator."
               : isCancelled
               ? "Your subscription has been cancelled. Reactivate now to regain full access to your workspace and tasks."
+              : isNewUser
+              ? "Welcome to AI Workflow Coordinator! Enter your card details to start your free 7-day trial. You won't be charged until the trial ends — cancel anytime."
               : "You've experienced the full power of AI Workflow Coordinator. Subscribe now to keep your tasks, team, and workflows running."}
           </div>
 
@@ -4240,12 +4241,12 @@ function BillingWall({ user, token, status, daysLeft, onSuccess }) {
           </div>
 
           {/* Price */}
-          <div style={{ padding: "16px 20px", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 14, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ padding: "16px 20px", background: isNewUser ? "rgba(16,185,129,0.08)" : "rgba(59,130,246,0.08)", border: isNewUser ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(59,130,246,0.2)", borderRadius: 14, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Monthly subscription</div>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{isNewUser ? "Free for 7 days, then" : "Monthly subscription"}</div>
               <div style={{ fontSize: 22, fontWeight: 700, color: "#f1f3fc", marginTop: 2 }}>$20 <span style={{ fontSize: 14, fontWeight: 400, color: "var(--color-text-secondary)" }}>/ user / month</span></div>
             </div>
-            <div style={{ fontSize: 11, color: "#22d3ee", background: "rgba(34,211,238,0.1)", padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>Cancel anytime</div>
+            <div style={{ fontSize: 11, color: isNewUser ? "#10b981" : "#22d3ee", background: isNewUser ? "rgba(16,185,129,0.1)" : "rgba(34,211,238,0.1)", padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>{isNewUser ? "7 days FREE" : "Cancel anytime"}</div>
           </div>
 
           {error && (
@@ -4264,7 +4265,7 @@ function BillingWall({ user, token, status, daysLeft, onSuccess }) {
               transition: "all 0.2s",
             }}
           >
-            {loading ? "Redirecting to payment…" : isPastDue ? "Update Payment Method →" : "Subscribe Now — $20/month →"}
+            {loading ? "Redirecting to payment…" : isPastDue ? "Update Payment Method →" : isNewUser ? "Start Free Trial — Enter Card Details →" : "Subscribe Now — $20/month →"}
           </button>
 
           <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "var(--color-text-tertiary)" }}>
@@ -4363,13 +4364,8 @@ function AuthenticatedApp() {
     }
   }, []);
 
-  // Step 1 — Onboarding: new users must complete the intro tour first
-  if (!isOnboarded || showOnboarding) {
-    return <OnboardingPage onComplete={() => setShowOnboarding(false)} />;
-  }
-
-  // Step 2 — Billing: after onboarding, check subscription before showing dashboard
-  // While billing status is loading, show a brief spinner so nothing flickers
+  // Step 1 — Billing: check subscription/trial before anything else
+  // Show spinner while billing status is being fetched
   if (!billingChecked) {
     return (
       <div style={{ minHeight: "100vh", background: "var(--bg-page)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -4378,9 +4374,22 @@ function AuthenticatedApp() {
     );
   }
 
-  // Step 3 — Show billing wall if trial expired or subscription lapsed
+  // Show billing wall for: new users (no card on file), expired trials, lapsed subscriptions
   if (billing?.show_wall) {
-    return <BillingWall user={user} token={token} status={billing.status} onSuccess={() => setBilling({ status: "active", show_wall: false })} />;
+    return (
+      <BillingWall
+        user={user}
+        token={token}
+        status={billing.status}
+        isNewUser={!billing.card_on_file && billing.status === "trialing"}
+        onSuccess={() => setBilling({ status: "active", show_wall: false })}
+      />
+    );
+  }
+
+  // Step 2 — Onboarding: after billing is sorted, new users complete the intro tour
+  if (!isOnboarded || showOnboarding) {
+    return <OnboardingPage onComplete={() => setShowOnboarding(false)} />;
   }
 
   const currentNavLabel = NAV_ITEMS[activeNav]?.label;
