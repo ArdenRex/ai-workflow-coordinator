@@ -271,6 +271,94 @@ const GLOBAL_STYLES = `
     border-radius: var(--radius-md); flex-shrink: 0;
   }
 
+  /* ── Page transition ────────────────── */
+  @keyframes pageIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .page-enter { animation: pageIn 0.32s cubic-bezier(0.16,1,0.3,1) both; }
+
+  /* ── Ripple on click ────────────────── */
+  @keyframes ripple {
+    from { transform: scale(0); opacity: 0.4; }
+    to   { transform: scale(2.5); opacity: 0; }
+  }
+
+  /* ── Task row ───────────────────────── */
+  .task-row {
+    display: grid; align-items: center;
+    border-radius: 10px; padding: 10px 14px;
+    transition: background 0.12s, box-shadow 0.12s;
+    position: relative; overflow: hidden;
+  }
+  .task-row:hover {
+    background: rgba(255,255,255,0.045) !important;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
+  }
+
+  /* ── Ownership node card ────────────── */
+  .owner-card {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px; cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s, border-color 0.15s;
+    position: relative; overflow: hidden;
+  }
+  .owner-card:hover {
+    transform: translateY(-3px) scale(1.01);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.45);
+    border-color: rgba(255,255,255,0.12);
+  }
+  .owner-card.selected {
+    background: linear-gradient(135deg, rgba(59,130,246,0.14) 0%, rgba(139,92,246,0.14) 100%);
+    border-color: rgba(59,130,246,0.45);
+  }
+
+  /* ── Integration card ───────────────── */
+  .integ-card {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 24px 26px; overflow: hidden; position: relative;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .integ-card:hover {
+    border-color: rgba(255,255,255,0.1);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  }
+
+  /* ── Pulse dot for live status ──────── */
+  @keyframes pulseDot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,168,0.4); }
+    50%       { box-shadow: 0 0 0 5px rgba(34,211,168,0); }
+  }
+  .pulse-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #22d3a8; animation: pulseDot 2s ease-in-out infinite;
+  }
+
+  /* ── Tooltip ────────────────────────── */
+  .has-tooltip { position: relative; }
+  .has-tooltip:hover::after {
+    content: attr(data-tip);
+    position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
+    background: #1e2340; border: 1px solid var(--border-glass);
+    color: var(--color-text-secondary); font-size: 11px; font-weight: 500;
+    padding: 4px 9px; border-radius: 6px; white-space: nowrap;
+    pointer-events: none; animation: fadeUp 0.15s ease both;
+    font-family: var(--font-sans); z-index: 100;
+  }
+
+  /* ── Stagger fade for list items ────── */
+  .stagger > * { animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+  .stagger > *:nth-child(1) { animation-delay: 0.04s; }
+  .stagger > *:nth-child(2) { animation-delay: 0.08s; }
+  .stagger > *:nth-child(3) { animation-delay: 0.12s; }
+  .stagger > *:nth-child(4) { animation-delay: 0.16s; }
+  .stagger > *:nth-child(5) { animation-delay: 0.20s; }
+  .stagger > *:nth-child(6) { animation-delay: 0.24s; }
+
 `;
 
 // ── Full-screen loading spinner (shown while auth state initialises) ───────────
@@ -681,7 +769,7 @@ function OwnershipGraph() {
   const selectedNode = selected ? data?.nodes?.find(n => n.assignee === selected) : null;
 
   return (
-    <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
+    <main className="page-enter" style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
 
       {/* Header */}
       <header style={{
@@ -757,17 +845,7 @@ function OwnershipGraph() {
                 role="button" tabIndex={0}
                 onClick={() => setSelected(isSelected ? null : node.assignee)}
                 onKeyDown={e => e.key === "Enter" && setSelected(isSelected ? null : node.assignee)}
-                style={{
-                  background: isSelected
-                    ? "linear-gradient(135deg, rgba(79,142,247,0.15) 0%, rgba(123,92,240,0.15) 100%)"
-                    : "rgba(255,255,255,0.04)",
-                  backdropFilter: "blur(12px)",
-                  border: `1px solid ${isSelected ? "rgba(79,142,247,0.45)" : "var(--border-glass)"}`,
-                  borderRadius: 16, padding: "18px 20px", cursor: "pointer",
-                  transition: "all 0.15s", position: "relative", overflow: "hidden",
-                }}
-                onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.borderColor = "rgba(255,255,255,0.16)"; e.currentTarget.style.transform = "translateY(-2px)"; } }}
-                onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.borderColor = "var(--border-glass)"; e.currentTarget.style.transform = ""; } }}
+                className={`owner-card${isSelected ? " selected" : ""}`}
               >
                 {/* Top accent */}
                 {isSelected && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,#4f8ef7,#7b5cf0)", borderRadius: "16px 16px 0 0" }} />}
@@ -791,12 +869,12 @@ function OwnershipGraph() {
 
                 {/* Status bar */}
                 <div style={{ marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Completion</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: "#22d3a8" }}>{completionPct}%</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#22d3a8" }}>{completionPct}%</span>
                   </div>
-                  <div style={{ height: 4, borderRadius: 999, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${completionPct}%`, borderRadius: 999, background: "linear-gradient(90deg,#22d3a8,#06b6d4)", transition: "width 0.5s ease" }} />
+                  <div className="progress-track">
+                    <div className="progress-fill" style={{ width: `${completionPct}%`, background: "linear-gradient(90deg,#22d3a8,#06b6d4)", boxShadow: "0 0 8px rgba(34,211,168,0.4)" }} />
                   </div>
                 </div>
 
@@ -1302,7 +1380,7 @@ function ReportsPage() {
         </div>
       </header>
 
-      <main style={{ flex: 1, padding: "24px 28px 40px", display: "flex", flexDirection: "column", gap: 20 }}>
+      <main className="page-enter" style={{ flex: 1, padding: "24px 28px 40px", display: "flex", flexDirection: "column", gap: 20 }}>
 
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
@@ -1583,7 +1661,7 @@ function CompliancePage() {
         )}
       </header>
 
-      <main style={{ flex: 1, padding: "24px 28px 40px", display: "flex", flexDirection: "column", gap: 20 }}>
+      <main className="page-enter" style={{ flex: 1, padding: "24px 28px 40px", display: "flex", flexDirection: "column", gap: 20 }}>
 
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
@@ -2144,16 +2222,17 @@ function SettingsPage() {
         </div>
       </header>
 
-      <main style={{ flex: 1, padding: "24px 28px 40px", display: "flex", gap: 20, maxWidth: 900 }}>
+      <main className="page-enter" style={{ flex: 1, padding: "24px 28px 40px", display: "flex", gap: 20, maxWidth: 900 }}>
 
         {/* Left sidebar tabs */}
-        <div style={{ width: 180, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+        <div style={{ width: 180, flexShrink: 0, display: "flex", flexDirection: "column", gap: 3 }}>
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "none", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 500, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
-                background: activeTab === tab.key ? "rgba(79,142,247,0.15)" : "transparent",
-                color: activeTab === tab.key ? "#3b82f6" : "var(--color-text-secondary)",
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "none", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: activeTab === tab.key ? 600 : 400, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
+                background: activeTab === tab.key ? "rgba(59,130,246,0.14)" : "transparent",
+                color: activeTab === tab.key ? "#e0eaff" : "var(--color-text-secondary)",
                 borderLeft: `3px solid ${activeTab === tab.key ? "#3b82f6" : "transparent"}`,
+                boxShadow: activeTab === tab.key ? "inset 0 0 0 1px rgba(59,130,246,0.2)" : "none",
               }}>
               <span style={{ fontSize: 15 }}>{tab.icon}</span>{tab.label}
             </button>
@@ -2439,13 +2518,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
   return (
     <>
       {/* Topbar */}
-      <header style={{
-        position: "sticky", top: 0, zIndex: 40, height: 64,
-        background: "rgba(13,15,30,0.88)",
-        backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-        borderBottom: "1px solid var(--border-glass)",
-        padding: "0 28px", display: "flex", alignItems: "center", gap: 16,
-      }}>
+      <header className="page-header">
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)", lineHeight: 1.2 }}>Dashboard</div>
           <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 1 }}>Your AI assistant team is ready</div>
@@ -2462,15 +2535,10 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             onChange={e => setFilter(e.target.value)}
             placeholder="Search tasks or assignees…"
             aria-label="Search tasks or assignees"
-            style={{
-              width: "100%", height: 36, padding: "0 14px 0 32px",
-              background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)",
-              borderRadius: 999, fontFamily: "var(--font-sans)", fontSize: 13,
-              color: "var(--color-text-primary)", outline: "none",
-              transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
-            }}
-            onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.background = "rgba(79,142,247,0.08)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
-            onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.background = "rgba(255,255,255,0.06)"; e.target.style.boxShadow = "none"; }}
+            className="field-input"
+            style={{ paddingLeft: 32, borderRadius: 999, height: 36 }}
+            onFocus={e => { e.target.style.borderColor = "rgba(59,130,246,0.55)"; e.target.style.background = "rgba(59,130,246,0.07)"; e.target.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.14)"; }}
+            onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.background = "rgba(255,255,255,0.04)"; e.target.style.boxShadow = "none"; }}
           />
         </div>
 
@@ -2494,37 +2562,19 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
           ))}
 
           <button onClick={() => reload()} title="Refresh" aria-label="Refresh tasks" disabled={loading}
-            style={{
-              width: 36, height: 36, borderRadius: 10, border: "1px solid var(--border-glass)",
-              background: "transparent", cursor: loading ? "not-allowed" : "pointer",
-              color: "var(--color-text-secondary)", fontSize: 15,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              transition: "all 0.15s", opacity: loading ? 0.5 : 1,
-            }}
-            onMouseEnter={e => { if (!loading) { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "var(--color-text-primary)"; } }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}
+            className="btn-ghost has-tooltip" data-tip="Refresh"
+            style={{ width: 36, height: 36, padding: 0, justifyContent: "center", opacity: loading ? 0.5 : 1, fontSize: 15 }}
           >↻</button>
 
           <button onClick={() => setShowModal(true)} disabled={submitting} aria-label="Create new task"
-            style={{
-              height: 36, padding: "0 18px", borderRadius: 999, border: "none",
-              background: "var(--grad-primary)",
-              color: "#fff", fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700,
-              cursor: submitting ? "not-allowed" : "pointer",
-              display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap",
-              boxShadow: "0 0 28px rgba(59,130,246,0.45), inset 0 1px 0 rgba(255,255,255,0.18)",
-              letterSpacing: "-0.01em",
-              transition: "opacity 0.15s, transform 0.1s",
-              opacity: submitting ? 0.6 : 1,
-            }}
-            onMouseEnter={e => { if (!submitting) { e.currentTarget.style.opacity = "0.9"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = submitting ? "0.6" : "1"; e.currentTarget.style.transform = ""; }}
-          >{submitting ? "Adding…" : "+ New task"}</button>
+            className="btn-primary"
+            style={{ borderRadius: 999, fontSize: 13, letterSpacing: "-0.01em", opacity: submitting ? 0.6 : 1 }}
+          >{submitting ? "Adding…" : "✦ New task"}</button>
         </div>
       </header>
 
       {/* Page body */}
-      <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
+      <main className="page-enter" style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
 
         {/* Hero row */}
         <div className="fade-up" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
@@ -2547,11 +2597,11 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             <AddToSlackButton />
             <div style={{
               padding: "6px 14px", borderRadius: 999,
-              background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.25)",
+              background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.22)",
               fontSize: 12, fontWeight: 600, color: "#22d3a8",
-              display: "flex", alignItems: "center", gap: 6,
+              display: "flex", alignItems: "center", gap: 7,
             }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22d3a8", boxShadow: "0 0 6px #22d3a8", animation: "pulse 2s ease-in-out infinite" }} aria-hidden="true" />
+              <span className="pulse-dot" aria-hidden="true" />
               System Online
             </div>
           </div>
@@ -2573,7 +2623,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         )}
 
         {/* Metrics */}
-        <div className="fade-up delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 16 }}>
+        <div className="fade-up delay-1 stagger" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 16 }}>
           {METRICS.map((m, i) => (
             <div key={m.label} className="pcard" style={{
               backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
@@ -2727,11 +2777,7 @@ function IntegrationsPage() {
   }
 
   const card = (children, extra = {}) => (
-    <div style={{
-      background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)",
-      border: "1px solid var(--border-glass)", borderRadius: 16,
-      padding: "22px 24px", ...extra,
-    }}>{children}</div>
+    <div className="integ-card" style={{ ...extra }}>{children}</div>
   );
 
   const field = (label, value, onChange, placeholder, type = "text") => (
@@ -2753,17 +2799,9 @@ function IntegrationsPage() {
   );
 
   const saveBtn = (service, onClick) => (
-    <button
-      onClick={onClick}
-      disabled={saving === service}
-      style={{
-        height: 36, padding: "0 20px", borderRadius: 8, border: "none",
-        background: "var(--grad-primary)",
-        color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
-        cursor: saving === service ? "not-allowed" : "pointer",
-        opacity: saving === service ? 0.6 : 1, alignSelf: "flex-end",
-      }}
-    >{saving === service ? "Saving…" : "Save credentials"}</button>
+    <button onClick={onClick} disabled={saving === service} className="btn-primary" style={{ opacity: saving === service ? 0.55 : 1 }}>
+      {saving === service ? "Saving…" : "Save credentials"}
+    </button>
   );
 
   const syncBtn = (service, configured) => (
@@ -2811,7 +2849,7 @@ function IntegrationsPage() {
   );
 
   return (
-    <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
+    <main className="page-enter" style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
 
       {/* Header */}
       <div>
