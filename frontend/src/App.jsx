@@ -121,6 +121,156 @@ const GLOBAL_STYLES = `
 
   /* Selection */
   ::selection { background: rgba(59,130,246,0.25); color: #f1f3fc; }
+
+  /* ── Premium card hover ─────────────── */
+  .pcard {
+    background: rgba(255,255,255,0.032);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s, border-color 0.2s;
+  }
+  .pcard:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.1);
+  }
+
+  /* ── Table rows ─────────────────────── */
+  .trow {
+    transition: background 0.12s;
+    border-radius: 8px;
+  }
+  .trow:hover { background: rgba(255,255,255,0.04) !important; }
+
+  /* ── Btn primary ────────────────────── */
+  .btn-primary {
+    height: 38px; padding: 0 20px; border-radius: 10px; border: none;
+    background: var(--grad-primary); color: #fff;
+    font-family: var(--font-sans); font-size: 13px; font-weight: 600;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+    box-shadow: 0 0 24px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.18);
+    transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+    white-space: nowrap;
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 36px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.22); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ── Btn ghost ──────────────────────── */
+  .btn-ghost {
+    height: 38px; padding: 0 16px; border-radius: 10px;
+    border: 1px solid var(--border-glass);
+    background: rgba(255,255,255,0.03); color: var(--color-text-secondary);
+    font-family: var(--font-sans); font-size: 13px; font-weight: 500;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+    transition: all 0.12s;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.07); color: var(--color-text-primary); border-color: rgba(255,255,255,0.12); }
+
+  /* ── Input field ────────────────────── */
+  .field-input {
+    width: 100%; height: 40px; padding: 0 13px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border-glass);
+    border-radius: 9px; font-family: var(--font-sans); font-size: 13px;
+    color: var(--color-text-primary); outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    box-sizing: border-box;
+  }
+  .field-input:focus {
+    border-color: rgba(59,130,246,0.55);
+    background: rgba(59,130,246,0.06);
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.14);
+  }
+  .field-input::placeholder { color: var(--color-text-muted); }
+
+  /* ── Page header ────────────────────── */
+  .page-header {
+    position: sticky; top: 0; z-index: 40; height: 64px;
+    background: rgba(7,8,15,0.88);
+    backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
+    border-bottom: 1px solid rgba(255,255,255,0.055);
+    box-shadow: 0 1px 0 rgba(59,130,246,0.07), 0 4px 20px rgba(0,0,0,0.25);
+    padding: 0 28px; display: flex; align-items: center; gap: 16;
+  }
+
+  /* ── Section card ───────────────────── */
+  .section-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+  }
+
+  /* ── Badge ──────────────────────────── */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.01em;
+    border: 1px solid transparent;
+  }
+
+  /* ── Animated counter ───────────────── */
+  @keyframes countUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .count-up { animation: countUp 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+
+  /* ── Skeleton shimmer ───────────────── */
+  .skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 6px;
+  }
+
+  /* ── Modal backdrop ─────────────────── */
+  .modal-backdrop {
+    position: fixed; inset: 0; z-index: 200;
+    background: rgba(0,0,0,0.65);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    animation: scaleIn 0.18s ease both;
+  }
+  .modal-box {
+    background: linear-gradient(160deg, #13172b 0%, #0e1122 100%);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(59,130,246,0.1);
+    animation: scaleIn 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+
+  /* ── Status pill ────────────────────── */
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    border: 1px solid transparent;
+  }
+  .status-pill::before {
+    content: ''; width: 5px; height: 5px; border-radius: 50%;
+    background: currentColor; opacity: 0.8; flex-shrink: 0;
+  }
+
+  /* ── Progress bar ───────────────────── */
+  .progress-track {
+    height: 5px; border-radius: 999px;
+    background: rgba(255,255,255,0.07); overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 999px;
+    transition: width 0.7s cubic-bezier(0.16,1,0.3,1);
+  }
+
+  /* ── Glow orb ───────────────────────── */
+  .glow-orb {
+    position: absolute; border-radius: 50%;
+    pointer-events: none; filter: blur(32px);
+  }
+
+  /* ── Icon bubble ────────────────────── */
+  .icon-bubble {
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-md); flex-shrink: 0;
+  }
+
 `;
 
 // ── Full-screen loading spinner (shown while auth state initialises) ───────────
@@ -1005,49 +1155,52 @@ function TasksPage() {
 
       {/* Create / Edit Modal */}
       {showForm && (
-        <div style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(6px)", display:"flex", alignItems:"center", justifyContent:"center" }}
-          onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div style={{ width:480, background:"#141628", border:"1px solid var(--border-glass)", borderRadius:20, padding:"28px 28px 24px", boxShadow:"0 24px 80px rgba(0,0,0,0.6)" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:22 }}>
-              <div style={{ fontSize:16, fontWeight:700, color:"var(--color-text-primary)" }}>{editTask ? "Edit Task" : "Create Task"}</div>
-              <button onClick={() => setShowForm(false)} style={{ width:28, height:28, borderRadius:"50%", border:"1px solid var(--border-glass)", background:"transparent", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:16 }}>×</button>
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
+          <div className="modal-box" style={{ width: 500, padding: "30px 30px 26px" }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>{editTask ? "Edit Task" : "New Task"}</div>
+                <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>{editTask ? "Update task details" : "Add to your workflow"}</div>
+              </div>
+              <button onClick={() => setShowForm(false)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.04)", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
 
-            <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
                 <label style={labelStyle}>Task Title *</label>
-                <input value={form.title} onChange={e => setForm(f => ({...f, title:e.target.value}))} placeholder="What needs to be done?" style={inputStyle} />
+                <input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="What needs to be done?" className="field-input" style={{ height: 42 }} />
               </div>
               <div>
                 <label style={labelStyle}>Assignee</label>
-                <input value={form.assignee} onChange={e => setForm(f => ({...f, assignee:e.target.value}))} placeholder="username or name" style={inputStyle} />
+                <input value={form.assignee} onChange={e => setForm(f => ({...f, assignee: e.target.value}))} placeholder="username or name" className="field-input" style={{ height: 42 }} />
               </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                 <div>
                   <label style={labelStyle}>Priority</label>
-                  <select value={form.priority} onChange={e => setForm(f => ({...f, priority:e.target.value}))} style={{ ...inputStyle, cursor:"pointer" }}>
-                    <option value="high" style={{background:"#1e2140",color:"#f0f2ff"}}>🔴 High</option>
-                    <option value="medium" style={{background:"#1e2140",color:"#f0f2ff"}}>🟡 Medium</option>
-                    <option value="low" style={{background:"#1e2140",color:"#f0f2ff"}}>🟢 Low</option>
+                  <select value={form.priority} onChange={e => setForm(f => ({...f, priority: e.target.value}))} className="field-input" style={{ height: 42, cursor: "pointer" }}>
+                    <option value="high" style={{ background: "#1e2140", color: "#f0f2ff" }}>🔴 High</option>
+                    <option value="medium" style={{ background: "#1e2140", color: "#f0f2ff" }}>🟡 Medium</option>
+                    <option value="low" style={{ background: "#1e2140", color: "#f0f2ff" }}>🟢 Low</option>
                   </select>
                 </div>
                 <div>
                   <label style={labelStyle}>Deadline</label>
-                  <input type="date" value={form.deadline} onChange={e => setForm(f => ({...f, deadline:e.target.value}))} style={{ ...inputStyle, colorScheme:"dark" }} />
+                  <input type="date" value={form.deadline} onChange={e => setForm(f => ({...f, deadline: e.target.value}))} className="field-input" style={{ height: 42, colorScheme: "dark" }} />
                 </div>
               </div>
               {editTask && (
                 <div>
                   <label style={labelStyle}>Description</label>
-                  <textarea value={form.description} onChange={e => setForm(f => ({...f, description:e.target.value}))} rows={3} placeholder="Additional details…" style={{ ...inputStyle, height:"auto", padding:"10px 12px", resize:"vertical" }} />
+                  <textarea value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} rows={3} placeholder="Additional details…" className="field-input" style={{ height: "auto", padding: "11px 13px", resize: "vertical", lineHeight: 1.6 }} />
                 </div>
               )}
             </div>
 
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10, marginTop:22 }}>
-              <button onClick={() => setShowForm(false)} style={{ height:38, padding:"0 18px", borderRadius:8, border:"1px solid var(--border-glass)", background:"transparent", color:"var(--color-text-secondary)", fontFamily:"var(--font-sans)", fontSize:13, cursor:"pointer" }}>Cancel</button>
-              <button onClick={handleSubmit} disabled={submitting || !form.title.trim()} style={{ height:38, padding:"0 22px", borderRadius:8, border:"none", background:"var(--grad-primary)", color:"#fff", fontFamily:"var(--font-sans)", fontSize:13, fontWeight:600, cursor:submitting ? "not-allowed" : "pointer", opacity:submitting ? 0.7 : 1 }}>
-                {submitting ? "Saving…" : editTask ? "Save Changes" : "Create Task"}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border-glass)" }}>
+              <button onClick={() => setShowForm(false)} className="btn-ghost">Cancel</button>
+              <button onClick={handleSubmit} disabled={submitting || !form.title.trim()} className="btn-primary" style={{ opacity: (submitting || !form.title.trim()) ? 0.55 : 1 }}>
+                {submitting ? "Saving…" : editTask ? "Save Changes" : "✦ Create Task"}
               </button>
             </div>
           </div>
@@ -1121,7 +1274,7 @@ function ReportsPage() {
   const maxTrend = stats ? Math.max(...stats.trend.map(d => d.count), 1) : 1;
 
   const Card = ({ children, style }) => (
-    <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-glass)", borderRadius: "var(--radius-lg)", padding: "20px 22px", ...style }}>{children}</div>
+    <div className="pcard" style={{ padding: "22px 24px", ...style }}>{children}</div>
   );
 
   const SectionTitle = ({ children }) => (
@@ -1135,7 +1288,7 @@ function ReportsPage() {
   return (
     <>
       {/* Topbar */}
-      <header style={{ position: "sticky", top: 0, zIndex: 40, height: 64, background: "rgba(7,8,15,0.85)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 1px 0 rgba(59,130,246,0.08)", padding: "0 28px", display: "flex", alignItems: "center", gap: 16 }}>
+      <header className="page-header">
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Reports</div>
           <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Workspace analytics & performance</div>
@@ -1170,12 +1323,13 @@ function ReportsPage() {
                 { label: "Overdue", value: stats.overdue.length, sub: stats.overdue.length ? "Need attention" : "All on track ✓", color: stats.overdue.length ? "#f87171" : "#22d3a8" },
                 { label: "Avg / Day", value: stats.avgPerDay, sub: `Tasks created per day`, color: "#a78bfa" },
               ].map(m => (
-                <Card key={m.label} style={{ position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.8 }} />
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>{m.label}</div>
-                  <div style={{ fontSize: 32, fontWeight: 700, color: m.color, lineHeight: 1, marginBottom: 4 }}>{m.value}</div>
+                <div key={m.label} className="pcard" style={{ padding: "20px 22px", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.85 }} />
+                  <div className="glow-orb" style={{ top: -20, left: -20, width: 80, height: 80, background: m.color, opacity: 0.06 }} />
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8, fontFamily: "var(--font-display)" }}>{m.label}</div>
+                  <div style={{ fontSize: 34, fontWeight: 800, color: m.color, lineHeight: 1, marginBottom: 5, fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{m.value}</div>
                   <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{m.sub}</div>
-                </Card>
+                </div>
               ))}
             </div>
 
@@ -1197,8 +1351,8 @@ function ReportsPage() {
                           </span>
                           <span style={{ fontSize: 12, fontWeight: 700, color: STATUS_C[key] }}>{count} <span style={{ fontWeight: 400, color: "var(--color-text-tertiary)" }}>({pct}%)</span></span>
                         </div>
-                        <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${pct}%`, background: STATUS_C[key], borderRadius: 999, transition: "width 0.6s cubic-bezier(.4,0,.2,1)" }} />
+                        <div className="progress-track" style={{ height: 6 }}>
+                          <div className="progress-fill" style={{ width: `${pct}%`, background: STATUS_C[key] }} />
                         </div>
                       </div>
                     );
@@ -1241,8 +1395,8 @@ function ReportsPage() {
                           </span>
                           <span style={{ fontSize: 12, fontWeight: 700, color }}>{count} <span style={{ fontWeight: 400, color: "var(--color-text-tertiary)" }}>({pct}%)</span></span>
                         </div>
-                        <div style={{ height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 999, transition: "width 0.6s cubic-bezier(.4,0,.2,1)" }} />
+                        <div className="progress-track" style={{ height: 6 }}>
+                          <div className="progress-fill" style={{ width: `${pct}%`, background: color }} />
                         </div>
                       </div>
                     );
@@ -1413,7 +1567,7 @@ function CompliancePage() {
   return (
     <>
       {/* Topbar */}
-      <header style={{ position: "sticky", top: 0, zIndex: 40, height: 64, background: "rgba(7,8,15,0.85)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 1px 0 rgba(59,130,246,0.08)", padding: "0 28px", display: "flex", alignItems: "center", gap: 16 }}>
+      <header className="page-header">
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Compliance</div>
           <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Task health monitoring & audit trail</div>
@@ -1451,28 +1605,29 @@ function CompliancePage() {
                 { label: "High Not Started", value: compliance.highNotStarted.length,   color: compliance.highNotStarted.length ? "#f87171" : "#22d3a8", icon: "🔴" },
                 { label: "No Deadline",      value: compliance.noDeadline.length,       color: compliance.noDeadline.length > 3 ? "#f59e0b" : "#22d3a8", icon: "📅" },
               ].map(m => (
-                <div key={m.label} style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${m.value && m.color !== "#22d3a8" ? m.color + "33" : "var(--border-glass)"}`, borderRadius: 14, padding: "16px 16px 14px", position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.7 }} />
-                  <div style={{ fontSize: 18, marginBottom: 6 }}>{m.icon}</div>
-                  <div style={{ fontSize: 26, fontWeight: 700, color: m.color, lineHeight: 1, marginBottom: 4 }}>{m.value}</div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{m.label}</div>
+                <div key={m.label} className="pcard" style={{ padding: "18px 16px 16px", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.8 }} />
+                  <div className="glow-orb" style={{ top: -20, left: -20, width: 80, height: 80, background: m.color, opacity: 0.06 }} />
+                  <div style={{ fontSize: 20, marginBottom: 8 }}>{m.icon}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: m.color, lineHeight: 1, marginBottom: 5, fontFamily: "var(--font-display)" }}>{m.value}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{m.label}</div>
                 </div>
               ))}
             </div>
 
             {/* Compliance score bar */}
-            <div style={{ background: "var(--bg-card)", border: "1px solid var(--border-glass)", borderRadius: 14, padding: "16px 20px", display: "flex", alignItems: "center", gap: 20 }}>
+            <div className="section-card" style={{ display: "flex", alignItems: "center", gap: 24 }}>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Overall Health</div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: scoreColor }}>{compliance.score}%</div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Overall Health</div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: scoreColor, fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{compliance.score}<span style={{ fontSize: 16, fontWeight: 500 }}>%</span></div>
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ height: 10, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${compliance.score}%`, background: `linear-gradient(90deg, ${scoreColor}, ${scoreColor}cc)`, borderRadius: 999, transition: "width 0.8s ease" }} />
+                <div className="progress-track" style={{ height: 8 }}>
+                  <div className="progress-fill" style={{ width: `${compliance.score}%`, background: `linear-gradient(90deg, ${scoreColor}, ${scoreColor}bb)`, boxShadow: `0 0 10px ${scoreColor}55` }} />
                 </div>
               </div>
-              <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-                {compliance.issues === 0 ? "✅ All tasks healthy" : `${compliance.issues} issue${compliance.issues !== 1 ? "s" : ""} need attention`}
+              <div style={{ padding: "6px 14px", borderRadius: 999, background: scoreColor + "18", border: `1px solid ${scoreColor}33`, fontSize: 12, color: scoreColor, fontWeight: 600 }}>
+                {compliance.issues === 0 ? "✅ All healthy" : `${compliance.issues} issue${compliance.issues !== 1 ? "s" : ""}`}
               </div>
             </div>
 
@@ -1695,7 +1850,7 @@ function KnowledgePage() {
   return (
     <>
       {/* Topbar */}
-      <header style={{ position: "sticky", top: 0, zIndex: 40, height: 64, background: "rgba(7,8,15,0.85)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 1px 0 rgba(59,130,246,0.08)", padding: "0 28px", display: "flex", alignItems: "center", gap: 14 }}>
+      <header className="page-header">
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Knowledge Base</div>
           <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{notes.length} notes · team wiki & guides</div>
@@ -1740,29 +1895,31 @@ function KnowledgePage() {
               {filtered.map(note => (
                 <div key={note.id}
                   onClick={() => setViewNote(note)}
-                  style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${viewNote?.id === note.id ? "#3b82f6" : "var(--border-glass)"}`, borderRadius: 14, padding: "16px 18px", cursor: "pointer", transition: "all 0.15s", position: "relative", overflow: "hidden" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.transform = ""; }}>
+                  className="pcard"
+                  style={{ padding: "18px 20px", cursor: "pointer", position: "relative", overflow: "hidden",
+                    border: `1px solid ${viewNote?.id === note.id ? "rgba(59,130,246,0.5)" : "var(--border-glass)"}`,
+                    background: viewNote?.id === note.id ? "rgba(59,130,246,0.06)" : "rgba(255,255,255,0.032)",
+                  }}>
 
-                  {/* Category stripe */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: CAT_COLOR[note.category] || "#3b82f6" }} />
+                  {/* Category top stripe */}
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2.5, background: CAT_COLOR[note.category] || "#3b82f6" }} />
+                  {/* Ambient glow */}
+                  <div className="glow-orb" style={{ top: -20, right: -20, width: 80, height: 80, background: CAT_COLOR[note.category] || "#3b82f6", opacity: 0.05 }} />
 
-                  {/* Header row */}
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.3, flex: 1 }}>{note.title}</div>
-                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                      {note.pinned && <span title="Pinned" style={{ fontSize: 12 }}>📌</span>}
-                    </div>
+                  {/* Header */}
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.35, flex: 1 }}>{note.title}</div>
+                    {note.pinned && <span title="Pinned" style={{ fontSize: 13, flexShrink: 0 }}>📌</span>}
                   </div>
 
-                  {/* Body preview */}
-                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.5, marginBottom: 12, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+                  {/* Preview */}
+                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 14, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
                     {note.body}
                   </div>
 
                   {/* Footer */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: `${CAT_COLOR[note.category] || "#3b82f6"}18`, color: CAT_COLOR[note.category] || "#3b82f6", border: `1px solid ${CAT_COLOR[note.category] || "#3b82f6"}33`, textTransform: "capitalize" }}>{note.category}</span>
+                    <span className="badge" style={{ background: `${CAT_COLOR[note.category] || "#3b82f6"}18`, color: CAT_COLOR[note.category] || "#3b82f6", borderColor: `${CAT_COLOR[note.category] || "#3b82f6"}33`, textTransform: "capitalize" }}>{note.category}</span>
                     <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{formatDate(note.updated_at)}</span>
                   </div>
                 </div>
@@ -1773,31 +1930,33 @@ function KnowledgePage() {
 
         {/* Right — note viewer */}
         {viewNote && (
-          <div style={{ width: 360, flexShrink: 0, background: "var(--bg-card)", border: "1px solid var(--border-glass)", borderRadius: "var(--radius-lg)", padding: "20px 22px", height: "fit-content", position: "sticky", top: 80 }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: CAT_COLOR[viewNote.category] || "#3b82f6", borderRadius: "16px 16px 0 0" }} />
+          <div style={{ width: 380, flexShrink: 0, background: "linear-gradient(160deg, rgba(20,22,46,0.95) 0%, rgba(14,17,36,0.98) 100%)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "var(--radius-xl)", padding: "24px 24px 20px", height: "fit-content", position: "sticky", top: 80, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+            {/* Category top stripe */}
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: CAT_COLOR[viewNote.category] || "#3b82f6", borderRadius: "16px 16px 0 0" }} />
+            <div className="glow-orb" style={{ top: -30, right: -30, width: 120, height: 120, background: CAT_COLOR[viewNote.category] || "#3b82f6", opacity: 0.06 }} />
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14, gap: 8 }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.3, flex: 1 }}>{viewNote.title}</div>
-              <button onClick={() => setViewNote(null)} style={{ width: 26, height: 26, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-tertiary)", cursor: "pointer", fontSize: 14, flexShrink: 0 }}>×</button>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, gap: 8 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.3, flex: 1 }}>{viewNote.title}</div>
+              <button onClick={() => setViewNote(null)} style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.04)", color: "var(--color-text-tertiary)", cursor: "pointer", fontSize: 14, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
 
-            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 999, background: `${CAT_COLOR[viewNote.category] || "#3b82f6"}18`, color: CAT_COLOR[viewNote.category] || "#3b82f6", border: `1px solid ${CAT_COLOR[viewNote.category] || "#3b82f6"}33`, textTransform: "capitalize" }}>{viewNote.category}</span>
+            <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
+              <span className="badge" style={{ background: `${CAT_COLOR[viewNote.category] || "#3b82f6"}18`, color: CAT_COLOR[viewNote.category] || "#3b82f6", borderColor: `${CAT_COLOR[viewNote.category] || "#3b82f6"}33`, textTransform: "capitalize" }}>{viewNote.category}</span>
               <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>by {viewNote.author}</span>
-              <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{formatDate(viewNote.updated_at)}</span>
+              <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>· {formatDate(viewNote.updated_at)}</span>
             </div>
 
-            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.7, whiteSpace: "pre-wrap", marginBottom: 20, maxHeight: 400, overflowY: "auto" }}>{viewNote.body}</div>
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.75, whiteSpace: "pre-wrap", marginBottom: 20, maxHeight: 380, overflowY: "auto", paddingRight: 4 }}>{viewNote.body}</div>
 
-            <div style={{ display: "flex", gap: 8, borderTop: "1px solid var(--border-glass)", paddingTop: 14 }}>
-              <button onClick={() => handlePin(viewNote.id)} style={{ flex: 1, height: 32, borderRadius: 7, border: "1px solid var(--border-glass)", background: viewNote.pinned ? "rgba(79,142,247,0.12)" : "transparent", color: viewNote.pinned ? "#3b82f6" : "var(--color-text-secondary)", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "var(--font-sans)" }}>
-                {viewNote.pinned ? "📌 Pinned" : "Pin"}
+            <div style={{ display: "flex", gap: 8, borderTop: "1px solid var(--border-glass)", paddingTop: 16 }}>
+              <button onClick={() => handlePin(viewNote.id)} className="btn-ghost" style={{ flex: 1, height: 34, fontSize: 12, background: viewNote.pinned ? "rgba(59,130,246,0.12)" : undefined, color: viewNote.pinned ? "#3b82f6" : undefined, borderColor: viewNote.pinned ? "rgba(59,130,246,0.3)" : undefined }}>
+                {viewNote.pinned ? "📌 Pinned" : "📌 Pin"}
               </button>
               {(isArchitect || isNavigator) && (
-                <button onClick={() => { openEdit(viewNote); setViewNote(null); }} style={{ flex: 1, height: 32, borderRadius: 7, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 12, fontWeight: 600, fontFamily: "var(--font-sans)" }}>Edit</button>
+                <button onClick={() => { openEdit(viewNote); setViewNote(null); }} className="btn-ghost" style={{ flex: 1, height: 34, fontSize: 12 }}>Edit</button>
               )}
               {isArchitect && (
-                <button onClick={() => handleDelete(viewNote.id)} style={{ height: 32, width: 32, borderRadius: 7, border: "1px solid rgba(248,113,113,0.3)", background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 14, fontFamily: "var(--font-sans)" }}>✕</button>
+                <button onClick={() => handleDelete(viewNote.id)} style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid rgba(248,113,113,0.3)", background: "rgba(248,113,113,0.06)", color: "#f87171", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
               )}
             </div>
           </div>
@@ -1806,24 +1965,26 @@ function KnowledgePage() {
 
       {/* Create / Edit Modal */}
       {showForm && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center" }}
-          onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div style={{ width: 520, background: "#141628", border: "1px solid var(--border-glass)", borderRadius: 20, padding: "28px 28px 24px", boxShadow: "0 24px 80px rgba(0,0,0,0.6)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 22 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)" }}>{editNote ? "Edit Note" : "New Note"}</div>
-              <button onClick={() => setShowForm(false)} style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 16 }}>×</button>
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
+          <div className="modal-box" style={{ width: 540, padding: "30px 30px 26px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>{editNote ? "Edit Note" : "New Note"}</div>
+                <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Knowledge base entry</div>
+              </div>
+              <button onClick={() => setShowForm(false)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.04)", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
                 <label style={labelStyle}>Title *</label>
-                <input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="Note title…" style={inputStyle} />
+                <input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="Note title…" className="field-input" style={{ height: 42 }} />
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "end" }}>
                 <div>
                   <label style={labelStyle}>Category</label>
-                  <select value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} style={{ ...inputStyle, cursor: "pointer" }}>
+                  <select value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} className="field-input" style={{ height: 42, cursor: "pointer" }}>
                     {CATEGORIES.filter(c => c.value !== "all").map(c => (
                       <option key={c.value} value={c.value} style={{ background: "#1e2140", color: "#f0f2ff" }}>{c.label}</option>
                     ))}
@@ -1831,22 +1992,22 @@ function KnowledgePage() {
                 </div>
                 <div>
                   <label style={{ ...labelStyle, marginBottom: 8 }}>Pin</label>
-                  <div onClick={() => setForm(f => ({...f, pinned: !f.pinned}))} style={{ width: 44, height: 24, borderRadius: 999, background: form.pinned ? "#3b82f6" : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s" }}>
-                    <div style={{ position: "absolute", top: 2, left: form.pinned ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
+                  <div onClick={() => setForm(f => ({...f, pinned: !f.pinned}))} style={{ width: 46, height: 26, borderRadius: 999, background: form.pinned ? "var(--accent-blue)" : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s", boxShadow: form.pinned ? "0 0 12px rgba(59,130,246,0.4)" : "none" }}>
+                    <div style={{ position: "absolute", top: 3, left: form.pinned ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
                   </div>
                 </div>
               </div>
 
               <div>
                 <label style={labelStyle}>Content</label>
-                <textarea value={form.body} onChange={e => setForm(f => ({...f, body: e.target.value}))} rows={8} placeholder="Write your note here… supports plain text and line breaks." style={{ ...inputStyle, height: "auto", padding: "10px 12px", resize: "vertical", lineHeight: 1.6 }} />
+                <textarea value={form.body} onChange={e => setForm(f => ({...f, body: e.target.value}))} rows={8} placeholder="Write your note here… supports plain text and line breaks." className="field-input" style={{ height: "auto", padding: "11px 13px", resize: "vertical", lineHeight: 1.7 }} />
               </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 22 }}>
-              <button onClick={() => setShowForm(false)} style={{ height: 38, padding: "0 18px", borderRadius: 8, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", fontFamily: "var(--font-sans)", fontSize: 13, cursor: "pointer" }}>Cancel</button>
-              <button onClick={handleSave} disabled={submitting || !form.title.trim()} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: !form.title.trim() ? 0.5 : 1 }}>
-                {submitting ? "Saving…" : editNote ? "Save Changes" : "Create Note"}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border-glass)" }}>
+              <button onClick={() => setShowForm(false)} className="btn-ghost">Cancel</button>
+              <button onClick={handleSave} disabled={submitting || !form.title.trim()} className="btn-primary" style={{ opacity: !form.title.trim() ? 0.5 : 1 }}>
+                {submitting ? "Saving…" : editNote ? "Save Changes" : "✦ Create Note"}
               </button>
             </div>
           </div>
@@ -1946,10 +2107,10 @@ function SettingsPage() {
     { key: "danger",        label: "Danger Zone",     icon: "⚠️" },
   ];
 
-  const inputStyle = { width: "100%", height: 40, padding: "0 12px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", boxSizing: "border-box" };
+  const inputStyle = { width: "100%", height: 40, padding: "0 12px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", boxSizing: "border-box", transition: "border-color 0.15s, box-shadow 0.15s" };
   const labelStyle = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5, display: "block" };
-  const sectionStyle = { background: "var(--bg-card)", border: "1px solid var(--border-glass)", borderRadius: "var(--radius-lg)", padding: "22px 24px", marginBottom: 16 };
-  const sectionTitle = { fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-glass)" };
+  const sectionStyle = { background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", borderRadius: "var(--radius-lg)", padding: "22px 24px", marginBottom: 16 };
+  const sectionTitle = { fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-glass)", letterSpacing: "-0.01em", fontFamily: "var(--font-display)" };
 
   const Toggle = ({ value, onChange, label, sub }) => (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
@@ -1971,7 +2132,7 @@ function SettingsPage() {
   return (
     <>
       {/* Topbar */}
-      <header style={{ position: "sticky", top: 0, zIndex: 40, height: 64, background: "rgba(7,8,15,0.85)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", borderBottom: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 1px 0 rgba(59,130,246,0.08)", padding: "0 28px", display: "flex", alignItems: "center", gap: 14 }}>
+      <header className="page-header">
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Settings</div>
           <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Account, workspace & preferences</div>
@@ -2414,30 +2575,32 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         {/* Metrics */}
         <div className="fade-up delay-1" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 16 }}>
           {METRICS.map((m, i) => (
-            <div key={m.label} style={{
-              background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-              border: "1px solid var(--border-glass)", borderRadius: 16, padding: "20px 22px",
-              boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
-              transition: "transform 0.2s, box-shadow 0.2s, border-color 0.2s",
+            <div key={m.label} className="pcard" style={{
+              backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+              padding: "22px 24px", boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
               position: "relative", overflow: "hidden", cursor: "default",
               animationDelay: `${0.05 + i * 0.05}s`,
-            }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,0.4)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.16)"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = "0 4px 24px rgba(0,0,0,0.3)"; e.currentTarget.style.borderColor = ""; }}
-            >
-              {/* Top gradient accent */}
+            }}>
+              {/* Top gradient accent bar */}
               <div aria-hidden="true" style={{
-                position: "absolute", top: 0, left: 0, right: 0, height: 1.5, borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
+                position: "absolute", top: 0, left: 0, right: 0, height: 2, borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
                 background: m.variant === "blue" ? "linear-gradient(90deg,#3b82f6,#8b5cf6)" : m.variant === "amber" ? "linear-gradient(90deg,#f59e0b,#fb923c)" : "linear-gradient(90deg,#10b981,#06b6d4)",
               }} />
-              {/* Subtle glow behind icon */}
-              <div style={{ position: "absolute", top: 14, left: 18, width: 60, height: 60, borderRadius: "50%", background: m.color, opacity: 0.06, filter: "blur(16px)", pointerEvents: "none" }} />
-              <div style={{ width: 40, height: 40, borderRadius: 12, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "center", color: m.color, background: `${m.color}14`, border: `1px solid ${m.color}20` }}>{m.icon}</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.09em", marginBottom: 8, fontFamily: "var(--font-display)" }}>{m.label}</div>
-              <div style={{ fontSize: 36, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--color-text-primary)", lineHeight: 1, fontFamily: "var(--font-display)" }}>
-                {loading ? <span style={{ opacity: 0.3 }}>—</span> : m.value}
+              {/* Ambient glow blob */}
+              <div className="glow-orb" style={{ top: -10, left: -10, width: 100, height: 100, background: m.color, opacity: 0.07 }} />
+              {/* Corner sparkline */}
+              <div style={{ position: "absolute", right: 14, bottom: 14, opacity: 0.2 }}><Sparkline color={m.color} /></div>
+
+              {/* Icon */}
+              <div className="icon-bubble" style={{ width: 42, height: 42, marginBottom: 18, color: m.color, background: `${m.color}15`, border: `1px solid ${m.color}25`, boxShadow: `0 0 16px ${m.color}18` }}>{m.icon}</div>
+
+              {/* Label */}
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6, fontFamily: "var(--font-display)" }}>{m.label}</div>
+
+              {/* Value */}
+              <div style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--color-text-primary)", lineHeight: 1, fontFamily: "var(--font-display)" }}>
+                {loading ? <div className="skeleton" style={{ width: 60, height: 38, display: "inline-block" }} /> : <span className="count-up">{m.value}</span>}
               </div>
-              <div style={{ position: "absolute", right: 16, bottom: 16, opacity: 0.25 }}><Sparkline color={m.color} /></div>
             </div>
           ))}
         </div>
