@@ -359,7 +359,417 @@ const GLOBAL_STYLES = `
   .stagger > *:nth-child(5) { animation-delay: 0.20s; }
   .stagger > *:nth-child(6) { animation-delay: 0.24s; }
 
+  /* ── Tour overlay ───────────────────── */
+  @keyframes tourIn {
+    from { opacity: 0; transform: scale(0.92) translateY(16px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  @keyframes tourSlide {
+    from { opacity: 0; transform: translateX(24px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes spotlightPulse {
+    0%,100% { box-shadow: 0 0 0 4px rgba(59,130,246,0.4), 0 0 0 8px rgba(59,130,246,0.15); }
+    50%      { box-shadow: 0 0 0 6px rgba(59,130,246,0.55), 0 0 0 14px rgba(59,130,246,0.08); }
+  }
+  @keyframes particleFloat {
+    0%   { transform: translateY(0px) rotate(0deg); opacity: 0.8; }
+    50%  { transform: translateY(-18px) rotate(180deg); opacity: 0.4; }
+    100% { transform: translateY(-36px) rotate(360deg); opacity: 0; }
+  }
+  @keyframes progressSweep {
+    from { width: 0%; }
+    to   { width: 100%; }
+  }
+  @keyframes charIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .tour-card {
+    animation: tourIn 0.38s cubic-bezier(0.34,1.56,0.64,1) both;
+  }
+  .tour-step-slide {
+    animation: tourSlide 0.3s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  .tour-spotlight {
+    animation: spotlightPulse 2s ease-in-out infinite;
+  }
+
 `;
+
+// ── Tour step definitions ─────────────────────────────────────────────────────
+const TOUR_STEPS = [
+  {
+    id: "welcome",
+    emoji: "👋",
+    title: "Welcome to AI Workflow Coordinator",
+    subtitle: "Your intelligent command center",
+    description: "You're about to master the most powerful workflow tool your team has ever used. This quick tour will show you everything — it only takes 2 minutes.",
+    color: "#3b82f6",
+    gradient: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
+    highlight: null,
+    tip: null,
+    xp: 0,
+  },
+  {
+    id: "dashboard",
+    emoji: "⬡",
+    title: "Dashboard — Your Mission Control",
+    subtitle: "Everything at a glance",
+    description: "The Dashboard shows your live task counts, Kanban board, team status, and a real-time system health indicator. It's the first page you'll see every morning.",
+    color: "#3b82f6",
+    gradient: "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)",
+    highlight: "sidebar-dashboard",
+    tip: "💡 Pro tip: The Kanban board lets you drag tasks between columns — or click a card to see full details.",
+    xp: 10,
+  },
+  {
+    id: "tasks",
+    emoji: "✦",
+    title: "Tasks — Full Task Management",
+    subtitle: "Create, assign, track, complete",
+    description: "The Tasks page gives you a filterable table of every task. Create new tasks, assign them to teammates, set priorities (Critical → Low), and add deadlines.",
+    color: "#8b5cf6",
+    gradient: "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+    highlight: "sidebar-tasks",
+    tip: "💡 Pro tip: Use the search bar + status/priority filters to instantly zero in on what matters.",
+    xp: 20,
+  },
+  {
+    id: "compliance",
+    emoji: "◈",
+    title: "Compliance — Task Health Monitor",
+    subtitle: "Catch problems before they explode",
+    description: "Compliance automatically flags overdue tasks, unassigned work, stale tasks (7+ days inactive), and high-priority items that haven't started yet. Your score shows overall team health.",
+    color: "#f43f5e",
+    gradient: "linear-gradient(135deg, #f43f5e 0%, #fb923c 100%)",
+    highlight: "sidebar-compliance",
+    tip: "💡 Pro tip: Keep your Compliance Score above 80% — that means your team is running clean.",
+    xp: 30,
+  },
+  {
+    id: "knowledge",
+    emoji: "◉",
+    title: "Knowledge — Team Brain",
+    subtitle: "Document everything, forget nothing",
+    description: "Store SOPs, runbooks, decision logs, and team notes in the Knowledge base. Pin critical docs so they're always visible, and search across everything instantly.",
+    color: "#10b981",
+    gradient: "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)",
+    highlight: "sidebar-knowledge",
+    tip: "💡 Pro tip: Tag your notes with categories to keep things organised as your library grows.",
+    xp: 40,
+  },
+  {
+    id: "ownership",
+    emoji: "⊕",
+    title: "Ownership — Who Owns What",
+    subtitle: "Visualise workload distribution",
+    description: "The Ownership Graph shows every team member's task load — how many tasks they own, their completion rate, and priority breakdown. Spot overloaded teammates instantly.",
+    color: "#f59e0b",
+    gradient: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
+    highlight: "sidebar-ownership",
+    tip: "💡 Pro tip: Click any person card to expand their full task list with status and deadlines.",
+    xp: 50,
+  },
+  {
+    id: "reports",
+    emoji: "▲",
+    title: "Reports — Performance Analytics",
+    subtitle: "Data-driven decisions",
+    description: "Reports gives you completion rates, velocity trends, priority distribution, and KPIs over time. Share these with stakeholders to show team progress.",
+    color: "#06b6d4",
+    gradient: "linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)",
+    highlight: "sidebar-reports",
+    tip: "💡 Pro tip: Check Reports weekly to spot trends before they become problems.",
+    xp: 60,
+  },
+  {
+    id: "integrations",
+    emoji: "⛓",
+    title: "Integrations — Connect Your Stack",
+    subtitle: "Slack, GitHub, Zapier and more",
+    description: "Connect AI Workflow to your existing tools. Get Slack notifications when tasks are assigned or overdue, trigger automations via Zapier, or post updates to GitHub.",
+    color: "#8b5cf6",
+    gradient: "linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)",
+    highlight: "sidebar-integrations",
+    tip: "💡 Pro tip: Enable the Slack integration first — your team will get nudged about deadlines automatically.",
+    xp: 70,
+  },
+  {
+    id: "api",
+    emoji: "🔑",
+    title: "API — Build On Top",
+    subtitle: "Full REST API access",
+    description: "Every feature in this app is available via API. Generate API keys, browse the endpoint reference, and build your own automations or integrations on top of your workflow data.",
+    color: "#10b981",
+    gradient: "linear-gradient(135deg, #10b981 0%, #8b5cf6 100%)",
+    highlight: "sidebar-api",
+    tip: "💡 Pro tip: The API docs are available at /docs — fully interactive with Swagger UI.",
+    xp: 80,
+  },
+  {
+    id: "finish",
+    emoji: "🏆",
+    title: "You're Ready to Command!",
+    subtitle: "Tour complete — 100 XP earned",
+    description: "You now know everything about AI Workflow Coordinator. Your dashboard is live, your team is waiting, and your first task is to create something worth doing.",
+    color: "#f59e0b",
+    gradient: "linear-gradient(135deg, #f59e0b 0%, #f43f5e 100%)",
+    highlight: null,
+    tip: null,
+    xp: 100,
+  },
+];
+
+// ── Floating particles for the tour ──────────────────────────────────────────
+function TourParticles({ color }) {
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: "inherit" }}>
+      {[...Array(8)].map((_, i) => (
+        <div key={i} style={{
+          position: "absolute",
+          width: 4 + (i % 3) * 2,
+          height: 4 + (i % 3) * 2,
+          borderRadius: "50%",
+          background: color,
+          opacity: 0.6,
+          left: `${10 + i * 11}%`,
+          bottom: "10%",
+          animation: `particleFloat ${1.8 + i * 0.3}s ease-in-out ${i * 0.2}s infinite`,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// ── Main Tour Overlay ─────────────────────────────────────────────────────────
+function TourOverlay({ onComplete }) {
+  const [step, setStep]       = useState(0);
+  const [xp, setXp]           = useState(0);
+  const [exiting, setExiting] = useState(false);
+  const [typing, setTyping]   = useState(true);
+  const [shownChars, setShownChars] = useState(0);
+
+  const current = TOUR_STEPS[step];
+  const isFirst = step === 0;
+  const isLast  = step === TOUR_STEPS.length - 1;
+  const pct     = Math.round((step / (TOUR_STEPS.length - 1)) * 100);
+
+  // Typewriter effect for description
+  useEffect(() => {
+    setTyping(true);
+    setShownChars(0);
+    const text = current.description;
+    let i = 0;
+    const interval = setInterval(() => {
+      i++;
+      setShownChars(i);
+      if (i >= text.length) { clearInterval(interval); setTyping(false); }
+    }, 18);
+    return () => clearInterval(interval);
+  }, [step]);
+
+  const advance = () => {
+    if (typing) { setShownChars(current.description.length); setTyping(false); return; }
+    if (isLast) { finish(); return; }
+    setXp(current.xp);
+    setStep(s => s + 1);
+  };
+
+  const finish = () => {
+    setExiting(true);
+    localStorage.setItem("aw_tour_done", "1");
+    setTimeout(() => onComplete(), 400);
+  };
+
+  const skip = () => {
+    localStorage.setItem("aw_tour_done", "1");
+    onComplete();
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "rgba(5,6,14,0.92)",
+      backdropFilter: "blur(12px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: "20px",
+      opacity: exiting ? 0 : 1,
+      transition: "opacity 0.35s ease",
+    }}>
+      {/* Ambient glow matching current step color */}
+      <div style={{
+        position: "absolute", width: 700, height: 700, borderRadius: "50%",
+        background: `radial-gradient(circle, ${current.color}18 0%, transparent 70%)`,
+        top: "50%", left: "50%", transform: "translate(-50%,-50%)",
+        pointerEvents: "none", transition: "background 0.5s ease",
+      }} />
+
+      {/* Tour card */}
+      <div className="tour-card" style={{
+        width: "100%", maxWidth: 560,
+        background: "linear-gradient(160deg, #12152a 0%, #0d1020 100%)",
+        border: `1px solid ${current.color}35`,
+        borderRadius: 24,
+        boxShadow: `0 40px 120px rgba(0,0,0,0.8), 0 0 0 1px ${current.color}20`,
+        overflow: "hidden", position: "relative",
+        transition: "border-color 0.4s ease, box-shadow 0.4s ease",
+      }}>
+        <TourParticles color={current.color} />
+
+        {/* Top gradient bar */}
+        <div style={{ height: 3, background: current.gradient, transition: "background 0.4s ease" }} />
+
+        {/* XP / Progress bar */}
+        <div style={{ padding: "14px 24px 0", display: "flex", alignItems: "center", gap: 12 }}>
+          {/* Step dots */}
+          <div style={{ display: "flex", gap: 5, flex: 1 }}>
+            {TOUR_STEPS.map((_, i) => (
+              <div key={i} style={{
+                flex: i === step ? 3 : 1, height: 4, borderRadius: 999,
+                background: i < step ? current.color : i === step ? current.color : "rgba(255,255,255,0.1)",
+                opacity: i > step ? 0.4 : 1,
+                transition: "flex 0.4s cubic-bezier(0.34,1.56,0.64,1), background 0.3s, opacity 0.3s",
+              }} />
+            ))}
+          </div>
+          {/* XP badge */}
+          <div style={{
+            padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700,
+            background: `${current.color}20`, color: current.color,
+            border: `1px solid ${current.color}40`,
+            fontFamily: "var(--font-display)", letterSpacing: "0.04em",
+            transition: "background 0.3s, color 0.3s, border-color 0.3s",
+          }}>⚡ {xp} XP</div>
+          {/* Step counter */}
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", whiteSpace: "nowrap", fontFamily: "var(--font-mono)" }}>
+            {step + 1} / {TOUR_STEPS.length}
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="tour-step-slide" key={step} style={{ padding: "24px 28px 28px" }}>
+
+          {/* Icon */}
+          <div style={{
+            width: 72, height: 72, borderRadius: 20, marginBottom: 20,
+            background: `${current.color}18`,
+            border: `1.5px solid ${current.color}40`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 32,
+            boxShadow: `0 0 32px ${current.color}25`,
+            transition: "all 0.3s ease",
+          }}>{current.emoji}</div>
+
+          {/* Subtitle chip */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "3px 11px", borderRadius: 999, marginBottom: 10,
+            background: `${current.color}15`, border: `1px solid ${current.color}30`,
+            fontSize: 11, fontWeight: 600, color: current.color,
+            letterSpacing: "0.04em", textTransform: "uppercase",
+          }}>{current.subtitle}</div>
+
+          {/* Title */}
+          <div style={{
+            fontSize: 26, fontWeight: 800, color: "var(--color-text-primary)",
+            fontFamily: "var(--font-display)", letterSpacing: "-0.03em",
+            lineHeight: 1.2, marginBottom: 14,
+          }}>{current.title}</div>
+
+          {/* Typewriter description */}
+          <div style={{
+            fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.7,
+            minHeight: 72, marginBottom: 20,
+          }}>
+            {current.description.slice(0, shownChars)}
+            {typing && <span style={{ opacity: 0.7, animation: "pulse 0.6s ease-in-out infinite" }}>|</span>}
+          </div>
+
+          {/* Tip box */}
+          {current.tip && !typing && (
+            <div style={{
+              padding: "12px 16px", borderRadius: 12, marginBottom: 20,
+              background: `${current.color}0d`, border: `1px solid ${current.color}25`,
+              fontSize: 12.5, color: "var(--color-text-secondary)", lineHeight: 1.6,
+              animation: "fadeUp 0.3s ease both",
+            }}>{current.tip}</div>
+          )}
+
+          {/* Final step extras */}
+          {isLast && !typing && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20, animation: "fadeUp 0.3s 0.1s ease both" }}>
+              {["Dashboard", "Tasks", "Compliance", "Knowledge", "Ownership", "Reports", "API"].map((label, i) => (
+                <div key={label} style={{
+                  padding: "5px 13px", borderRadius: 999, fontSize: 12, fontWeight: 600,
+                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
+                  color: "var(--color-text-secondary)",
+                  animation: `fadeUp 0.3s ${i * 0.05}s ease both`,
+                }}>✓ {label}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={advance}
+              style={{
+                flex: 1, height: 46, borderRadius: 12, border: "none",
+                background: current.gradient, color: "#fff",
+                fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 700,
+                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                boxShadow: `0 0 28px ${current.color}45, inset 0 1px 0 rgba(255,255,255,0.2)`,
+                transition: "transform 0.15s, box-shadow 0.15s",
+                letterSpacing: "-0.01em",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = `0 0 40px ${current.color}6a, inset 0 1px 0 rgba(255,255,255,0.25)`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = `0 0 28px ${current.color}45, inset 0 1px 0 rgba(255,255,255,0.2)`; }}
+            >
+              {typing ? (
+                <><span style={{ fontSize: 16 }}>⏭</span> Skip typing</>
+              ) : isLast ? (
+                <><span style={{ fontSize: 16 }}>🚀</span> Launch Dashboard</>
+              ) : isFirst ? (
+                <><span style={{ fontSize: 16 }}>▶</span> Start Tour — +{TOUR_STEPS[step + 1]?.xp ?? 10} XP</>
+              ) : (
+                <>Next <span style={{ fontSize: 13, opacity: 0.8 }}>+{(TOUR_STEPS[step + 1]?.xp ?? current.xp) - current.xp} XP</span> →</>
+              )}
+            </button>
+
+            {!isFirst && !isLast && (
+              <button
+                onClick={() => setStep(s => s - 1)}
+                style={{
+                  height: 46, padding: "0 18px", borderRadius: 12,
+                  border: "1px solid var(--border-glass)",
+                  background: "rgba(255,255,255,0.04)", color: "var(--color-text-secondary)",
+                  fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 500,
+                  cursor: "pointer", transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+              >← Back</button>
+            )}
+
+            {!isLast && (
+              <button onClick={skip} style={{
+                height: 46, padding: "0 14px", borderRadius: 12,
+                border: "none", background: "transparent",
+                color: "var(--color-text-tertiary)", fontFamily: "var(--font-sans)",
+                fontSize: 12, cursor: "pointer", transition: "color 0.15s",
+                whiteSpace: "nowrap",
+              }}
+                onMouseEnter={e => e.currentTarget.style.color = "var(--color-text-secondary)"}
+                onMouseLeave={e => e.currentTarget.style.color = "var(--color-text-tertiary)"}
+              >Skip tour</button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Full-screen loading spinner (shown while auth state initialises) ───────────
 function AppLoader() {
@@ -719,7 +1129,7 @@ function Sparkline({ color }) {
 
 // ── Segment 10: Ownership Graph view ─────────────────────────────────────────
 function OwnershipGraph() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const API = BASE_URL;
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(true);
@@ -727,73 +1137,28 @@ function OwnershipGraph() {
   const [selected, setSelected] = useState(null); // selected assignee node
   const [filter, setFilter]     = useState("");
 
-  // Also load raw tasks as fallback source of truth
-  const taskFilters = useMemo(() => {
-    if (!user) return {};
-    if (user.role === "architect") return { workspace_id: user.workspace?.id };
-    if (user.role === "navigator") return { workspace_id: user.workspace?.id, team_name: user.team_name };
-    if (user.role === "operator") return { owner_id: user.id };
-    return {};
-  }, [user]);
-  const { tasks: rawTasks, loading: tasksLoading } = useTasks(taskFilters);
-
   useEffect(() => {
-    if (!token) return;
     const params = new URLSearchParams();
     if (user?.workspace?.id) params.set("workspace_id", user.workspace.id);
     else if (user?.id)       params.set("owner_id", user.id);
 
-    fetch(`${API}/tasks/graph?${params}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => { if (!r.ok) throw new Error(`Graph endpoint returned ${r.status}`); return r.json(); })
+    fetch(`${API}/tasks/graph?${params}`)
+      .then(r => { if (!r.ok) throw new Error("Failed to load graph"); return r.json(); })
       .then(d => { setData(d); setLoading(false); })
-      .catch(() => {
-        // Silently fall back — we'll build graph from rawTasks below
-        setData(null);
-        setLoading(false);
-      });
-  }, [API, user, token]);
-
-  // Build graph data from rawTasks when the /tasks/graph endpoint fails or returns no nodes
-  const graphData = useMemo(() => {
-    // Use API data if it has nodes
-    if (data?.nodes?.length > 0) return data;
-
-    // Build from rawTasks
-    if (!rawTasks?.length) return { nodes: [], total_tasks: 0, total_owners: 0 };
-
-    const byAssignee = {};
-    rawTasks.forEach(task => {
-      const key = task.assignee || task.assigned_to || task.owner || "Unassigned";
-      if (!byAssignee[key]) {
-        byAssignee[key] = { assignee: key, total: 0, to_do: 0, in_progress: 0, completed: 0, cancelled: 0, critical: 0, high: 0, medium: 0, low: 0, tasks: [] };
-      }
-      const node = byAssignee[key];
-      node.total++;
-      const status = task.status || "to_do";
-      if (node[status] !== undefined) node[status]++;
-      const priority = task.priority || "medium";
-      if (node[priority] !== undefined) node[priority]++;
-      if (priority === "critical") node.critical++;
-      node.tasks.push(task);
-    });
-
-    const nodes = Object.values(byAssignee);
-    return { nodes, total_tasks: rawTasks.length, total_owners: nodes.length };
-  }, [data, rawTasks]);
+      .catch(e => { setError(e.message); setLoading(false); });
+  }, [API, user]);
 
   const PRIORITY_COLOR = { critical: "#f87171", high: "#fb923c", medium: "#fbbf24", low: "#34d399" };
   const STATUS_COLOR   = { to_do: "#3b82f6", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
 
   const nodes = useMemo(() => {
-    if (!graphData?.nodes) return [];
-    return graphData.nodes.filter(n =>
+    if (!data?.nodes) return [];
+    return data.nodes.filter(n =>
       !filter || n.assignee.toLowerCase().includes(filter.toLowerCase())
     );
-  }, [graphData, filter]);
+  }, [data, filter]);
 
-  if (loading || tasksLoading) return (
+  if (loading) return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
         <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
@@ -811,7 +1176,7 @@ function OwnershipGraph() {
     </main>
   );
 
-  const selectedNode = selected ? graphData?.nodes?.find(n => n.assignee === selected) : null;
+  const selectedNode = selected ? data?.nodes?.find(n => n.assignee === selected) : null;
 
   return (
     <main className="page-enter" style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
@@ -827,7 +1192,7 @@ function OwnershipGraph() {
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Ownership Graph</div>
           <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 1 }}>
-            {graphData?.total_tasks ?? 0} tasks · {graphData?.total_owners ?? 0} owners
+            {data?.total_tasks ?? 0} tasks · {data?.total_owners ?? 0} owners
           </div>
         </div>
         <div style={{ flex: 1, maxWidth: 300, position: "relative" }}>
@@ -853,8 +1218,8 @@ function OwnershipGraph() {
       {/* Summary pills */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
         {[
-          { label: "Total Tasks",   value: graphData?.total_tasks,  color: "#3b82f6" },
-          { label: "Owners",        value: graphData?.total_owners, color: "#8b5cf6" },
+          { label: "Total Tasks",   value: data?.total_tasks,  color: "#3b82f6" },
+          { label: "Owners",        value: data?.total_owners, color: "#8b5cf6" },
           { label: "In Progress",   value: nodes.reduce((s, n) => s + n.in_progress, 0), color: "#f59e0b" },
           { label: "Completed",     value: nodes.reduce((s, n) => s + n.completed,   0), color: "#22d3a8" },
           { label: "Critical",      value: nodes.reduce((s, n) => s + n.critical,    0), color: "#f87171" },
@@ -3610,6 +3975,11 @@ function AuthenticatedApp() {
   const [activeNav, setActiveNav]   = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
+  // Show tour on first ever visit (persisted in localStorage)
+  const [showTour, setShowTour] = useState(() => {
+    return !localStorage.getItem("aw_tour_done");
+  });
+
   // ✅ Role-based task filters passed to useTasks
   const taskFilters = useMemo(() => {
     if (!user) return {};
@@ -3645,6 +4015,9 @@ function AuthenticatedApp() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)", position: "relative" }} onKeyDown={handleKeyDown}>
+      {/* Tour overlay — shown on first visit */}
+      {showTour && <TourOverlay onComplete={() => setShowTour(false)} />}
+
       {/* Subtle dot grid background */}
       <div style={{ position: "fixed", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "32px 32px", pointerEvents: "none", zIndex: 0 }} />
       {/* Ambient top glow */}
