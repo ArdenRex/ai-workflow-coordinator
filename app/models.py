@@ -182,6 +182,16 @@ class User(Base):
     timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default="UTC")
     currency: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, default="USD")
 
+    # Segment 15 — Billing / Lemon Squeezy
+    trial_ends_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+    subscription_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="trialing", server_default="trialing",
+    )
+    ls_customer_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+    ls_subscription_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
