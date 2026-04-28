@@ -515,13 +515,15 @@ def billing_status(
     """
     now = datetime.now(timezone.utc)
 
+    card_on_file = bool(getattr(current_user, "ls_customer_id", None))
+
     # Exempt users (admin/owner) — never show billing wall
     if current_user.subscription_status == "exempt":
-        return {"status": "exempt", "show_wall": False}
+        return {"status": "exempt", "show_wall": False, "card_on_file": True}
 
     # Active subscription
     if current_user.subscription_status == "active":
-        return {"status": "active", "show_wall": False}
+        return {"status": "active", "show_wall": False, "card_on_file": True}
 
     # Still in trial
     if current_user.subscription_status == "trialing" and current_user.trial_ends_at:
@@ -530,10 +532,13 @@ def billing_status(
             trial_end = trial_end.replace(tzinfo=timezone.utc)
         if trial_end > now:
             days_left = (trial_end - now).days
+            # New users (no card yet) see the trial/plan screen first
+            show_trial_setup = not card_on_file
             return {
-                "status":    "trialing",
-                "show_wall": False,
-                "days_left": days_left,
+                "status":      "trialing",
+                "show_wall":   show_trial_setup,
+                "card_on_file": card_on_file,
+                "days_left":   days_left,
                 "trial_ends_at": trial_end.isoformat(),
             }
 
@@ -541,5 +546,6 @@ def billing_status(
     return {
         "status":    current_user.subscription_status,
         "show_wall": True,
+        "card_on_file": card_on_file,
         "trial_ends_at": current_user.trial_ends_at.isoformat() if current_user.trial_ends_at else None,
     }
