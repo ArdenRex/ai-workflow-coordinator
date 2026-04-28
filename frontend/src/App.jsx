@@ -1626,6 +1626,355 @@ function KnowledgePage() {
   );
 }
 
+
+// ── Settings Page ─────────────────────────────────────────────────────────────
+function SettingsPage() {
+  const { token, user, isArchitect, logout } = useAuth();
+  const API = BASE_URL;
+  const hdrs = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  const [activeTab, setActiveTab]   = useState("profile");
+  const [successMsg, setSuccess]    = useState(null);
+  const [errorMsg, setError]        = useState(null);
+  const [saving, setSaving]         = useState(false);
+
+  // Profile form
+  const [profile, setProfile] = useState({
+    name:     user?.name     || "",
+    email:    user?.email    || "",
+    username: user?.username || "",
+    timezone: user?.timezone || "UTC",
+  });
+
+  // Password form
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [showPw, setShowPw] = useState({ current: false, next: false, confirm: false });
+
+  // Workspace form (Architect only)
+  const [workspace, setWorkspace] = useState({
+    name:        user?.workspace?.name        || "",
+    invite_code: user?.workspace?.invite_code || "",
+    plan:        user?.workspace?.plan        || "free",
+  });
+
+  // Notification preferences (stored locally)
+  const NOTIF_KEY = `notif_prefs_${user?.id || "u"}`;
+  const [notif, setNotif] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(NOTIF_KEY)) || { email_overdue: true, email_daily: true, slack_mentions: true, browser_push: false }; }
+    catch { return { email_overdue: true, email_daily: true, slack_mentions: true, browser_push: false }; }
+  });
+
+  const flash = (msg, isErr) => {
+    if (isErr) { setError(msg); setTimeout(() => setError(null), 4000); }
+    else       { setSuccess(msg); setTimeout(() => setSuccess(null), 3000); }
+  };
+
+  const saveProfile = async () => {
+    setSaving(true);
+    try {
+      const r = await fetch(`${API}/users/me`, { method: "PUT", headers: hdrs, body: JSON.stringify(profile) });
+      if (!r.ok) throw new Error("Update failed");
+      flash("Profile saved ✓");
+    } catch (e) { flash(e.message, true); }
+    finally { setSaving(false); }
+  };
+
+  const savePassword = async () => {
+    if (!pwForm.current || !pwForm.next) return flash("Fill all fields", true);
+    if (pwForm.next !== pwForm.confirm)  return flash("Passwords don't match", true);
+    if (pwForm.next.length < 8)          return flash("Password must be 8+ characters", true);
+    setSaving(true);
+    try {
+      const r = await fetch(`${API}/users/me/password`, { method: "PUT", headers: hdrs, body: JSON.stringify({ current_password: pwForm.current, new_password: pwForm.next }) });
+      if (!r.ok) throw new Error((await r.json()).detail || "Failed");
+      flash("Password updated ✓");
+      setPwForm({ current: "", next: "", confirm: "" });
+    } catch (e) { flash(e.message, true); }
+    finally { setSaving(false); }
+  };
+
+  const saveWorkspace = async () => {
+    setSaving(true);
+    try {
+      const r = await fetch(`${API}/workspaces/me`, { method: "PUT", headers: hdrs, body: JSON.stringify({ name: workspace.name }) });
+      if (!r.ok) throw new Error("Update failed");
+      flash("Workspace updated ✓");
+    } catch (e) { flash(e.message, true); }
+    finally { setSaving(false); }
+  };
+
+  const saveNotif = () => {
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(notif));
+    flash("Preferences saved ✓");
+  };
+
+  const TABS = [
+    { key: "profile",       label: "Profile",        icon: "👤" },
+    { key: "security",      label: "Security",        icon: "🔒" },
+    { key: "workspace",     label: "Workspace",       icon: "🏢" },
+    { key: "notifications", label: "Notifications",   icon: "🔔" },
+    { key: "danger",        label: "Danger Zone",     icon: "⚠️" },
+  ];
+
+  const inputStyle = { width: "100%", height: 40, padding: "0 12px", background: "rgba(255,255,255,0.06)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", boxSizing: "border-box" };
+  const labelStyle = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5, display: "block" };
+  const sectionStyle = { background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 16, padding: "22px 24px", marginBottom: 16 };
+  const sectionTitle = { fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-glass)" };
+
+  const Toggle = ({ value, onChange, label, sub }) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+      <div>
+        <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>{label}</div>
+        {sub && <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>{sub}</div>}
+      </div>
+      <div onClick={onChange} style={{ width: 44, height: 24, borderRadius: 999, background: value ? "#4f8ef7" : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+        <div style={{ position: "absolute", top: 2, left: value ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
+      </div>
+    </div>
+  );
+
+  const ROLE_BADGES = { architect: { label: "Architect", color: "#f59e0b" }, navigator: { label: "Navigator", color: "#4f8ef7" }, operator: { label: "Operator", color: "#22d3a8" } };
+  const role = ROLE_BADGES[user?.role] || ROLE_BADGES.operator;
+
+  const TIMEZONES = ["UTC","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Sao_Paulo","Europe/London","Europe/Paris","Europe/Berlin","Europe/Moscow","Asia/Dubai","Asia/Karachi","Asia/Kolkata","Asia/Dhaka","Asia/Bangkok","Asia/Singapore","Asia/Tokyo","Asia/Shanghai","Australia/Sydney","Pacific/Auckland"];
+
+  return (
+    <>
+      {/* Topbar */}
+      <header style={{ position: "sticky", top: 0, zIndex: 40, height: 60, background: "rgba(13,15,30,0.88)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", borderBottom: "1px solid var(--border-glass)", padding: "0 28px", display: "flex", alignItems: "center", gap: 14 }}>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em" }}>Settings</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Account, workspace & preferences</div>
+        </div>
+
+        {/* Role badge */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 999, background: `${role.color}18`, color: role.color, border: `1px solid ${role.color}33` }}>{role.label}</span>
+        </div>
+      </header>
+
+      <main style={{ flex: 1, padding: "24px 28px 40px", display: "flex", gap: 20, maxWidth: 900 }}>
+
+        {/* Left sidebar tabs */}
+        <div style={{ width: 180, flexShrink: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+          {TABS.map(tab => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "none", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 500, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
+                background: activeTab === tab.key ? "rgba(79,142,247,0.15)" : "transparent",
+                color: activeTab === tab.key ? "#4f8ef7" : "var(--color-text-secondary)",
+                borderLeft: `3px solid ${activeTab === tab.key ? "#4f8ef7" : "transparent"}`,
+              }}>
+              <span style={{ fontSize: 15 }}>{tab.icon}</span>{tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Right content */}
+        <div style={{ flex: 1 }}>
+          {/* Flash messages */}
+          {successMsg && <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.3)", color: "#22d3a8", fontSize: 13, fontWeight: 600, marginBottom: 16 }}>✓ {successMsg}</div>}
+          {errorMsg   && <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171", fontSize: 13, marginBottom: 16 }}>⚠ {errorMsg}</div>}
+
+          {/* ── PROFILE ── */}
+          {activeTab === "profile" && (
+            <>
+              <div style={sectionStyle}>
+                <div style={sectionTitle}>Personal Information</div>
+
+                {/* Avatar */}
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                    {(profile.name || profile.username || "?")[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>{profile.name || profile.username}</div>
+                    <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>{profile.email}</div>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: `${role.color}18`, color: role.color, border: `1px solid ${role.color}33`, marginTop: 6, display: "inline-block" }}>{role.label}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                  <div>
+                    <label style={labelStyle}>Full Name</label>
+                    <input value={profile.name} onChange={e => setProfile(p => ({...p, name: e.target.value}))} placeholder="Your full name" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Username</label>
+                    <input value={profile.username} onChange={e => setProfile(p => ({...p, username: e.target.value}))} placeholder="@username" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Email</label>
+                    <input value={profile.email} onChange={e => setProfile(p => ({...p, email: e.target.value}))} placeholder="email@example.com" style={inputStyle} type="email" />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Timezone</label>
+                    <select value={profile.timezone} onChange={e => setProfile(p => ({...p, timezone: e.target.value}))} style={{ ...inputStyle, cursor: "pointer" }}>
+                      {TIMEZONES.map(tz => <option key={tz} value={tz} style={{ background: "#1e2140", color: "#f0f2ff" }}>{tz}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                  <button onClick={saveProfile} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                    {saving ? "Saving…" : "Save Profile"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── SECURITY ── */}
+          {activeTab === "security" && (
+            <div style={sectionStyle}>
+              <div style={sectionTitle}>Change Password</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {[
+                  { key: "current", label: "Current Password" },
+                  { key: "next",    label: "New Password" },
+                  { key: "confirm", label: "Confirm New Password" },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label style={labelStyle}>{f.label}</label>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={showPw[f.key] ? "text" : "password"}
+                        value={pwForm[f.key]}
+                        onChange={e => setPwForm(p => ({...p, [f.key]: e.target.value}))}
+                        placeholder="••••••••"
+                        style={{ ...inputStyle, paddingRight: 40 }}
+                      />
+                      <button onClick={() => setShowPw(p => ({...p, [f.key]: !p[f.key]}))}
+                        style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "var(--color-text-tertiary)", cursor: "pointer", fontSize: 14 }}>
+                        {showPw[f.key] ? "🙈" : "👁"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Password strength */}
+                {pwForm.next && (
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginBottom: 5 }}>Password strength</div>
+                    <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                      <div style={{ height: "100%", borderRadius: 999, transition: "width 0.3s, background 0.3s",
+                        width: pwForm.next.length < 6 ? "25%" : pwForm.next.length < 10 ? "60%" : "100%",
+                        background: pwForm.next.length < 6 ? "#f87171" : pwForm.next.length < 10 ? "#f59e0b" : "#22d3a8",
+                      }} />
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                  <button onClick={savePassword} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                    {saving ? "Updating…" : "Update Password"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── WORKSPACE ── */}
+          {activeTab === "workspace" && (
+            <>
+              <div style={sectionStyle}>
+                <div style={sectionTitle}>Workspace Settings</div>
+                {!isArchitect && (
+                  <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", color: "#f59e0b", fontSize: 12, marginBottom: 16 }}>
+                    ⚠ Only Architects can edit workspace settings
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={labelStyle}>Workspace Name</label>
+                    <input value={workspace.name} onChange={e => setWorkspace(w => ({...w, name: e.target.value}))} disabled={!isArchitect} placeholder="Your workspace name" style={{ ...inputStyle, opacity: isArchitect ? 1 : 0.5 }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Invite Code</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input value={workspace.invite_code} readOnly style={{ ...inputStyle, opacity: 0.7, fontFamily: "monospace", letterSpacing: "0.1em" }} />
+                      <button onClick={() => { navigator.clipboard.writeText(workspace.invite_code); flash("Invite code copied!"); }}
+                        style={{ height: 40, padding: "0 14px", borderRadius: 8, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 12, fontFamily: "var(--font-sans)", whiteSpace: "nowrap" }}>
+                        Copy
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 5 }}>Share this code with teammates to join your workspace</div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Plan</label>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      {["free", "pro", "team"].map(p => (
+                        <div key={p} style={{ flex: 1, padding: "14px 16px", borderRadius: 10, border: `1px solid ${workspace.plan === p ? "#4f8ef7" : "var(--border-glass)"}`, background: workspace.plan === p ? "rgba(79,142,247,0.1)" : "rgba(255,255,255,0.03)", cursor: "default" }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: workspace.plan === p ? "#4f8ef7" : "var(--color-text-secondary)", textTransform: "capitalize", marginBottom: 4 }}>{p === "team" ? "Team" : p.charAt(0).toUpperCase()+p.slice(1)}</div>
+                          <div style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>
+                            {p === "free" ? "Up to 3 users" : p === "pro" ? "$19/mo · Unlimited users" : "$49/mo · Multi-workspace"}
+                          </div>
+                          {workspace.plan === p && <div style={{ fontSize: 10, fontWeight: 700, color: "#22d3a8", marginTop: 4 }}>✓ Current plan</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {isArchitect && (
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                    <button onClick={saveWorkspace} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                      {saving ? "Saving…" : "Save Workspace"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ── NOTIFICATIONS ── */}
+          {activeTab === "notifications" && (
+            <div style={sectionStyle}>
+              <div style={sectionTitle}>Notification Preferences</div>
+              <Toggle value={notif.email_overdue} onChange={() => setNotif(n => ({...n, email_overdue: !n.email_overdue}))} label="Email — Overdue tasks" sub="Get notified when tasks pass their deadline" />
+              <Toggle value={notif.email_daily} onChange={() => setNotif(n => ({...n, email_daily: !n.email_daily}))} label="Email — Daily rollup" sub="Morning summary of tasks due today" />
+              <Toggle value={notif.slack_mentions} onChange={() => setNotif(n => ({...n, slack_mentions: !n.slack_mentions}))} label="Slack mentions" sub="Receive pings when you're assigned a task" />
+              <Toggle value={notif.browser_push} onChange={() => setNotif(n => ({...n, browser_push: !n.browser_push}))} label="Browser push notifications" sub="Real-time alerts in your browser" />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                <button onClick={saveNotif} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  Save Preferences
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── DANGER ZONE ── */}
+          {activeTab === "danger" && (
+            <div style={{ ...sectionStyle, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.04)" }}>
+              <div style={{ ...sectionTitle, color: "#f87171", borderBottomColor: "rgba(248,113,113,0.2)" }}>⚠ Danger Zone</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid rgba(248,113,113,0.1)" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Sign out</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Sign out of your account on this device</div>
+                  </div>
+                  <button onClick={logout} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.4)", background: "transparent", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    Sign Out
+                  </button>
+                </div>
+                {isArchitect && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Delete workspace</div>
+                      <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Permanently delete workspace and all data. This cannot be undone.</div>
+                    </div>
+                    <button onClick={() => flash("Contact support to delete your workspace", true)} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.4)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                      Delete Workspace
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    </>
+  );
+}
+
 function PlaceholderPage({ label }) {
   return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
@@ -2841,6 +3190,8 @@ function AuthenticatedApp() {
           <TeamsPage />
         ) : activeNav === 9 ? (
           <ApiPage />
+        ) : activeNav === 10 ? (
+          <SettingsPage />
         ) : (
           <PlaceholderPage label={currentNavLabel} />
         )}
