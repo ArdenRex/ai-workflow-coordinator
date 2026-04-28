@@ -4295,6 +4295,9 @@ function AuthenticatedApp() {
   const { user, isOnboarded, token } = useAuth();
   const [activeNav, setActiveNav]     = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // Local override: set true once user finishes onboarding so we don't loop
+  // back even if AuthContext hasn't re-fetched isOnboarded from the server yet.
+  const [onboardingDone, setOnboardingDone] = useState(false);
   const [showTour, setShowTour]       = useState(() => !localStorage.getItem("aw_tour_done"));
   const [billing, setBilling]         = useState(null);   // null=loading, object=loaded
   const [billingChecked, setBillingChecked] = useState(false);
@@ -4418,8 +4421,17 @@ function AuthenticatedApp() {
   }
 
   // Step 2 — Onboarding: after billing is sorted, new users complete the intro tour
-  if (!isOnboarded || showOnboarding) {
-    return <OnboardingPage onComplete={() => setShowOnboarding(false)} />;
+  // onboardingDone is a local override so we don't loop back if AuthContext
+  // hasn't re-fetched is_onboarded from the server yet after completion.
+  if ((!isOnboarded && !onboardingDone) || showOnboarding) {
+    return (
+      <OnboardingPage
+        onComplete={() => {
+          setOnboardingDone(true);
+          setShowOnboarding(false);
+        }}
+      />
+    );
   }
 
   const currentNavLabel = NAV_ITEMS[activeNav]?.label;
