@@ -8,11 +8,10 @@ PATCH /feedback/{id}   →  update status (architect only)
 
 import logging
 import os
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import threading
 from typing import Optional
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from pydantic import BaseModel, Field
@@ -20,7 +19,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Feedback, FeedbackStatus, FeedbackType, UserRole
+from app.models import Feedback, FeedbackStatus, FeedbackType
 
 logger = logging.getLogger(__name__)
 
@@ -29,12 +28,10 @@ router = APIRouter(
     tags=["Feedback"],
 )
 
-# ── Email config (optional — if not set, email is skipped silently) ────────────
-SMTP_HOST     = os.getenv("SMTP_HOST", "")
-SMTP_PORT     = int(os.getenv("SMTP_PORT", "587"))
-SMTP_USER     = os.getenv("SMTP_USER", "")
-SMTP_PASS     = os.getenv("SMTP_PASS", "")
-ALERT_EMAIL   = os.getenv("FEEDBACK_ALERT_EMAIL", SMTP_USER)   # where to send alerts
+# ── Resend config (optional — if not set, email is skipped silently) ──────────
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+ALERT_EMAIL    = os.getenv("FEEDBACK_ALERT_EMAIL", "")
+FROM_EMAIL     = os.getenv("FEEDBACK_FROM_EMAIL", "AI Workflow <onboarding@resend.dev>")
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -44,7 +41,6 @@ class FeedbackCreate(BaseModel):
     title: str = Field(..., min_length=3, max_length=255)
     message: str = Field(..., min_length=10, max_length=5000)
     page_context: Optional[str] = Field(None, max_length=128)
-    # User info passed from frontend (from useAuth token)
     user_id: Optional[int] = None
     user_email: Optional[str] = None
     user_name: Optional[str] = None
@@ -85,58 +81,67 @@ TYPE_LABEL = {
 
 
 def _send_alert_email(fb: Feedback) -> None:
-    """Send an email alert when new feedback is submitted. Fails silently."""
-    if not all([SMTP_HOST, SMTP_USER, SMTP_PASS, ALERT_EMAIL]):
-        logger.info("Email not configured — skipping feedback alert email.")
+    """Send email alert via Resend API in a background thread. Fails silently."""
+    if not RESEND_API_KEY or not ALERT_EMAIL:
+        logger.info("Resend not configured — skipping feedback alert email.")
         return
 
-    try:
-        emoji  = TYPE_EMOJI.get(fb.type, "📩")
-        label  = TYPE_LABEL.get(fb.type, fb.type)
-        from_  = fb.user_name or fb.user_email or "Anonymous"
+    def _send():
+        try:
+            emoji = TYPE_EMOJI.get(str(fb.type).split(".")[-1], "📩")
+            label = TYPE_LABEL.get(str(fb.type).split(".")[-1], str(fb.type))
+            from_  = fb.user_name or fb.user_email or "Anonymous"
+            subject = f"{emoji} [{label}] {fb.title}"
 
-        subject = f"{emoji} [{label}] {fb.title}"
-
-        html_body = f"""
-        <html><body style="font-family: sans-serif; background:#f5f5f5; padding:24px;">
-          <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
-            <div style="background:#1e293b; padding:20px 24px; color:#fff;">
-              <h2 style="margin:0; font-size:18px;">{emoji} New {label}</h2>
-              <p style="margin:4px 0 0; opacity:0.6; font-size:13px;">AI Workflow Coordinator</p>
-            </div>
-            <div style="padding:24px;">
-              <table style="width:100%; border-collapse:collapse; font-size:14px;">
-                <tr><td style="padding:8px 0; color:#64748b; width:120px;">From</td><td style="padding:8px 0; font-weight:600;">{from_}</td></tr>
-                <tr><td style="padding:8px 0; color:#64748b;">Email</td><td style="padding:8px 0;">{fb.user_email or "—"}</td></tr>
-                <tr><td style="padding:8px 0; color:#64748b;">Type</td><td style="padding:8px 0;">{label}</td></tr>
-                <tr><td style="padding:8px 0; color:#64748b;">Page</td><td style="padding:8px 0;">{fb.page_context or "—"}</td></tr>
-                <tr><td style="padding:8px 0; color:#64748b;">Title</td><td style="padding:8px 0; font-weight:600;">{fb.title}</td></tr>
-              </table>
-              <div style="margin-top:16px; padding:16px; background:#f8fafc; border-radius:8px; border-left:3px solid #3b82f6;">
-                <p style="margin:0; font-size:14px; line-height:1.6; color:#1e293b;">{fb.message}</p>
+            html_body = f"""
+            <html><body style="font-family: sans-serif; background:#f5f5f5; padding:24px;">
+              <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <div style="background:#1e293b; padding:20px 24px; color:#fff;">
+                  <h2 style="margin:0; font-size:18px;">{emoji} New {label}</h2>
+                  <p style="margin:4px 0 0; opacity:0.6; font-size:13px;">AI Workflow Coordinator</p>
+                </div>
+                <div style="padding:24px;">
+                  <table style="width:100%; border-collapse:collapse; font-size:14px;">
+                    <tr><td style="padding:8px 0; color:#64748b; width:120px;">From</td><td style="padding:8px 0; font-weight:600;">{from_}</td></tr>
+                    <tr><td style="padding:8px 0; color:#64748b;">Email</td><td style="padding:8px 0;">{fb.user_email or "—"}</td></tr>
+                    <tr><td style="padding:8px 0; color:#64748b;">Type</td><td style="padding:8px 0;">{label}</td></tr>
+                    <tr><td style="padding:8px 0; color:#64748b;">Page</td><td style="padding:8px 0;">{fb.page_context or "—"}</td></tr>
+                    <tr><td style="padding:8px 0; color:#64748b;">Title</td><td style="padding:8px 0; font-weight:600;">{fb.title}</td></tr>
+                  </table>
+                  <div style="margin-top:16px; padding:16px; background:#f8fafc; border-radius:8px; border-left:3px solid #3b82f6;">
+                    <p style="margin:0; font-size:14px; line-height:1.6; color:#1e293b;">{fb.message}</p>
+                  </div>
+                  <p style="margin-top:16px; font-size:12px; color:#94a3b8;">Submitted at {fb.created_at} · ID #{fb.id}</p>
+                </div>
               </div>
-              <p style="margin-top:16px; font-size:12px; color:#94a3b8;">Submitted at {fb.created_at} · ID #{fb.id}</p>
-            </div>
-          </div>
-        </body></html>
-        """
+            </body></html>
+            """
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = subject
-        msg["From"]    = SMTP_USER
-        msg["To"]      = ALERT_EMAIL
-        msg.attach(MIMEText(html_body, "html"))
+            response = httpx.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {RESEND_API_KEY}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from":    FROM_EMAIL,
+                    "to":      [ALERT_EMAIL],
+                    "subject": subject,
+                    "html":    html_body,
+                },
+                timeout=10,
+            )
 
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(SMTP_USER, SMTP_PASS)
-            server.sendmail(SMTP_USER, ALERT_EMAIL, msg.as_string())
+            if response.status_code == 200 or response.status_code == 201:
+                logger.info("Feedback alert email sent via Resend for feedback id=%d", fb.id)
+            else:
+                logger.warning("Resend returned %d: %s", response.status_code, response.text)
 
-        logger.info("Feedback alert email sent for feedback id=%d", fb.id)
+        except Exception as exc:
+            logger.warning("Failed to send feedback alert email: %s", exc)
 
-    except Exception as exc:
-        logger.warning("Failed to send feedback alert email: %s", exc)
+    # Run in background thread so it never blocks the API response
+    threading.Thread(target=_send, daemon=True).start()
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -173,7 +178,7 @@ def submit_feedback(
             detail="Database error. Please retry.",
         ) from exc
 
-    # Send email alert (non-blocking, fails silently)
+    # Fire-and-forget email alert (background thread, never blocks)
     _send_alert_email(fb)
 
     return {
