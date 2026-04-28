@@ -3922,18 +3922,30 @@ const FEEDBACK_TYPES = [
   { id: "feature_request", label: "Feature Request",  emoji: "✨", color: "#8b5cf6", desc: "Suggest a new feature or improvement" },
 ];
 
+const POSITIONS = ["Architect", "Navigator", "Operator", "Solo"];
+
 function FeedbackModal({ onClose, user, token, currentPage }) {
-  const [step, setStep]       = useState("type");   // type → form → success
-  const [type, setType]       = useState(null);
-  const [title, setTitle]     = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
+  const [step, setStep]         = useState("type");
+  const [type, setType]         = useState(null);
+  const [title, setTitle]       = useState("");
+  const [message, setMessage]   = useState("");
+  const [userName, setUserName] = useState(user?.name || "");
+  const [position, setPosition] = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
 
   const selected = FEEDBACK_TYPES.find(t => t.id === type);
 
+  const inputStyle = {
+    width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#f1f3fc",
+    fontSize: 13, outline: "none", boxSizing: "border-box",
+  };
+
   const submit = async () => {
-    if (!title.trim() || title.trim().length < 3)  { setError("Title must be at least 3 characters."); return; }
+    if (!userName.trim())                              { setError("Please enter your name."); return; }
+    if (!position)                                     { setError("Please select your position."); return; }
+    if (!title.trim() || title.trim().length < 3)     { setError("Title must be at least 3 characters."); return; }
     if (!message.trim() || message.trim().length < 10) { setError("Please provide a bit more detail (10+ characters)."); return; }
     setError("");
     setLoading(true);
@@ -3948,7 +3960,7 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
           page_context: currentPage || null,
           user_id:      user?.id    || null,
           user_email:   user?.email || null,
-          user_name:    user?.name  || null,
+          user_name:    `${userName.trim()} (${position})`,
         }),
       });
       if (!res.ok) throw new Error("Server error");
@@ -4014,6 +4026,31 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
           {/* Step: fill form */}
           {step === "form" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* Name + Position row */}
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>Your Name *</label>
+                  <input
+                    value={userName} onChange={e => setUserName(e.target.value)}
+                    placeholder="e.g. John Smith"
+                    style={inputStyle}
+                    onFocus={e => e.target.style.borderColor = selected?.color}
+                    onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>Position *</label>
+                  <select
+                    value={position} onChange={e => setPosition(e.target.value)}
+                    style={{ ...inputStyle, appearance: "none", cursor: "pointer", color: position ? "#f1f3fc" : "var(--color-text-tertiary)" }}
+                    onFocus={e => e.target.style.borderColor = selected?.color}
+                    onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                  >
+                    <option value="" disabled>Select role…</option>
+                    {POSITIONS.map(p => <option key={p} value={p} style={{ background: "#0d1117", color: "#f1f3fc" }}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
               <div>
                 <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>Title *</label>
                 <input
