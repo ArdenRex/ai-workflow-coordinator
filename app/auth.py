@@ -12,16 +12,35 @@ GET  /auth/slack/login       → Begin Slack OAuth login flow
 GET  /auth/slack/callback    → Slack OAuth callback (login or register via Slack)
 POST /auth/refresh           → Exchange refresh token for new access token
 GET  /auth/claim             → Segment 5: claim an assigned task + auto-join workspace
+app/auth.py
+───────────
+JWT token creation, validation, and FastAPI dependencies.
+
+Two token types:
+  - access_token  → short-lived (30 min) — sent in Authorization header
+  - refresh_token → long-lived (30 days) — issued when remember_me=True
+                    stored in httpOnly cookie on frontend
+
+Usage in route handlers:
+    from app.auth import get_current_user
+    
+    @router.get("/me")
+    def get_me(current_user: User = Depends(get_current_user)):
+        return current_user
 """
 
 import logging
 import os
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
+from fastapi import Cookie, Depends, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app import crud
@@ -31,6 +50,7 @@ from app.auth import (
     get_current_user,
     decode_token,
 )
+from app.config import get_settings
 from app.database import get_db
 from app.models import User, UserRole
 from app.schemas import (
@@ -43,10 +63,17 @@ from app.schemas import (
     UserResponse,
     WorkspaceResponse,
 )
+from app.models import User
 
 logger = logging.getLogger(__name__)
+settings = get_settings()
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+# ── JWT config ────────────────────────────────────────────────────────────────
+SECRET_KEY  = settings.app_secret_key.get_secret_value()
+ALGORITHM   = settings.jwt_algorithm
+ACCESS_EXPIRE_MINUTES = settings.jwt_access_token_expire_minutes
+REFRESH_EXPIRE_DAYS   = settings.jwt_refresh_token_expire_days
 
 # ── Env vars ──────────────────────────────────────────────────────────────────
 SLACK_CLIENT_ID     = os.getenv("SLACK_CLIENT_ID", "")
@@ -54,10 +81,8 @@ SLACK_CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET", "")
 BACKEND_URL         = os.getenv("BACKEND_URL", "").rstrip("/")
 FRONTEND_URL        = os.getenv("FRONTEND_URL", "").rstrip("/")
 SLACK_REDIRECT_URI  = f"{BACKEND_URL}/auth/slack/callback"
-
-# ── Billing config ────────────────────────────────────────────────────────────
-ADMIN_EMAILS = [e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()]
-TRIAL_DAYS   = 7
+# Bearer token extractor — reads Authorization: Bearer <token> header
+bearer_scheme = HTTPBearer(auto_error=False)
 
 SLACK_USER_SCOPES = "identity.basic,identity.email,identity.avatar"
 
@@ -67,7 +92,11 @@ COOKIE_MAX_AGE  = 60 * 60 * 24 * 30   # 30 days in seconds
 COOKIE_HTTPONLY = True
 COOKIE_SAMESITE = "lax"
 COOKIE_SECURE   = os.getenv("APP_ENV", "development") == "production"
+# ── Token creation ────────────────────────────────────────────────────────────
 
+def create_access_token(user_id: int) -> tuple[str, int]:
+    """
+    Create a short-lived JWT access token.
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
     """Attach the refresh token as an httpOnly cookie."""
@@ -85,6 +114,33 @@ def _clear_refresh_cookie(response: Response) -> None:
     """Remove the refresh token cookie."""
     response.delete_cookie(key=COOKIE_NAME, samesite=COOKIE_SAMESITE)
 
+    Returns:
+        (token_string, expires_in_seconds)
+    """
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_EXPIRE_MINUTES)
+    payload = {
+        "sub":  str(user_id),
+        "type": "access",
+        "exp":  expire,
+        "iat":  datetime.now(timezone.utc),
+    }
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+    return token, ACCESS_EXPIRE_MINUTES * 60
+
+
+def create_refresh_token(user_id: int) -> str:
+    """
+    Create a long-lived JWT refresh token (for Remember Me).
+    Should be stored in an httpOnly cookie on the frontend.
+    """
+    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_EXPIRE_DAYS)
+    payload = {
+        "sub":  str(user_id),
+        "type": "refresh",
+        "exp":  expire,
+        "iat":  datetime.now(timezone.utc),
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 # ── Step 1: Register ──────────────────────────────────────────────────────────
 
@@ -95,9 +151,12 @@ def _clear_refresh_cookie(response: Response) -> None:
     summary="Create a new account",
 )
 def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> RegisterResponse:
+def decode_token(token: str) -> dict:
     """
     Creates a new user account with email + password.
     After this, the frontend should redirect to /onboarding.
+    Decode and validate a JWT token.
+    Raises HTTPException 401 if invalid or expired.
     """
     existing = crud.get_user_by_email(db, payload.email)
     if existing:
@@ -107,20 +166,23 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> Registe
         )
 
     try:
-        trial_ends = datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
-        is_exempt  = payload.email.lower() in ADMIN_EMAILS
         user = crud.create_user(
             db=db,
             name=payload.name,
             email=payload.email,
             password=payload.password,
-            trial_ends_at=trial_ends,
-            subscription_status="exempt" if is_exempt else "trialing",
         )
     except IntegrityError:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload
+    except JWTError as exc:
+        logger.warning("JWT decode failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is invalid or expired. Please log in again.",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     logger.info("New user registered: id=%d email=%s", user.id, user.email)
@@ -132,6 +194,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> Registe
 
 
 # ── Step 2+3: Onboarding ──────────────────────────────────────────────────────
+# ── FastAPI dependencies ──────────────────────────────────────────────────────
 
 @router.post(
     "/onboarding",
@@ -143,6 +206,7 @@ def onboarding(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> OnboardingResponse:
+def _extract_user_id(token: str, expected_type: str = "access") -> int:
     """
     Called after registration to set:
       - Role (architect / navigator / operator / solo)
@@ -150,6 +214,7 @@ def onboarding(
       - Workspace: create new OR join existing via invite code
 
     Solo users skip workspace entirely.
+    Decode token, verify type, return user_id as int.
     """
     workspace = None
 
@@ -188,11 +253,16 @@ def onboarding(
         team_name=payload.team_name,
         workspace_id=workspace_id,
     )
+    payload = decode_token(token)
 
     if not updated_user:
+    token_type = payload.get("type")
+    if token_type != expected_type:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token type. Expected '{expected_type}'.",
         )
 
     if workspace_id and not workspace:
@@ -224,15 +294,23 @@ def login(
 ) -> TokenResponse:
     user = crud.authenticate_user(db, payload.email, payload.password)
     if not user:
+    user_id_str = payload.get("sub")
+    if not user_id_str:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password.",
+            detail="Token missing subject claim.",
         )
 
     if not user.is_active:
+    try:
+        return int(user_id_str)
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Your account has been deactivated.",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token subject is not a valid user ID.",
         )
 
     access_token, expires_in = create_access_token(user.id)
@@ -268,6 +346,13 @@ def logout(response: Response) -> None:
 
 
 # ── Me ────────────────────────────────────────────────────────────────────────
+def get_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    refresh_token: Optional[str] = Cookie(default=None, alias="refresh_token"),
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    FastAPI dependency — resolves the current authenticated user.
 
 @router.get(
     "/me",
@@ -277,9 +362,22 @@ def logout(response: Response) -> None:
 def get_me(current_user: User = Depends(get_current_user)) -> UserResponse:
     """Returns the profile of the currently logged-in user."""
     return UserResponse.model_validate(current_user)
+    Priority:
+      1. Authorization: Bearer <access_token> header  (normal requests)
+      2. refresh_token cookie                          (when access token expired + remember_me)
 
+    Raises HTTP 401 if neither is present or both are invalid.
+    """
+    token = None
+    token_type = "access"
 
 # ── Refresh token → new access token ─────────────────────────────────────────
+    if credentials and credentials.credentials:
+        token = credentials.credentials
+        token_type = "access"
+    elif refresh_token:
+        token = refresh_token
+        token_type = "refresh"
 
 @router.post(
     "/refresh",
@@ -292,25 +390,36 @@ def refresh_access_token(
     db: Session = Depends(get_db),
 ) -> TokenResponse:
     if not refresh_token:
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="No refresh token found. Please log in again.",
+            detail="Not authenticated. Please log in.",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     payload = decode_token(refresh_token)
     if payload.get("type") != "refresh":
+    user_id = _extract_user_id(token, expected_type=token_type)
+
+    user = db.get(User, user_id)
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token type.",
+            detail="User account not found. Please log in again.",
         )
 
     user_id = int(payload.get("sub", 0))
     user = crud.get_user_by_id(db, user_id)
 
     if not user or not user.is_active:
+    if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found or deactivated. Please log in again.",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been deactivated.",
         )
 
     access_token, expires_in = create_access_token(user.id)
@@ -351,13 +460,21 @@ async def slack_callback(
     response: Response,
     code: str = None,
     error: str = None,
+    return user
+
+
+def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+    refresh_token: Optional[str] = Cookie(default=None, alias="refresh_token"),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
+) -> Optional[User]:
     """
     Slack redirects here after the user approves.
     - If user exists → log them in (issue tokens).
     - If user doesn't exist → create account + redirect to onboarding.
-    - Segment 7: marks slack_connected onboarding step for the user.
+    Same as get_current_user but returns None instead of raising 401.
+    Used for endpoints that work both authenticated and unauthenticated.
     """
     if error:
         logger.warning("Slack login denied: %s", error)
@@ -394,6 +511,10 @@ async def slack_callback(
             "https://slack.com/api/users.identity",
             headers={"Authorization": f"Bearer {slack_user_token}"},
         )
+    try:
+        return get_current_user(credentials, refresh_token, db)
+    except HTTPException:
+        return None
 
     profile_data = profile_res.json()
     if not profile_data.get("ok"):
@@ -403,10 +524,14 @@ async def slack_callback(
     slack_name    = profile_data.get("user", {}).get("name", "Slack User")
     slack_email   = profile_data.get("user", {}).get("email", "")
     slack_team_id = profile_data.get("team", {}).get("id", "")
+# ── Role guards ───────────────────────────────────────────────────────────────
 
     user = crud.get_user_by_slack_id(db, slack_user_id)
     if not user and slack_email:
         user = crud.get_user_by_email(db, slack_email)
+def require_role(*allowed_roles):
+    """
+    Dependency factory — restricts endpoint to specific roles.
 
     is_new_user = False
     if not user:
@@ -421,13 +546,6 @@ async def slack_callback(
         logger.info("New user via Slack: id=%d slack_id=%s", user.id, slack_user_id)
     else:
         logger.info("Existing user via Slack login: id=%d", user.id)
-
-    # Segment 7 — mark slack_connected onboarding step (fire-and-forget)
-    try:
-        from app.routers.onboarding import mark_step_for_user
-        mark_step_for_user(db, user.id, "slack_connected")
-    except Exception as exc:
-        logger.warning("Could not mark slack_connected onboarding step: %s", exc)
 
     access_token, expires_in = create_access_token(user.id)
     refresh_token = create_refresh_token(user.id)
@@ -464,8 +582,24 @@ def claim_task(
     invite: str = Query(default=None, description="Workspace invite code (auto-joins on signup)"),
     db: Session = Depends(get_db),
 ) -> RedirectResponse:
+    Usage:
+        @router.get("/admin")
+        def admin_only(user = Depends(require_role("architect"))):
+            ...
     """
     Segment 5 — Claim link handler.
+    def _guard(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role.value not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    f"Access denied. This action requires one of: "
+                    f"{', '.join(allowed_roles)}. "
+                    f"Your role is: {current_user.role.value}."
+                ),
+            )
+        return current_user
+    return _guard
 
     This endpoint is hit when an unregistered Slack user clicks the
     "claim your task" link the bot DM'd them.
@@ -476,6 +610,9 @@ def claim_task(
       1. Show a "You were assigned: <task title>" banner
       2. Pre-fill the invite code in the workspace join step
       3. After signup, highlight that task in the dashboard
+# ── Convenience role dependencies ─────────────────────────────────────────────
+# Use these directly in route handlers for clean code:
+#   def my_route(user = Depends(require_architect)):
 
     If the task doesn't exist, redirects to the generic signup page.
     """
@@ -483,10 +620,13 @@ def claim_task(
 
     if not task:
         logger.warning("Claim link hit for non-existent task_id=%d", task_id)
+        # Redirect to generic signup — don't error out
         return RedirectResponse(f"{FRONTEND_URL}/signup")
 
+    # Build frontend URL with context so the signup page can personalise
     params = f"task={task_id}&title={task.title or ''}"
     if invite:
+        # Validate invite code is real before forwarding it
         workspace = crud.get_workspace_by_invite_code(db, invite)
         if workspace:
             params += f"&invite={invite}&workspace={workspace.name}"
@@ -498,48 +638,7 @@ def claim_task(
         "Claim link redirect: task_id=%d invite=%r → %s", task_id, invite, redirect_url
     )
     return RedirectResponse(redirect_url)
-
-
-# ── Segment 15: Billing status ────────────────────────────────────────────────
-
-@router.get(
-    "/billing-status",
-    summary="Get current user's billing/trial status",
-)
-def billing_status(
-    current_user: User = Depends(get_current_user),
-) -> dict:
-    """
-    Returns the user's subscription status and trial info.
-    Frontend uses this to decide whether to show the BillingWall.
-    """
-    now = datetime.now(timezone.utc)
-
-    # Exempt users (admin/owner) — never show billing wall
-    if current_user.subscription_status == "exempt":
-        return {"status": "exempt", "show_wall": False}
-
-    # Active subscription
-    if current_user.subscription_status == "active":
-        return {"status": "active", "show_wall": False}
-
-    # Still in trial
-    if current_user.subscription_status == "trialing" and current_user.trial_ends_at:
-        trial_end = current_user.trial_ends_at
-        if trial_end.tzinfo is None:
-            trial_end = trial_end.replace(tzinfo=timezone.utc)
-        if trial_end > now:
-            days_left = (trial_end - now).days
-            return {
-                "status":    "trialing",
-                "show_wall": False,
-                "days_left": days_left,
-                "trial_ends_at": trial_end.isoformat(),
-            }
-
-    # Trial expired or cancelled or past_due
-    return {
-        "status":    current_user.subscription_status,
-        "show_wall": True,
-        "trial_ends_at": current_user.trial_ends_at.isoformat() if current_user.trial_ends_at else None,
-    }
+require_architect = require_role("architect")
+require_navigator = require_role("architect", "navigator")
+require_operator  = require_role("architect", "navigator", "operator")
+# solo can only access their own routes — handled in the route itself
