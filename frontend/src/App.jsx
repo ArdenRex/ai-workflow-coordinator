@@ -4156,7 +4156,7 @@ function FeedbackButton({ user, token, currentPage }) {
 
 const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
 
-function BillingWall({ user, token, status, isNewUser, daysLeft, onSuccess }) {
+function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, onSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
 
@@ -4220,7 +4220,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, onSuccess }) {
           </div>
 
           {/* Subtext */}
-          <div style={{ fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: 28 }}>
+          <div style={{ fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: isNewUser && daysLeft !== undefined ? 16 : 28 }}>
             {isPastDue
               ? "We couldn't process your last payment. Please update your payment details to continue using AI Workflow Coordinator."
               : isCancelled
@@ -4229,6 +4229,19 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, onSuccess }) {
               ? "Welcome to AI Workflow Coordinator! Enter your card details to start your free 7-day trial. You won't be charged until the trial ends — cancel anytime."
               : "You've experienced the full power of AI Workflow Coordinator. Subscribe now to keep your tasks, team, and workflows running."}
           </div>
+
+          {/* Trial countdown pill — shown to new trialing users */}
+          {isNewUser && daysLeft !== undefined && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, marginBottom: 28,
+              padding: "10px 14px", borderRadius: 10,
+              background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)",
+              fontSize: 13, color: "#10b981", fontWeight: 600,
+            }}>
+              <span>⏱</span>
+              <span>Free trial: <strong>{daysLeft} day{daysLeft === 1 ? "" : "s"} remaining</strong> — no charge until it ends</span>
+            </div>
+          )}
 
           {/* Value props */}
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
@@ -4296,20 +4309,35 @@ function AuthenticatedApp() {
       setBillingChecked(true);
       return;
     }
-    // Check ?billing=success in URL (returned from LS checkout)
+    // On return from Lemon Squeezy checkout, clean the URL but STILL re-fetch
+    // from the backend — the webhook may not have fired yet, so we poll with backoff
     const params = new URLSearchParams(window.location.search);
-    if (params.get("billing") === "success" || params.get("billing") === "test_success") {
+    const fromCheckout = params.get("billing") === "success" || params.get("billing") === "test_success";
+    if (fromCheckout) {
       window.history.replaceState({}, "", window.location.pathname);
-      setBilling({ status: "active", show_wall: false });
-      setBillingChecked(true);
-      return;
     }
-    fetch(`${BASE_URL}/auth/billing-status`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.json())
-      .then(d => { setBilling(d); setBillingChecked(true); })
-      .catch(() => { setBilling({ status: "trialing", show_wall: false }); setBillingChecked(true); });
+
+    const checkBilling = (retriesLeft = 0) => {
+      fetch(`${BASE_URL}/auth/billing-status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.json())
+        .then(d => {
+          // If returning from checkout but webhook hasn't updated the DB yet, retry up to 4×
+          if (fromCheckout && d.show_wall && retriesLeft < 4) {
+            setTimeout(() => checkBilling(retriesLeft + 1), 1500 * (retriesLeft + 1));
+            return;
+          }
+          setBilling(d);
+          setBillingChecked(true);
+        })
+        .catch(() => {
+          setBilling({ status: "trialing", show_wall: false });
+          setBillingChecked(true);
+        });
+    };
+
+    checkBilling();
   }, [token, user]);
 
   // ✅ Role-based task filters passed to useTasks
@@ -4382,6 +4410,8 @@ function AuthenticatedApp() {
         token={token}
         status={billing.status}
         isNewUser={!billing.card_on_file && billing.status === "trialing"}
+        daysLeft={billing.days_left}
+        trialEndsAt={billing.trial_ends_at}
         onSuccess={() => setBilling({ status: "active", show_wall: false })}
       />
     );
@@ -4399,7 +4429,7 @@ function AuthenticatedApp() {
       {showTour && <TourOverlay onComplete={() => setShowTour(false)} />}
 
       {/* Trial countdown banner */}
-      {billing?.status === "trialing" && billing?.days_left !== undefined && billing.days_left <= 3 && (
+      {billing?.status === "trialing" && billing?.days_left !== undefined && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 9000,
           background: billing.days_left === 0 ? "linear-gradient(90deg,#ef4444,#dc2626)" : "linear-gradient(90deg,#f59e0b,#d97706)",
