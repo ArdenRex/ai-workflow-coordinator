@@ -229,6 +229,8 @@ def create_user(
     role: UserRole = UserRole.operator,
     team_name: Optional[str] = None,
     workspace_id: Optional[int] = None,
+    trial_ends_at=None,
+    subscription_status: str = "trialing",
 ) -> User:
     user = User(
         name=name.strip(),
@@ -241,6 +243,8 @@ def create_user(
         workspace_id=workspace_id,
         is_active=True,
         is_verified=False,
+        trial_ends_at=trial_ends_at,
+        subscription_status=subscription_status,
     )
     db.add(user)
     try:
