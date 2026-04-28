@@ -4152,12 +4152,164 @@ function FeedbackButton({ user, token, currentPage }) {
   );
 }
 
+// ── Billing Wall (Segment 15) ─────────────────────────────────────────────────
+
+const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+
+function BillingWall({ user, token, status, daysLeft, onSuccess }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  const startCheckout = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`${BASE_URL}/billing/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to start checkout");
+
+      if (data.test_mode) {
+        // Test mode — simulate success
+        onSuccess();
+        return;
+      }
+      // Redirect to Lemon Squeezy hosted checkout
+      window.location.href = data.checkout_url;
+    } catch (err) {
+      setError(err.message || "Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  const isExpired   = status === "trialing" || status === "past_due" || status === "cancelled";
+  const isPastDue   = status === "past_due";
+  const isCancelled = status === "cancelled";
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9998,
+      background: "rgba(8,10,20,0.97)", backdropFilter: "blur(20px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "var(--font-sans)",
+    }}>
+      {/* Ambient glow */}
+      <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+      <div style={{
+        position: "relative", width: "100%", maxWidth: 480, margin: "0 24px",
+        background: "linear-gradient(160deg, rgba(20,22,46,0.98) 0%, rgba(14,17,36,0.99) 100%)",
+        border: "1px solid rgba(255,255,255,0.1)", borderRadius: 24,
+        boxShadow: "0 32px 100px rgba(0,0,0,0.8)",
+        overflow: "hidden",
+        animation: "slideUpIn 0.4s cubic-bezier(0.34,1.56,0.64,1)",
+      }}>
+        {/* Top accent bar */}
+        <div style={{ height: 3, background: "linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899)", borderRadius: "24px 24px 0 0" }} />
+
+        <div style={{ padding: "36px 40px 40px" }}>
+          {/* Icon */}
+          <div style={{ width: 64, height: 64, borderRadius: 18, background: isPastDue ? "rgba(245,158,11,0.15)" : isCancelled ? "rgba(239,68,68,0.15)" : "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, marginBottom: 24 }}>
+            {isPastDue ? "⚠️" : isCancelled ? "🔒" : "🚀"}
+          </div>
+
+          {/* Heading */}
+          <div style={{ fontSize: 22, fontWeight: 700, color: "#f1f3fc", marginBottom: 10, fontFamily: "var(--font-display)" }}>
+            {isPastDue ? "Payment Failed" : isCancelled ? "Subscription Ended" : "Your Free Trial Has Ended"}
+          </div>
+
+          {/* Subtext */}
+          <div style={{ fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: 28 }}>
+            {isPastDue
+              ? "We couldn't process your last payment. Please update your payment details to continue using AI Workflow Coordinator."
+              : isCancelled
+              ? "Your subscription has been cancelled. Reactivate now to regain full access to your workspace and tasks."
+              : "You've experienced the full power of AI Workflow Coordinator. Subscribe now to keep your tasks, team, and workflows running."}
+          </div>
+
+          {/* Value props */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
+            {["Unlimited tasks & team members", "AI-powered task creation from Slack", "Automated follow-ups & reminders", "Real-time dashboard & compliance reports"].map(f => (
+              <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--color-text-secondary)" }}>
+                <div style={{ width: 20, height: 20, borderRadius: 6, background: "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>✓</div>
+                {f}
+              </div>
+            ))}
+          </div>
+
+          {/* Price */}
+          <div style={{ padding: "16px 20px", background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 14, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Monthly subscription</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: "#f1f3fc", marginTop: 2 }}>$20 <span style={{ fontSize: 14, fontWeight: 400, color: "var(--color-text-secondary)" }}>/ user / month</span></div>
+            </div>
+            <div style={{ fontSize: 11, color: "#22d3ee", background: "rgba(34,211,238,0.1)", padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>Cancel anytime</div>
+          </div>
+
+          {error && (
+            <div style={{ fontSize: 12, color: "#f43f5e", padding: "10px 14px", background: "rgba(244,63,94,0.1)", borderRadius: 10, marginBottom: 16 }}>{error}</div>
+          )}
+
+          {/* CTA button */}
+          <button
+            onClick={startCheckout}
+            disabled={loading}
+            style={{
+              width: "100%", padding: "14px", borderRadius: 14, border: "none",
+              background: loading ? "rgba(59,130,246,0.5)" : "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+              color: "#fff", fontWeight: 700, fontSize: 15, cursor: loading ? "not-allowed" : "pointer",
+              boxShadow: loading ? "none" : "0 4px 20px rgba(59,130,246,0.4)",
+              transition: "all 0.2s",
+            }}
+          >
+            {loading ? "Redirecting to payment…" : isPastDue ? "Update Payment Method →" : "Subscribe Now — $20/month →"}
+          </button>
+
+          <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "var(--color-text-tertiary)" }}>
+            Secured by Lemon Squeezy · Cancel anytime · No hidden fees
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Authenticated shell — wraps Dashboard with Sidebar ────────────────────────
 function AuthenticatedApp() {
   const { user, isOnboarded, token } = useAuth();
-  const [activeNav, setActiveNav]   = useState(0);
+  const [activeNav, setActiveNav]     = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showTour, setShowTour] = useState(() => !localStorage.getItem("aw_tour_done"));
+  const [showTour, setShowTour]       = useState(() => !localStorage.getItem("aw_tour_done"));
+  const [billing, setBilling]         = useState(null);   // null=loading, object=loaded
+  const [billingChecked, setBillingChecked] = useState(false);
+
+  // ── Check billing status on mount ──────────────────────────────────────────
+  useEffect(() => {
+    if (!token || !user) return;
+    // Exempt: your admin email(s) never see billing wall
+    const adminEmails = (process.env.REACT_APP_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+    if (adminEmails.includes(user.email?.toLowerCase())) {
+      setBilling({ status: "exempt", show_wall: false });
+      setBillingChecked(true);
+      return;
+    }
+    // Check ?billing=success in URL (returned from LS checkout)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("billing") === "success" || params.get("billing") === "test_success") {
+      window.history.replaceState({}, "", window.location.pathname);
+      setBilling({ status: "active", show_wall: false });
+      setBillingChecked(true);
+      return;
+    }
+    fetch(`${BASE_URL}/auth/billing-status`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .then(d => { setBilling(d); setBillingChecked(true); })
+      .catch(() => { setBilling({ status: "trialing", show_wall: false }); setBillingChecked(true); });
+  }, [token, user]);
 
   // ✅ Role-based task filters passed to useTasks
   const taskFilters = useMemo(() => {
@@ -4216,11 +4368,36 @@ function AuthenticatedApp() {
     return <OnboardingPage onComplete={() => setShowOnboarding(false)} />;
   }
 
+  // Show billing wall if trial expired or subscription lapsed
+  if (billingChecked && billing?.show_wall) {
+    return <BillingWall user={user} token={token} status={billing.status} onSuccess={() => setBilling({ status: "active", show_wall: false })} />;
+  }
+
   const currentNavLabel = NAV_ITEMS[activeNav]?.label;
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)", position: "relative" }} onKeyDown={handleKeyDown}>
       {showTour && <TourOverlay onComplete={() => setShowTour(false)} />}
+
+      {/* Trial countdown banner */}
+      {billing?.status === "trialing" && billing?.days_left !== undefined && billing.days_left <= 3 && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 9000,
+          background: billing.days_left === 0 ? "linear-gradient(90deg,#ef4444,#dc2626)" : "linear-gradient(90deg,#f59e0b,#d97706)",
+          padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: 16,
+          fontSize: 13, fontWeight: 600, color: "#fff",
+        }}>
+          <span>⏰ {billing.days_left === 0 ? "Your free trial expires today!" : `Your free trial ends in ${billing.days_left} day${billing.days_left === 1 ? "" : "s"}!`}</span>
+          <button onClick={async () => {
+            const res = await fetch(`${BASE_URL}/billing/checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+            const d = await res.json();
+            if (d.test_mode) { setBilling({ status: "active", show_wall: false }); } else { window.location.href = d.checkout_url; }
+          }} style={{ padding: "5px 14px", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+            Subscribe Now →
+          </button>
+        </div>
+      )}
+
       <FeedbackButton user={user} token={token} currentPage={NAV_ITEMS[activeNav]?.label} />
       {/* Subtle dot grid background */}
       <div style={{ position: "fixed", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "32px 32px", pointerEvents: "none", zIndex: 0 }} />
