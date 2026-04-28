@@ -16,6 +16,7 @@ GET  /auth/claim             → Segment 5: claim an assigned task + auto-join w
 
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
@@ -53,6 +54,10 @@ SLACK_CLIENT_SECRET = os.getenv("SLACK_CLIENT_SECRET", "")
 BACKEND_URL         = os.getenv("BACKEND_URL", "").rstrip("/")
 FRONTEND_URL        = os.getenv("FRONTEND_URL", "").rstrip("/")
 SLACK_REDIRECT_URI  = f"{BACKEND_URL}/auth/slack/callback"
+
+# ── Billing config ────────────────────────────────────────────────────────────
+ADMIN_EMAILS = [e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",") if e.strip()]
+TRIAL_DAYS   = 7
 
 SLACK_USER_SCOPES = "identity.basic,identity.email,identity.avatar"
 
@@ -102,11 +107,15 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> Registe
         )
 
     try:
+        trial_ends = datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS)
+        is_exempt  = payload.email.lower() in ADMIN_EMAILS
         user = crud.create_user(
             db=db,
             name=payload.name,
             email=payload.email,
             password=payload.password,
+            trial_ends_at=trial_ends,
+            subscription_status="exempt" if is_exempt else "trialing",
         )
     except IntegrityError:
         raise HTTPException(
@@ -489,3 +498,48 @@ def claim_task(
         "Claim link redirect: task_id=%d invite=%r → %s", task_id, invite, redirect_url
     )
     return RedirectResponse(redirect_url)
+
+
+# ── Segment 15: Billing status ────────────────────────────────────────────────
+
+@router.get(
+    "/billing-status",
+    summary="Get current user's billing/trial status",
+)
+def billing_status(
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """
+    Returns the user's subscription status and trial info.
+    Frontend uses this to decide whether to show the BillingWall.
+    """
+    now = datetime.now(timezone.utc)
+
+    # Exempt users (admin/owner) — never show billing wall
+    if current_user.subscription_status == "exempt":
+        return {"status": "exempt", "show_wall": False}
+
+    # Active subscription
+    if current_user.subscription_status == "active":
+        return {"status": "active", "show_wall": False}
+
+    # Still in trial
+    if current_user.subscription_status == "trialing" and current_user.trial_ends_at:
+        trial_end = current_user.trial_ends_at
+        if trial_end.tzinfo is None:
+            trial_end = trial_end.replace(tzinfo=timezone.utc)
+        if trial_end > now:
+            days_left = (trial_end - now).days
+            return {
+                "status":    "trialing",
+                "show_wall": False,
+                "days_left": days_left,
+                "trial_ends_at": trial_end.isoformat(),
+            }
+
+    # Trial expired or cancelled or past_due
+    return {
+        "status":    current_user.subscription_status,
+        "show_wall": True,
+        "trial_ends_at": current_user.trial_ends_at.isoformat() if current_user.trial_ends_at else None,
+    }
