@@ -719,7 +719,7 @@ function Sparkline({ color }) {
 
 // ── Segment 10: Ownership Graph view ─────────────────────────────────────────
 function OwnershipGraph() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const API = BASE_URL;
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(true);
@@ -727,28 +727,73 @@ function OwnershipGraph() {
   const [selected, setSelected] = useState(null); // selected assignee node
   const [filter, setFilter]     = useState("");
 
+  // Also load raw tasks as fallback source of truth
+  const taskFilters = useMemo(() => {
+    if (!user) return {};
+    if (user.role === "architect") return { workspace_id: user.workspace?.id };
+    if (user.role === "navigator") return { workspace_id: user.workspace?.id, team_name: user.team_name };
+    if (user.role === "operator") return { owner_id: user.id };
+    return {};
+  }, [user]);
+  const { tasks: rawTasks, loading: tasksLoading } = useTasks(taskFilters);
+
   useEffect(() => {
+    if (!token) return;
     const params = new URLSearchParams();
     if (user?.workspace?.id) params.set("workspace_id", user.workspace.id);
     else if (user?.id)       params.set("owner_id", user.id);
 
-    fetch(`${API}/tasks/graph?${params}`)
-      .then(r => { if (!r.ok) throw new Error("Failed to load graph"); return r.json(); })
+    fetch(`${API}/tasks/graph?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => { if (!r.ok) throw new Error(`Graph endpoint returned ${r.status}`); return r.json(); })
       .then(d => { setData(d); setLoading(false); })
-      .catch(e => { setError(e.message); setLoading(false); });
-  }, [API, user]);
+      .catch(() => {
+        // Silently fall back — we'll build graph from rawTasks below
+        setData(null);
+        setLoading(false);
+      });
+  }, [API, user, token]);
+
+  // Build graph data from rawTasks when the /tasks/graph endpoint fails or returns no nodes
+  const graphData = useMemo(() => {
+    // Use API data if it has nodes
+    if (data?.nodes?.length > 0) return data;
+
+    // Build from rawTasks
+    if (!rawTasks?.length) return { nodes: [], total_tasks: 0, total_owners: 0 };
+
+    const byAssignee = {};
+    rawTasks.forEach(task => {
+      const key = task.assignee || task.assigned_to || task.owner || "Unassigned";
+      if (!byAssignee[key]) {
+        byAssignee[key] = { assignee: key, total: 0, to_do: 0, in_progress: 0, completed: 0, cancelled: 0, critical: 0, high: 0, medium: 0, low: 0, tasks: [] };
+      }
+      const node = byAssignee[key];
+      node.total++;
+      const status = task.status || "to_do";
+      if (node[status] !== undefined) node[status]++;
+      const priority = task.priority || "medium";
+      if (node[priority] !== undefined) node[priority]++;
+      if (priority === "critical") node.critical++;
+      node.tasks.push(task);
+    });
+
+    const nodes = Object.values(byAssignee);
+    return { nodes, total_tasks: rawTasks.length, total_owners: nodes.length };
+  }, [data, rawTasks]);
 
   const PRIORITY_COLOR = { critical: "#f87171", high: "#fb923c", medium: "#fbbf24", low: "#34d399" };
   const STATUS_COLOR   = { to_do: "#3b82f6", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
 
   const nodes = useMemo(() => {
-    if (!data?.nodes) return [];
-    return data.nodes.filter(n =>
+    if (!graphData?.nodes) return [];
+    return graphData.nodes.filter(n =>
       !filter || n.assignee.toLowerCase().includes(filter.toLowerCase())
     );
-  }, [data, filter]);
+  }, [graphData, filter]);
 
-  if (loading) return (
+  if (loading || tasksLoading) return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
         <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
@@ -766,7 +811,7 @@ function OwnershipGraph() {
     </main>
   );
 
-  const selectedNode = selected ? data?.nodes?.find(n => n.assignee === selected) : null;
+  const selectedNode = selected ? graphData?.nodes?.find(n => n.assignee === selected) : null;
 
   return (
     <main className="page-enter" style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
@@ -782,7 +827,7 @@ function OwnershipGraph() {
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Ownership Graph</div>
           <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 1 }}>
-            {data?.total_tasks ?? 0} tasks · {data?.total_owners ?? 0} owners
+            {graphData?.total_tasks ?? 0} tasks · {graphData?.total_owners ?? 0} owners
           </div>
         </div>
         <div style={{ flex: 1, maxWidth: 300, position: "relative" }}>
@@ -808,8 +853,8 @@ function OwnershipGraph() {
       {/* Summary pills */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
         {[
-          { label: "Total Tasks",   value: data?.total_tasks,  color: "#3b82f6" },
-          { label: "Owners",        value: data?.total_owners, color: "#8b5cf6" },
+          { label: "Total Tasks",   value: graphData?.total_tasks,  color: "#3b82f6" },
+          { label: "Owners",        value: graphData?.total_owners, color: "#8b5cf6" },
           { label: "In Progress",   value: nodes.reduce((s, n) => s + n.in_progress, 0), color: "#f59e0b" },
           { label: "Completed",     value: nodes.reduce((s, n) => s + n.completed,   0), color: "#22d3a8" },
           { label: "Critical",      value: nodes.reduce((s, n) => s + n.critical,    0), color: "#f87171" },
