@@ -372,6 +372,11 @@ const GLOBAL_STYLES = `
     0%,100% { box-shadow: 0 0 0 4px rgba(59,130,246,0.4), 0 0 0 8px rgba(59,130,246,0.15); }
     50%      { box-shadow: 0 0 0 6px rgba(59,130,246,0.55), 0 0 0 14px rgba(59,130,246,0.08); }
   }
+  @keyframes slideUpIn {
+    from { opacity: 0; transform: translateY(24px) scale(0.96); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+  }
+
   @keyframes particleFloat {
     0%   { transform: translateY(0px) rotate(0deg); opacity: 0.8; }
     50%  { transform: translateY(-18px) rotate(180deg); opacity: 0.4; }
@@ -3909,6 +3914,207 @@ function ApiPage() {
   );
 }
 
+// ── Feedback System (Segment 14) ─────────────────────────────────────────────
+
+const FEEDBACK_TYPES = [
+  { id: "bug",             label: "Bug Report",      emoji: "🐛", color: "#f43f5e", desc: "Something is broken or not working right" },
+  { id: "feedback",        label: "General Feedback", emoji: "💬", color: "#3b82f6", desc: "Share your thoughts or experience" },
+  { id: "feature_request", label: "Feature Request",  emoji: "✨", color: "#8b5cf6", desc: "Suggest a new feature or improvement" },
+];
+
+function FeedbackModal({ onClose, user, token, currentPage }) {
+  const [step, setStep]       = useState("type");   // type → form → success
+  const [type, setType]       = useState(null);
+  const [title, setTitle]     = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  const selected = FEEDBACK_TYPES.find(t => t.id === type);
+
+  const submit = async () => {
+    if (!title.trim() || title.trim().length < 3)  { setError("Title must be at least 3 characters."); return; }
+    if (!message.trim() || message.trim().length < 10) { setError("Please provide a bit more detail (10+ characters)."); return; }
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          type,
+          title:        title.trim(),
+          message:      message.trim(),
+          page_context: currentPage || null,
+          user_id:      user?.id    || null,
+          user_email:   user?.email || null,
+          user_name:    user?.name  || null,
+        }),
+      });
+      if (!res.ok) throw new Error("Server error");
+      setStep("success");
+    } catch {
+      setError("Failed to submit. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 24px 90px 0", pointerEvents: "none" }}>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", pointerEvents: "all" }} />
+
+      {/* Modal card */}
+      <div style={{
+        position: "relative", pointerEvents: "all", width: 420, background: "#0d1117",
+        border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20,
+        boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
+        animation: "slideUpIn 0.3s cubic-bezier(0.34,1.56,0.64,1)",
+        overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f3fc", fontFamily: "var(--font-display)" }}>
+              {step === "success" ? "🎉 Thanks!" : step === "form" ? `${selected?.emoji} ${selected?.label}` : "Share Feedback"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+              {step === "success" ? "We've received your message" : step === "form" ? selected?.desc : "Help us improve the product"}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, color: "var(--color-text-secondary)", cursor: "pointer", padding: "6px 10px", fontSize: 16, lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ padding: "20px 24px 24px" }}>
+
+          {/* Step: choose type */}
+          {step === "type" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {FEEDBACK_TYPES.map(t => (
+                <button key={t.id} onClick={() => { setType(t.id); setStep("form"); }} style={{
+                  display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
+                  background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`,
+                  borderRadius: 12, cursor: "pointer", textAlign: "left", transition: "all 0.15s",
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${t.color}18`; e.currentTarget.style.borderColor = `${t.color}50`; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}
+                >
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: `${t.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{t.emoji}</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f3fc" }}>{t.label}</div>
+                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>{t.desc}</div>
+                  </div>
+                  <div style={{ marginLeft: "auto", color: "var(--color-text-tertiary)", fontSize: 16 }}>→</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Step: fill form */}
+          {step === "form" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>Title *</label>
+                <input
+                  value={title} onChange={e => setTitle(e.target.value)}
+                  placeholder={type === "bug" ? "e.g. Compliance page shows blank screen" : type === "feature_request" ? "e.g. Export tasks to CSV" : "e.g. The dashboard feels very fast!"}
+                  style={{
+                    width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#f1f3fc",
+                    fontSize: 13, outline: "none", boxSizing: "border-box",
+                  }}
+                  onFocus={e => e.target.style.borderColor = selected?.color}
+                  onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
+                  Details * <span style={{ color: "var(--color-text-tertiary)", fontSize: 11 }}>({message.length}/5000)</span>
+                </label>
+                <textarea
+                  value={message} onChange={e => setMessage(e.target.value)} rows={5}
+                  placeholder={type === "bug" ? "Steps to reproduce, what you expected vs what happened..." : type === "feature_request" ? "Describe the feature, why it would help, any examples..." : "Tell us what you think — good or bad!"}
+                  style={{
+                    width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#f1f3fc",
+                    fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                  onFocus={e => e.target.style.borderColor = selected?.color}
+                  onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                />
+              </div>
+              {currentPage && (
+                <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", padding: "6px 10px", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>
+                  📍 Page context will be attached: <strong style={{ color: "var(--color-text-secondary)" }}>{currentPage}</strong>
+                </div>
+              )}
+              {error && <div style={{ fontSize: 12, color: "#f43f5e", padding: "8px 12px", background: "rgba(244,63,94,0.1)", borderRadius: 8 }}>{error}</div>}
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setStep("type"); setError(""); }} style={{ flex: 1, padding: "10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 13 }}>← Back</button>
+                <button onClick={submit} disabled={loading} style={{
+                  flex: 2, padding: "10px", background: selected ? `linear-gradient(135deg, ${selected.color}, ${selected.color}cc)` : "var(--grad-primary)",
+                  border: "none", borderRadius: 10, color: "#fff", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontSize: 13, opacity: loading ? 0.7 : 1,
+                }}>
+                  {loading ? "Sending…" : `Submit ${selected?.label}`}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step: success */}
+          {step === "success" && (
+            <div style={{ textAlign: "center", padding: "10px 0 4px" }}>
+              <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#f1f3fc", marginBottom: 8 }}>Feedback received!</div>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 24 }}>
+                We read every submission and use it to make the product better. Thank you for taking the time!
+              </div>
+              <button onClick={onClose} style={{
+                padding: "10px 24px", background: "var(--grad-primary)", border: "none", borderRadius: 10,
+                color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13,
+              }}>Close</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeedbackButton({ user, token, currentPage }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* Floating button */}
+      <button
+        onClick={() => setOpen(true)}
+        title="Share feedback"
+        style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 1000,
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "11px 18px 11px 14px",
+          background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+          border: "none", borderRadius: 50, cursor: "pointer",
+          boxShadow: "0 4px 20px rgba(59,130,246,0.45)",
+          color: "#fff", fontWeight: 600, fontSize: 13,
+          fontFamily: "var(--font-sans)",
+          transition: "transform 0.15s, box-shadow 0.15s",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 6px 28px rgba(59,130,246,0.6)"; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(59,130,246,0.45)"; }}
+      >
+        <span style={{ fontSize: 16 }}>💬</span>
+        Feedback
+      </button>
+
+      {open && <FeedbackModal onClose={() => setOpen(false)} user={user} token={token} currentPage={currentPage} />}
+    </>
+  );
+}
+
 // ── Authenticated shell — wraps Dashboard with Sidebar ────────────────────────
 function AuthenticatedApp() {
   const { user, isOnboarded, token } = useAuth();
@@ -3978,6 +4184,7 @@ function AuthenticatedApp() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)", position: "relative" }} onKeyDown={handleKeyDown}>
       {showTour && <TourOverlay onComplete={() => setShowTour(false)} />}
+      <FeedbackButton user={user} token={token} currentPage={NAV_ITEMS[activeNav]?.label} />
       {/* Subtle dot grid background */}
       <div style={{ position: "fixed", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "32px 32px", pointerEvents: "none", zIndex: 0 }} />
       {/* Ambient top glow */}
