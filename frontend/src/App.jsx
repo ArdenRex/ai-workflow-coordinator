@@ -398,53 +398,62 @@ const TOUR_STEPS = [
     tip: "💡 Pro tip: The Kanban board lets you drag tasks between columns — or click a card to see full details.", xp: 10,
   },
   {
+    id: "nav_badges", emoji: "🔴", title: "Live Sidebar Badges — Always in the Know",
+    subtitle: "Real-time counts on every nav item",
+    description: "Every section of the sidebar shows a live number badge that updates automatically as your data changes. No need to click into a page to know what's waiting for you.",
+    color: "#f59e0b", gradient: "linear-gradient(135deg,#f59e0b 0%,#f97316 100%)",
+    tip: "💡 What each badge means:\n🟠 Dashboard = active (in-progress) tasks\n🔵 Tasks = total task count\n🔴 Compliance = issues needing attention\n🟢 Reports = completed tasks\n🟣 Ownership = number of owners",
+    xp: 18,
+    isBadgeStep: true,
+  },
+  {
     id: "tasks", emoji: "✦", title: "Tasks — Full Task Management",
     subtitle: "Create, assign, track, complete",
     description: "The Tasks page gives you a filterable table of every task. Create new tasks, assign them to teammates, set priorities (Critical → Low), and add deadlines.",
     color: "#8b5cf6", gradient: "linear-gradient(135deg,#8b5cf6 0%,#ec4899 100%)",
-    tip: "💡 Pro tip: Use the search bar + status/priority filters to instantly zero in on what matters.", xp: 20,
+    tip: "💡 Pro tip: Use the search bar + status/priority filters to instantly zero in on what matters.", xp: 27,
   },
   {
     id: "compliance", emoji: "◈", title: "Compliance — Task Health Monitor",
     subtitle: "Catch problems before they explode",
     description: "Compliance automatically flags overdue tasks, unassigned work, stale tasks (7+ days inactive), and high-priority items that haven't started yet. Your score shows overall team health.",
     color: "#f43f5e", gradient: "linear-gradient(135deg,#f43f5e 0%,#fb923c 100%)",
-    tip: "💡 Pro tip: Keep your Compliance Score above 80% — that means your team is running clean.", xp: 30,
+    tip: "💡 Pro tip: Keep your Compliance Score above 80% — that means your team is running clean.", xp: 36,
   },
   {
     id: "knowledge", emoji: "◉", title: "Knowledge — Team Brain",
     subtitle: "Document everything, forget nothing",
     description: "Store SOPs, runbooks, decision logs, and team notes in the Knowledge base. Pin critical docs so they're always visible, and search across everything instantly.",
     color: "#10b981", gradient: "linear-gradient(135deg,#10b981 0%,#06b6d4 100%)",
-    tip: "💡 Pro tip: Tag your notes with categories to keep things organised as your library grows.", xp: 40,
+    tip: "💡 Pro tip: Tag your notes with categories to keep things organised as your library grows.", xp: 45,
   },
   {
     id: "ownership", emoji: "⊕", title: "Ownership — Who Owns What",
     subtitle: "Visualise workload distribution",
     description: "The Ownership Graph shows every team member's task load — how many tasks they own, their completion rate, and priority breakdown. Spot overloaded teammates instantly.",
     color: "#f59e0b", gradient: "linear-gradient(135deg,#f59e0b 0%,#f97316 100%)",
-    tip: "💡 Pro tip: Click any person card to expand their full task list with status and deadlines.", xp: 50,
+    tip: "💡 Pro tip: Click any person card to expand their full task list with status and deadlines.", xp: 54,
   },
   {
     id: "reports", emoji: "▲", title: "Reports — Performance Analytics",
     subtitle: "Data-driven decisions",
     description: "Reports gives you completion rates, velocity trends, priority distribution, and KPIs over time. Share these with stakeholders to show team progress.",
     color: "#06b6d4", gradient: "linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%)",
-    tip: "💡 Pro tip: Check Reports weekly to spot trends before they become problems.", xp: 60,
+    tip: "💡 Pro tip: Check Reports weekly to spot trends before they become problems.", xp: 63,
   },
   {
     id: "integrations", emoji: "⛓", title: "Integrations — Connect Your Stack",
     subtitle: "Slack, GitHub, Zapier and more",
     description: "Connect AI Workflow to your existing tools. Get Slack notifications when tasks are assigned or overdue, trigger automations via Zapier, or post updates to GitHub.",
     color: "#8b5cf6", gradient: "linear-gradient(135deg,#8b5cf6 0%,#3b82f6 100%)",
-    tip: "💡 Pro tip: Enable the Slack integration first — your team will get nudged about deadlines automatically.", xp: 70,
+    tip: "💡 Pro tip: Enable the Slack integration first — your team will get nudged about deadlines automatically.", xp: 72,
   },
   {
     id: "api", emoji: "🔑", title: "API — Build On Top",
     subtitle: "Full REST API access",
     description: "Every feature in this app is available via API. Generate API keys, browse the endpoint reference, and build your own automations or integrations on top of your workflow data.",
     color: "#10b981", gradient: "linear-gradient(135deg,#10b981 0%,#8b5cf6 100%)",
-    tip: "💡 Pro tip: The API docs are available at /docs — fully interactive with Swagger UI.", xp: 80,
+    tip: "💡 Pro tip: The API docs are available at /docs — fully interactive with Swagger UI.", xp: 81,
   },
   {
     id: "finish", emoji: "🏆", title: "You're Ready to Command!",
@@ -603,7 +612,26 @@ function TourOverlay({ onComplete }) {
               background: `${current.color}0d`, border: `1px solid ${current.color}25`,
               fontSize: 12.5, color: "var(--color-text-secondary)", lineHeight: 1.6,
               animation: "fadeUp 0.3s ease both",
-            }}>{current.tip}</div>
+            }}>
+              {current.isBadgeStep ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                  <div style={{ fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 4 }}>💡 What each badge means:</div>
+                  {[
+                    { dot: "#f59e0b", label: "Dashboard",  desc: "active (in-progress) tasks" },
+                    { dot: "#3b82f6", label: "Tasks",      desc: "total task count" },
+                    { dot: "#f43f5e", label: "Compliance", desc: "issues needing attention" },
+                    { dot: "#10b981", label: "Reports",    desc: "completed tasks" },
+                    { dot: "#8b5cf6", label: "Ownership",  desc: "number of owners" },
+                  ].map(b => (
+                    <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: b.dot, flexShrink: 0, boxShadow: `0 0 6px ${b.dot}80` }} />
+                      <span style={{ fontWeight: 600, color: "var(--color-text-primary)", minWidth: 80 }}>{b.label}</span>
+                      <span style={{ color: "var(--color-text-tertiary)" }}>— {b.desc}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : current.tip}
+            </div>
           )}
 
           {/* Final step badge row */}
