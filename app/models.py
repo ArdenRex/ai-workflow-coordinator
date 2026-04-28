@@ -484,6 +484,69 @@ class ApiKey(Base):
 
     def __repr__(self) -> str:
         return f"<ApiKey id={self.id} prefix={self.key_prefix!r} workspace_id={self.workspace_id}>"
+# ── Feedback (Segment 14) ─────────────────────────────────────────────────────
+
+class FeedbackType(str, enum.Enum):
+    bug            = "bug"
+    feedback       = "feedback"
+    feature_request = "feature_request"
+
+
+class FeedbackStatus(str, enum.Enum):
+    new         = "new"
+    in_review   = "in_review"
+    resolved    = "resolved"
+
+
+class Feedback(Base):
+    """
+    User-submitted feedback, bug reports, and feature requests.
+    Stored in DB and triggers an email alert to the workspace owner.
+    """
+    __tablename__ = "feedback"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    type: Mapped[FeedbackType] = mapped_column(
+        Enum(FeedbackType, name="feedbacktype_enum", create_constraint=True),
+        nullable=False,
+    )
+
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Optional: which page/section the user was on
+    page_context: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
+
+    # Submitted by (nullable — could be anonymous)
+    user_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("users.id", name="fk_feedback_user"), nullable=True,
+    )
+    user_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    user_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    status: Mapped[FeedbackStatus] = mapped_column(
+        Enum(FeedbackStatus, name="feedbackstatus_enum", create_constraint=True),
+        default=FeedbackStatus.new,
+        server_default=FeedbackStatus.new.value,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    __table_args__ = (
+        Index("ix_feedback_user_id", "user_id"),
+        Index("ix_feedback_type", "type"),
+        Index("ix_feedback_status", "status"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<Feedback id={self.id} type={self.type} status={self.status}>"
+
+
 # ── Migration helper ──────────────────────────────────────────────────────────
 MIGRATION_SQL = """
 -- Run this once in Railway Query tab if columns don't auto-migrate:
@@ -566,4 +629,22 @@ CREATE TABLE IF NOT EXISTS api_keys (
 );
 
 CREATE INDEX IF NOT EXISTS ix_api_keys_workspace_id ON api_keys(workspace_id);
+
+-- Segment 14 — Feedback & Request system
+CREATE TABLE IF NOT EXISTS feedback (
+    id           SERIAL PRIMARY KEY,
+    type         VARCHAR(32)  NOT NULL,
+    title        VARCHAR(255) NOT NULL,
+    message      TEXT         NOT NULL,
+    page_context VARCHAR(128),
+    user_id      INTEGER REFERENCES users(id),
+    user_email   VARCHAR(255),
+    user_name    VARCHAR(255),
+    status       VARCHAR(32)  NOT NULL DEFAULT 'new',
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_feedback_user_id ON feedback(user_id);
+CREATE INDEX IF NOT EXISTS ix_feedback_type    ON feedback(type);
+CREATE INDEX IF NOT EXISTS ix_feedback_status  ON feedback(status);
 """
