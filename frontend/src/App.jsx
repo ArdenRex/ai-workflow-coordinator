@@ -377,164 +377,93 @@ const GLOBAL_STYLES = `
     50%  { transform: translateY(-18px) rotate(180deg); opacity: 0.4; }
     100% { transform: translateY(-36px) rotate(360deg); opacity: 0; }
   }
-  @keyframes progressSweep {
-    from { width: 0%; }
-    to   { width: 100%; }
-  }
-  @keyframes charIn {
-    from { opacity: 0; transform: translateY(6px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-  .tour-card {
-    animation: tourIn 0.38s cubic-bezier(0.34,1.56,0.64,1) both;
-  }
-  .tour-step-slide {
-    animation: tourSlide 0.3s cubic-bezier(0.16,1,0.3,1) both;
-  }
-  .tour-spotlight {
-    animation: spotlightPulse 2s ease-in-out infinite;
-  }
+  .tour-card { animation: tourIn 0.38s cubic-bezier(0.34,1.56,0.64,1) both; }
+  .tour-step-slide { animation: tourSlide 0.3s cubic-bezier(0.16,1,0.3,1) both; }
 
 `;
 
 // ── Tour step definitions ─────────────────────────────────────────────────────
 const TOUR_STEPS = [
   {
-    id: "welcome",
-    emoji: "👋",
-    title: "Welcome to AI Workflow Coordinator",
+    id: "welcome", emoji: "👋", title: "Welcome to AI Workflow Coordinator",
     subtitle: "Your intelligent command center",
     description: "You're about to master the most powerful workflow tool your team has ever used. This quick tour will show you everything — it only takes 2 minutes.",
-    color: "#3b82f6",
-    gradient: "linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)",
-    highlight: null,
-    tip: null,
-    xp: 0,
+    color: "#3b82f6", gradient: "linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%)", tip: null, xp: 0,
   },
   {
-    id: "dashboard",
-    emoji: "⬡",
-    title: "Dashboard — Your Mission Control",
+    id: "dashboard", emoji: "⬡", title: "Dashboard — Your Mission Control",
     subtitle: "Everything at a glance",
     description: "The Dashboard shows your live task counts, Kanban board, team status, and a real-time system health indicator. It's the first page you'll see every morning.",
-    color: "#3b82f6",
-    gradient: "linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)",
-    highlight: "sidebar-dashboard",
-    tip: "💡 Pro tip: The Kanban board lets you drag tasks between columns — or click a card to see full details.",
-    xp: 10,
+    color: "#3b82f6", gradient: "linear-gradient(135deg,#3b82f6 0%,#06b6d4 100%)",
+    tip: "💡 Pro tip: The Kanban board lets you drag tasks between columns — or click a card to see full details.", xp: 10,
   },
   {
-    id: "tasks",
-    emoji: "✦",
-    title: "Tasks — Full Task Management",
+    id: "tasks", emoji: "✦", title: "Tasks — Full Task Management",
     subtitle: "Create, assign, track, complete",
     description: "The Tasks page gives you a filterable table of every task. Create new tasks, assign them to teammates, set priorities (Critical → Low), and add deadlines.",
-    color: "#8b5cf6",
-    gradient: "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
-    highlight: "sidebar-tasks",
-    tip: "💡 Pro tip: Use the search bar + status/priority filters to instantly zero in on what matters.",
-    xp: 20,
+    color: "#8b5cf6", gradient: "linear-gradient(135deg,#8b5cf6 0%,#ec4899 100%)",
+    tip: "💡 Pro tip: Use the search bar + status/priority filters to instantly zero in on what matters.", xp: 20,
   },
   {
-    id: "compliance",
-    emoji: "◈",
-    title: "Compliance — Task Health Monitor",
+    id: "compliance", emoji: "◈", title: "Compliance — Task Health Monitor",
     subtitle: "Catch problems before they explode",
     description: "Compliance automatically flags overdue tasks, unassigned work, stale tasks (7+ days inactive), and high-priority items that haven't started yet. Your score shows overall team health.",
-    color: "#f43f5e",
-    gradient: "linear-gradient(135deg, #f43f5e 0%, #fb923c 100%)",
-    highlight: "sidebar-compliance",
-    tip: "💡 Pro tip: Keep your Compliance Score above 80% — that means your team is running clean.",
-    xp: 30,
+    color: "#f43f5e", gradient: "linear-gradient(135deg,#f43f5e 0%,#fb923c 100%)",
+    tip: "💡 Pro tip: Keep your Compliance Score above 80% — that means your team is running clean.", xp: 30,
   },
   {
-    id: "knowledge",
-    emoji: "◉",
-    title: "Knowledge — Team Brain",
+    id: "knowledge", emoji: "◉", title: "Knowledge — Team Brain",
     subtitle: "Document everything, forget nothing",
     description: "Store SOPs, runbooks, decision logs, and team notes in the Knowledge base. Pin critical docs so they're always visible, and search across everything instantly.",
-    color: "#10b981",
-    gradient: "linear-gradient(135deg, #10b981 0%, #06b6d4 100%)",
-    highlight: "sidebar-knowledge",
-    tip: "💡 Pro tip: Tag your notes with categories to keep things organised as your library grows.",
-    xp: 40,
+    color: "#10b981", gradient: "linear-gradient(135deg,#10b981 0%,#06b6d4 100%)",
+    tip: "💡 Pro tip: Tag your notes with categories to keep things organised as your library grows.", xp: 40,
   },
   {
-    id: "ownership",
-    emoji: "⊕",
-    title: "Ownership — Who Owns What",
+    id: "ownership", emoji: "⊕", title: "Ownership — Who Owns What",
     subtitle: "Visualise workload distribution",
     description: "The Ownership Graph shows every team member's task load — how many tasks they own, their completion rate, and priority breakdown. Spot overloaded teammates instantly.",
-    color: "#f59e0b",
-    gradient: "linear-gradient(135deg, #f59e0b 0%, #f97316 100%)",
-    highlight: "sidebar-ownership",
-    tip: "💡 Pro tip: Click any person card to expand their full task list with status and deadlines.",
-    xp: 50,
+    color: "#f59e0b", gradient: "linear-gradient(135deg,#f59e0b 0%,#f97316 100%)",
+    tip: "💡 Pro tip: Click any person card to expand their full task list with status and deadlines.", xp: 50,
   },
   {
-    id: "reports",
-    emoji: "▲",
-    title: "Reports — Performance Analytics",
+    id: "reports", emoji: "▲", title: "Reports — Performance Analytics",
     subtitle: "Data-driven decisions",
     description: "Reports gives you completion rates, velocity trends, priority distribution, and KPIs over time. Share these with stakeholders to show team progress.",
-    color: "#06b6d4",
-    gradient: "linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)",
-    highlight: "sidebar-reports",
-    tip: "💡 Pro tip: Check Reports weekly to spot trends before they become problems.",
-    xp: 60,
+    color: "#06b6d4", gradient: "linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%)",
+    tip: "💡 Pro tip: Check Reports weekly to spot trends before they become problems.", xp: 60,
   },
   {
-    id: "integrations",
-    emoji: "⛓",
-    title: "Integrations — Connect Your Stack",
+    id: "integrations", emoji: "⛓", title: "Integrations — Connect Your Stack",
     subtitle: "Slack, GitHub, Zapier and more",
     description: "Connect AI Workflow to your existing tools. Get Slack notifications when tasks are assigned or overdue, trigger automations via Zapier, or post updates to GitHub.",
-    color: "#8b5cf6",
-    gradient: "linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%)",
-    highlight: "sidebar-integrations",
-    tip: "💡 Pro tip: Enable the Slack integration first — your team will get nudged about deadlines automatically.",
-    xp: 70,
+    color: "#8b5cf6", gradient: "linear-gradient(135deg,#8b5cf6 0%,#3b82f6 100%)",
+    tip: "💡 Pro tip: Enable the Slack integration first — your team will get nudged about deadlines automatically.", xp: 70,
   },
   {
-    id: "api",
-    emoji: "🔑",
-    title: "API — Build On Top",
+    id: "api", emoji: "🔑", title: "API — Build On Top",
     subtitle: "Full REST API access",
     description: "Every feature in this app is available via API. Generate API keys, browse the endpoint reference, and build your own automations or integrations on top of your workflow data.",
-    color: "#10b981",
-    gradient: "linear-gradient(135deg, #10b981 0%, #8b5cf6 100%)",
-    highlight: "sidebar-api",
-    tip: "💡 Pro tip: The API docs are available at /docs — fully interactive with Swagger UI.",
-    xp: 80,
+    color: "#10b981", gradient: "linear-gradient(135deg,#10b981 0%,#8b5cf6 100%)",
+    tip: "💡 Pro tip: The API docs are available at /docs — fully interactive with Swagger UI.", xp: 80,
   },
   {
-    id: "finish",
-    emoji: "🏆",
-    title: "You're Ready to Command!",
+    id: "finish", emoji: "🏆", title: "You're Ready to Command!",
     subtitle: "Tour complete — 100 XP earned",
     description: "You now know everything about AI Workflow Coordinator. Your dashboard is live, your team is waiting, and your first task is to create something worth doing.",
-    color: "#f59e0b",
-    gradient: "linear-gradient(135deg, #f59e0b 0%, #f43f5e 100%)",
-    highlight: null,
-    tip: null,
-    xp: 100,
+    color: "#f59e0b", gradient: "linear-gradient(135deg,#f59e0b 0%,#f43f5e 100%)",
+    tip: null, xp: 100,
   },
 ];
 
-// ── Floating particles for the tour ──────────────────────────────────────────
+// ── Floating particles ────────────────────────────────────────────────────────
 function TourParticles({ color }) {
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: "inherit" }}>
       {[...Array(8)].map((_, i) => (
         <div key={i} style={{
-          position: "absolute",
-          width: 4 + (i % 3) * 2,
-          height: 4 + (i % 3) * 2,
-          borderRadius: "50%",
-          background: color,
-          opacity: 0.6,
-          left: `${10 + i * 11}%`,
-          bottom: "10%",
+          position: "absolute", borderRadius: "50%", background: color, opacity: 0.6,
+          width: 4 + (i % 3) * 2, height: 4 + (i % 3) * 2,
+          left: `${10 + i * 11}%`, bottom: "10%",
           animation: `particleFloat ${1.8 + i * 0.3}s ease-in-out ${i * 0.2}s infinite`,
         }} />
       ))}
@@ -553,9 +482,8 @@ function TourOverlay({ onComplete }) {
   const current = TOUR_STEPS[step];
   const isFirst = step === 0;
   const isLast  = step === TOUR_STEPS.length - 1;
-  const pct     = Math.round((step / (TOUR_STEPS.length - 1)) * 100);
 
-  // Typewriter effect for description
+  // Typewriter effect
   useEffect(() => {
     setTyping(true);
     setShownChars(0);
@@ -590,81 +518,66 @@ function TourOverlay({ onComplete }) {
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: "rgba(5,6,14,0.92)",
-      backdropFilter: "blur(12px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      padding: "20px",
-      opacity: exiting ? 0 : 1,
-      transition: "opacity 0.35s ease",
+      background: "rgba(5,6,14,0.92)", backdropFilter: "blur(12px)",
+      display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
+      opacity: exiting ? 0 : 1, transition: "opacity 0.35s ease",
     }}>
-      {/* Ambient glow matching current step color */}
+      {/* Ambient glow */}
       <div style={{
         position: "absolute", width: 700, height: 700, borderRadius: "50%",
-        background: `radial-gradient(circle, ${current.color}18 0%, transparent 70%)`,
+        background: `radial-gradient(circle,${current.color}18 0%,transparent 70%)`,
         top: "50%", left: "50%", transform: "translate(-50%,-50%)",
         pointerEvents: "none", transition: "background 0.5s ease",
       }} />
 
-      {/* Tour card */}
       <div className="tour-card" style={{
         width: "100%", maxWidth: 560,
-        background: "linear-gradient(160deg, #12152a 0%, #0d1020 100%)",
-        border: `1px solid ${current.color}35`,
-        borderRadius: 24,
-        boxShadow: `0 40px 120px rgba(0,0,0,0.8), 0 0 0 1px ${current.color}20`,
+        background: "linear-gradient(160deg,#12152a 0%,#0d1020 100%)",
+        border: `1px solid ${current.color}35`, borderRadius: 24,
+        boxShadow: `0 40px 120px rgba(0,0,0,0.8),0 0 0 1px ${current.color}20`,
         overflow: "hidden", position: "relative",
-        transition: "border-color 0.4s ease, box-shadow 0.4s ease",
+        transition: "border-color 0.4s ease,box-shadow 0.4s ease",
       }}>
         <TourParticles color={current.color} />
-
-        {/* Top gradient bar */}
         <div style={{ height: 3, background: current.gradient, transition: "background 0.4s ease" }} />
 
-        {/* XP / Progress bar */}
+        {/* Progress dots + XP */}
         <div style={{ padding: "14px 24px 0", display: "flex", alignItems: "center", gap: 12 }}>
-          {/* Step dots */}
           <div style={{ display: "flex", gap: 5, flex: 1 }}>
             {TOUR_STEPS.map((_, i) => (
               <div key={i} style={{
                 flex: i === step ? 3 : 1, height: 4, borderRadius: 999,
-                background: i < step ? current.color : i === step ? current.color : "rgba(255,255,255,0.1)",
+                background: i <= step ? current.color : "rgba(255,255,255,0.1)",
                 opacity: i > step ? 0.4 : 1,
-                transition: "flex 0.4s cubic-bezier(0.34,1.56,0.64,1), background 0.3s, opacity 0.3s",
+                transition: "flex 0.4s cubic-bezier(0.34,1.56,0.64,1),background 0.3s",
               }} />
             ))}
           </div>
-          {/* XP badge */}
           <div style={{
             padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700,
             background: `${current.color}20`, color: current.color,
-            border: `1px solid ${current.color}40`,
-            fontFamily: "var(--font-display)", letterSpacing: "0.04em",
-            transition: "background 0.3s, color 0.3s, border-color 0.3s",
+            border: `1px solid ${current.color}40`, fontFamily: "var(--font-display)",
+            transition: "all 0.3s",
           }}>⚡ {xp} XP</div>
-          {/* Step counter */}
-          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", whiteSpace: "nowrap", fontFamily: "var(--font-mono)" }}>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
             {step + 1} / {TOUR_STEPS.length}
           </div>
         </div>
 
-        {/* Main content */}
+        {/* Step content */}
         <div className="tour-step-slide" key={step} style={{ padding: "24px 28px 28px" }}>
-
           {/* Icon */}
           <div style={{
             width: 72, height: 72, borderRadius: 20, marginBottom: 20,
-            background: `${current.color}18`,
-            border: `1.5px solid ${current.color}40`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 32,
-            boxShadow: `0 0 32px ${current.color}25`,
-            transition: "all 0.3s ease",
+            background: `${current.color}18`, border: `1.5px solid ${current.color}40`,
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32,
+            boxShadow: `0 0 32px ${current.color}25`, transition: "all 0.3s ease",
           }}>{current.emoji}</div>
 
           {/* Subtitle chip */}
           <div style={{
-            display: "inline-flex", alignItems: "center", gap: 6,
-            padding: "3px 11px", borderRadius: 999, marginBottom: 10,
+            display: "inline-flex", alignItems: "center", padding: "3px 11px",
+            borderRadius: 999, marginBottom: 10,
             background: `${current.color}15`, border: `1px solid ${current.color}30`,
             fontSize: 11, fontWeight: 600, color: current.color,
             letterSpacing: "0.04em", textTransform: "uppercase",
@@ -678,10 +591,7 @@ function TourOverlay({ onComplete }) {
           }}>{current.title}</div>
 
           {/* Typewriter description */}
-          <div style={{
-            fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.7,
-            minHeight: 72, marginBottom: 20,
-          }}>
+          <div style={{ fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.7, minHeight: 72, marginBottom: 20 }}>
             {current.description.slice(0, shownChars)}
             {typing && <span style={{ opacity: 0.7, animation: "pulse 0.6s ease-in-out infinite" }}>|</span>}
           </div>
@@ -696,69 +606,56 @@ function TourOverlay({ onComplete }) {
             }}>{current.tip}</div>
           )}
 
-          {/* Final step extras */}
+          {/* Final step badge row */}
           {isLast && !typing && (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20, animation: "fadeUp 0.3s 0.1s ease both" }}>
-              {["Dashboard", "Tasks", "Compliance", "Knowledge", "Ownership", "Reports", "API"].map((label, i) => (
+              {["Dashboard","Tasks","Compliance","Knowledge","Ownership","Reports","API"].map((label, i) => (
                 <div key={label} style={{
                   padding: "5px 13px", borderRadius: 999, fontSize: 12, fontWeight: 600,
                   background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-                  color: "var(--color-text-secondary)",
-                  animation: `fadeUp 0.3s ${i * 0.05}s ease both`,
+                  color: "var(--color-text-secondary)", animation: `fadeUp 0.3s ${i * 0.05}s ease both`,
                 }}>✓ {label}</div>
               ))}
             </div>
           )}
 
-          {/* Action buttons */}
+          {/* Buttons */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button
-              onClick={advance}
-              style={{
-                flex: 1, height: 46, borderRadius: 12, border: "none",
-                background: current.gradient, color: "#fff",
-                fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 700,
-                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                boxShadow: `0 0 28px ${current.color}45, inset 0 1px 0 rgba(255,255,255,0.2)`,
-                transition: "transform 0.15s, box-shadow 0.15s",
-                letterSpacing: "-0.01em",
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.boxShadow = `0 0 40px ${current.color}6a, inset 0 1px 0 rgba(255,255,255,0.25)`; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = `0 0 28px ${current.color}45, inset 0 1px 0 rgba(255,255,255,0.2)`; }}
+            <button onClick={advance} style={{
+              flex: 1, height: 46, borderRadius: 12, border: "none",
+              background: current.gradient, color: "#fff",
+              fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 700,
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              boxShadow: `0 0 28px ${current.color}45,inset 0 1px 0 rgba(255,255,255,0.2)`,
+              transition: "transform 0.15s,box-shadow 0.15s", letterSpacing: "-0.01em",
+            }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ""; }}
             >
-              {typing ? (
-                <><span style={{ fontSize: 16 }}>⏭</span> Skip typing</>
-              ) : isLast ? (
-                <><span style={{ fontSize: 16 }}>🚀</span> Launch Dashboard</>
-              ) : isFirst ? (
-                <><span style={{ fontSize: 16 }}>▶</span> Start Tour — +{TOUR_STEPS[step + 1]?.xp ?? 10} XP</>
-              ) : (
-                <>Next <span style={{ fontSize: 13, opacity: 0.8 }}>+{(TOUR_STEPS[step + 1]?.xp ?? current.xp) - current.xp} XP</span> →</>
-              )}
+              {typing ? <><span style={{ fontSize: 16 }}>⏭</span> Skip typing</>
+                : isLast ? <><span style={{ fontSize: 16 }}>🚀</span> Launch Dashboard</>
+                : isFirst ? <><span style={{ fontSize: 16 }}>▶</span> Start Tour — +{TOUR_STEPS[1].xp} XP</>
+                : <>Next <span style={{ fontSize: 13, opacity: 0.8 }}>+{(TOUR_STEPS[step + 1]?.xp ?? current.xp) - current.xp} XP</span> →</>}
             </button>
 
             {!isFirst && !isLast && (
-              <button
-                onClick={() => setStep(s => s - 1)}
-                style={{
-                  height: 46, padding: "0 18px", borderRadius: 12,
-                  border: "1px solid var(--border-glass)",
-                  background: "rgba(255,255,255,0.04)", color: "var(--color-text-secondary)",
-                  fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 500,
-                  cursor: "pointer", transition: "all 0.15s",
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+              <button onClick={() => setStep(s => s - 1)} style={{
+                height: 46, padding: "0 18px", borderRadius: 12,
+                border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.04)",
+                color: "var(--color-text-secondary)", fontFamily: "var(--font-sans)",
+                fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
+                onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.04)"}
               >← Back</button>
             )}
 
             {!isLast && (
               <button onClick={skip} style={{
-                height: 46, padding: "0 14px", borderRadius: 12,
-                border: "none", background: "transparent",
-                color: "var(--color-text-tertiary)", fontFamily: "var(--font-sans)",
-                fontSize: 12, cursor: "pointer", transition: "color 0.15s",
-                whiteSpace: "nowrap",
+                height: 46, padding: "0 14px", borderRadius: 12, border: "none",
+                background: "transparent", color: "var(--color-text-tertiary)",
+                fontFamily: "var(--font-sans)", fontSize: 12, cursor: "pointer",
+                transition: "color 0.15s", whiteSpace: "nowrap",
               }}
                 onMouseEnter={e => e.currentTarget.style.color = "var(--color-text-secondary)"}
                 onMouseLeave={e => e.currentTarget.style.color = "var(--color-text-tertiary)"}
@@ -910,7 +807,7 @@ const NAV_ICONS = {
   ),
 };
 
-function Sidebar({ activeNav, onNavChange }) {
+function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
   const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -984,7 +881,18 @@ function Sidebar({ activeNav, onNavChange }) {
 
             {group.items.map(item => {
               const isActive = activeNav === item.idx;
-              const hasBadge = item.badge && NAV_ITEMS[item.idx]?.badge;
+              // Dynamic badge: live count from navBadges, fallback to static NAV_ITEMS badge
+              const dynamicBadge = navBadges[item.idx];
+              const staticBadge  = item.badge ? NAV_ITEMS[item.idx]?.badge : null;
+              const badgeValue   = dynamicBadge ?? staticBadge ?? null;
+              // Badge color: compliance/issues = red, tasks/dashboard = blue, others = purple
+              const badgeColor   =
+                item.idx === 2 ? "var(--grad-danger)"   :  // Compliance — red (issues)
+                item.idx === 1 ? "linear-gradient(135deg,#3b82f6,#06b6d4)" :  // Tasks — blue
+                item.idx === 0 ? "linear-gradient(135deg,#f59e0b,#f97316)" :  // Dashboard — amber (active)
+                item.idx === 4 ? "linear-gradient(135deg,#10b981,#06b6d4)" :  // Reports — green (completed)
+                item.idx === 5 ? "linear-gradient(135deg,#8b5cf6,#3b82f6)" :  // Ownership — violet
+                "var(--grad-danger)";
               return (
                 <div key={item.label}
                   role="button" tabIndex={0} title={collapsed ? item.label : undefined}
@@ -1032,16 +940,20 @@ function Sidebar({ activeNav, onNavChange }) {
                     </span>
                   )}
 
-                  {!collapsed && hasBadge && (
+                  {!collapsed && badgeValue !== null && (
                     <span style={{
-                      minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999,
+                      minWidth: 20, height: 18, padding: "0 5px", borderRadius: 999,
                       fontSize: 10, fontWeight: 700, color: "#fff",
-                      background: "var(--grad-danger)",
+                      background: badgeColor,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>{hasBadge}</span>
+                      transition: "all 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+                    }}>{badgeValue}</span>
                   )}
-                  {collapsed && hasBadge && (
-                    <div style={{ position: "absolute", top: 4, right: 4, width: 6, height: 6, borderRadius: "50%", background: "var(--accent-rose)" }} />
+                  {collapsed && badgeValue !== null && (
+                    <div style={{ position: "absolute", top: 4, right: 4, minWidth: 14, height: 14, borderRadius: 999, background: badgeColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff", padding: "0 3px" }}>
+                      {badgeValue > 99 ? "99+" : badgeValue}
+                    </div>
                   )}
                 </div>
               );
@@ -3974,11 +3886,7 @@ function AuthenticatedApp() {
   const { user, isOnboarded, token } = useAuth();
   const [activeNav, setActiveNav]   = useState(0);
   const [showOnboarding, setShowOnboarding] = useState(false);
-
-  // Show tour on first ever visit (persisted in localStorage)
-  const [showTour, setShowTour] = useState(() => {
-    return !localStorage.getItem("aw_tour_done");
-  });
+  const [showTour, setShowTour] = useState(() => !localStorage.getItem("aw_tour_done"));
 
   // ✅ Role-based task filters passed to useTasks
   const taskFilters = useMemo(() => {
@@ -3991,6 +3899,32 @@ function AuthenticatedApp() {
   }, [user]);
 
   const { tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError } = useTasks(taskFilters);
+
+  // ── Live nav badges derived from tasks ──────────────────────────────────────
+  const navBadges = useMemo(() => {
+    if (!tasks?.length) return {};
+    const totalCount      = tasks.length;
+    const inProgress      = tasks.filter(t => t.status === "in_progress").length;
+    const completed       = tasks.filter(t => t.status === "completed").length;
+    const now             = Date.now();
+    const overdue         = tasks.filter(t => t.deadline && new Date(t.deadline) < now && t.status !== "completed" && t.status !== "cancelled").length;
+    const unassigned      = tasks.filter(t => !t.assignee).length;
+    const stale           = tasks.filter(t => {
+      const d = t.updated_at || t.created_at;
+      return d && (now - new Date(d)) > 7 * 86400000 && t.status !== "completed" && t.status !== "cancelled";
+    }).length;
+    const highNotStarted  = tasks.filter(t => (t.priority === "high" || t.priority === "critical") && t.status === "to_do").length;
+    const complianceIssues = overdue + unassigned + stale + highNotStarted;
+    const owners          = new Set(tasks.map(t => t.assignee).filter(Boolean)).size;
+
+    return {
+      0:  inProgress   || null,   // Dashboard  — active tasks
+      1:  totalCount   || null,   // Tasks      — total count
+      2:  complianceIssues || null, // Compliance — issues
+      4:  completed    || null,   // Reports    — completed
+      5:  owners       || null,   // Ownership  — owners
+    };
+  }, [tasks]);
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === "Escape") document.activeElement?.blur();
@@ -4015,15 +3949,13 @@ function AuthenticatedApp() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)", position: "relative" }} onKeyDown={handleKeyDown}>
-      {/* Tour overlay — shown on first visit */}
       {showTour && <TourOverlay onComplete={() => setShowTour(false)} />}
-
       {/* Subtle dot grid background */}
       <div style={{ position: "fixed", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "32px 32px", pointerEvents: "none", zIndex: 0 }} />
       {/* Ambient top glow */}
       <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
 
-      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} />
+      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} navBadges={navBadges} />
       <div style={{ paddingLeft: 228, display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1 }}>
         {activeNav === 0 ? (
           <Dashboard
