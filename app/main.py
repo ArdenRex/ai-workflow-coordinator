@@ -43,6 +43,7 @@ from app.routers import viral as viral_router                    # Segment 6
 from app.routers import teams as teams_router                    # Segment 9
 from app.routers import public_api as public_api_router          # Segment 13
 from app.routers import feedback as feedback_router              # Segment 14
+from app.routers import billing as billing_router               # Segment 15
 from app.routers.tasks import share_router                       # ✅ Segment 8: public share route
 from app.scheduler import start_scheduler, stop_scheduler        # Segment 3
 
@@ -54,7 +55,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-VERSION = "1.4.0"  # bumped for Segment 13 (public REST API + API key management)
+VERSION = "1.5.0"  # Segment 15: Billing & Subscriptions
 
 # ─── Slack Bolt app ───────────────────────────────────────────────────────────
 bolt_app = BoltApp(
@@ -259,6 +260,7 @@ app.include_router(viral_router.router)                  # /viral/*         (Seg
 app.include_router(teams_router.router)                  # /teams/*         (Segment 9)
 app.include_router(public_api_router.router)             # /api/v1/*        (Segment 13)
 app.include_router(feedback_router.router)               # /feedback/*      (Segment 14)
+app.include_router(billing_router.router)               # /billing/*       (Segment 15)
 
 
 # ── Global exception handler ───────────────────────────────────────────────────
