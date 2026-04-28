@@ -4363,13 +4363,23 @@ function AuthenticatedApp() {
     }
   }, []);
 
-  // If user hasn't completed onboarding
+  // Step 1 — Onboarding: new users must complete the intro tour first
   if (!isOnboarded || showOnboarding) {
     return <OnboardingPage onComplete={() => setShowOnboarding(false)} />;
   }
 
-  // Show billing wall if trial expired or subscription lapsed
-  if (billingChecked && billing?.show_wall) {
+  // Step 2 — Billing: after onboarding, check subscription before showing dashboard
+  // While billing status is loading, show a brief spinner so nothing flickers
+  if (!billingChecked) {
+    return (
+      <div style={{ minHeight: "100vh", background: "var(--bg-page)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid rgba(59,130,246,0.2)", borderTopColor: "#3b82f6", animation: "spin 0.8s linear infinite" }} />
+      </div>
+    );
+  }
+
+  // Step 3 — Show billing wall if trial expired or subscription lapsed
+  if (billing?.show_wall) {
     return <BillingWall user={user} token={token} status={billing.status} onSuccess={() => setBilling({ status: "active", show_wall: false })} />;
   }
 
@@ -4443,23 +4453,16 @@ function AuthenticatedApp() {
 // ── Router — decides which page to show ──────────────────────────────────────
 function AppRouter() {
   const { isAuthenticated, loading } = useAuth();
-  const [goToOnboarding, setGoToOnboarding] = useState(false);
 
   // Show spinner while auth state is being restored from storage
   if (loading) return <AppLoader />;
 
   // Not logged in → show auth page
   if (!isAuthenticated) {
-    return (
-      <AuthPage
-        onAuthSuccess={(user, isNew) => {
-          if (isNew) setGoToOnboarding(true);
-        }}
-      />
-    );
+    return <AuthPage />;
   }
 
-  // Logged in → show dashboard (with onboarding check inside)
+  // Logged in → Onboarding → Billing → Dashboard (all handled inside AuthenticatedApp)
   return <AuthenticatedApp />;
 }
 
