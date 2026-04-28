@@ -42,6 +42,7 @@ from app.routers import locale as locale_router                  # Segment 12
 from app.routers import viral as viral_router                    # Segment 6
 from app.routers import teams as teams_router                    # Segment 9
 from app.routers import public_api as public_api_router          # Segment 13
+from app.routers import feedback as feedback_router              # Segment 14
 from app.routers.tasks import share_router                       # ✅ Segment 8: public share route
 from app.scheduler import start_scheduler, stop_scheduler        # Segment 3
 
@@ -257,6 +258,7 @@ app.include_router(locale_router.router)                # /locale/*        (Segm
 app.include_router(viral_router.router)                  # /viral/*         (Segment 6)
 app.include_router(teams_router.router)                  # /teams/*         (Segment 9)
 app.include_router(public_api_router.router)             # /api/v1/*        (Segment 13)
+app.include_router(feedback_router.router)               # /feedback/*      (Segment 14)
 
 
 # ── Global exception handler ───────────────────────────────────────────────────
