@@ -28,10 +28,26 @@ const AVATAR_COLORS = [
   { bg: "rgba(245,158,11,0.2)",  color: "#f59e0b"  },
   { bg: "rgba(248,113,113,0.2)", color: "#f87171"  },
 ];
+
 function avatarColor(name) {
   if (!name) return AVATAR_COLORS[0];
   const code = name.charCodeAt(0) % AVATAR_COLORS.length;
   return AVATAR_COLORS[code];
+}
+
+// Safely format any date string the backend returns:
+// "2026-04-30", "2026-04-30T00:00:00", "2026-04-30T00:00:00Z", etc.
+function formatDeadline(raw) {
+  if (!raw) return null;
+  // Append time if it's a bare date so Date() parses it in local time, not UTC
+  const normalized = /T/.test(raw) ? raw : raw + "T00:00:00";
+  const date = new Date(normalized);
+  if (isNaN(date.getTime())) return raw; // fallback: show raw string
+  return date.toLocaleDateString("en-GB", {
+    day:   "numeric",
+    month: "short",
+    year:  "numeric",
+  }); // e.g. "30 Apr 2026"
 }
 
 export default function TaskCard({ task, onMove, onDelete, style }) {
@@ -45,7 +61,6 @@ export default function TaskCard({ task, onMove, onDelete, style }) {
   async function handleDelete() {
     if (!confirmDelete) {
       setConfirmDelete(true);
-      // Auto-cancel confirm after 3 s
       setTimeout(() => setConfirmDelete(false), 3000);
       return;
     }
@@ -183,7 +198,7 @@ export default function TaskCard({ task, onMove, onDelete, style }) {
             border: "1px solid rgba(255,255,255,0.08)",
             padding: "2px 8px", borderRadius: 6, whiteSpace: "nowrap",
           }}>
-            {task.deadline}
+            {formatDeadline(task.deadline)}
           </span>
         )}
       </div>
