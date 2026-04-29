@@ -382,6 +382,11 @@ const GLOBAL_STYLES = `
     to   { opacity: 1; transform: translateY(0)    scale(1); }
   }
 
+  @keyframes confettiFall {
+    0%   { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+    100% { opacity: 0; transform: translateY(320px) rotate(var(--rot,360deg)) scale(0.4); }
+  }
+
   @keyframes particleFloat {
     0%   { transform: translateY(0px) rotate(0deg); opacity: 0.8; }
     50%  { transform: translateY(-18px) rotate(180deg); opacity: 0.4; }
@@ -474,45 +479,253 @@ const TOUR_STEPS = [
   },
 ];
 
-// ── Floating particles ────────────────────────────────────────────────────────
-function TourParticles({ color }) {
+// ── Confetti burst on tour finish ─────────────────────────────────────────────
+function ConfettiBurst() {
+  const pieces = [...Array(60)].map((_, i) => ({
+    id: i,
+    x: 40 + Math.random() * 20,
+    color: ["#3b82f6","#8b5cf6","#f59e0b","#10b981","#f43f5e","#06b6d4","#ec4899"][i % 7],
+    size: 6 + Math.random() * 8,
+    delay: Math.random() * 0.6,
+    dur: 1.2 + Math.random() * 1,
+    rot: Math.random() * 720 - 360,
+    shape: i % 3,
+  }));
   return (
-    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: "inherit" }}>
-      {[...Array(8)].map((_, i) => (
-        <div key={i} style={{
-          position: "absolute", borderRadius: "50%", background: color, opacity: 0.6,
-          width: 4 + (i % 3) * 2, height: 4 + (i % 3) * 2,
-          left: `${10 + i * 11}%`, bottom: "10%",
-          animation: `particleFloat ${1.8 + i * 0.3}s ease-in-out ${i * 0.2}s infinite`,
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 10 }}>
+      {pieces.map(p => (
+        <div key={p.id} style={{
+          position: "absolute",
+          left: `${p.x}%`, top: "30%",
+          width: p.size, height: p.shape === 2 ? p.size * 0.4 : p.size,
+          background: p.color,
+          borderRadius: p.shape === 0 ? "50%" : p.shape === 1 ? "2px" : "1px",
+          opacity: 0,
+          animation: `confettiFall ${p.dur}s ${p.delay}s ease-out forwards`,
+          transform: `rotate(${p.rot}deg)`,
         }} />
       ))}
     </div>
   );
 }
 
-// ── Main Tour Overlay ─────────────────────────────────────────────────────────
+// ── Floating particles ────────────────────────────────────────────────────────
+function TourParticles({ color }) {
+  return (
+    <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: "inherit" }}>
+      {[...Array(10)].map((_, i) => (
+        <div key={i} style={{
+          position: "absolute", borderRadius: i % 2 === 0 ? "50%" : "2px",
+          background: color, opacity: 0.5,
+          width: 3 + (i % 4) * 2, height: 3 + (i % 4) * 2,
+          left: `${5 + i * 10}%`, bottom: "8%",
+          animation: `particleFloat ${1.6 + i * 0.25}s ease-in-out ${i * 0.15}s infinite`,
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// ── Feature preview illustrations per step ─────────────────────────────────
+function StepVisual({ stepId, color }) {
+  const s = { borderRadius: 8, overflow: "hidden", position: "relative" };
+  if (stepId === "welcome") return (
+    <div style={{ ...s, background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.18)", padding: "18px 20px", display: "flex", gap: 14, alignItems: "center" }}>
+      {[["⬡","Dashboard","#3b82f6"],["✦","Tasks","#8b5cf6"],["◈","Compliance","#f43f5e"],["⊕","Ownership","#f59e0b"],["▲","Reports","#06b6d4"],["🔑","API","#10b981"]].map(([icon, label, c]) => (
+        <div key={label} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:5,flex:1 }}>
+          <div style={{ width:36,height:36,borderRadius:10,background:`${c}20`,border:`1px solid ${c}35`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16 }}>{icon}</div>
+          <div style={{ fontSize:9,color:"var(--color-text-tertiary)",fontWeight:600,letterSpacing:"0.04em",textTransform:"uppercase" }}>{label}</div>
+        </div>
+      ))}
+    </div>
+  );
+  if (stepId === "dashboard") return (
+    <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"14px 16px" }}>
+      <div style={{ display:"flex",gap:8,marginBottom:10 }}>
+        {[["24","Tasks","#3b82f6"],["8","In Progress","#f59e0b"],["3","Overdue","#f43f5e"]].map(([n,l,c])=>(
+          <div key={l} style={{ flex:1,background:`${c}12`,border:`1px solid ${c}28`,borderRadius:8,padding:"8px 10px" }}>
+            <div style={{ fontSize:18,fontWeight:800,color:c,fontFamily:"var(--font-display)" }}>{n}</div>
+            <div style={{ fontSize:10,color:"var(--color-text-tertiary)",marginTop:1 }}>{l}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"flex",gap:6 }}>
+        {[["To Do","#8b5cf6",3],["In Progress","#f59e0b",2],["Done","#10b981",4]].map(([l,c,cnt])=>(
+          <div key={l} style={{ flex:1,background:"rgba(255,255,255,0.02)",border:`1px solid ${c}22`,borderRadius:6,padding:"8px 8px" }}>
+            <div style={{ fontSize:9,fontWeight:700,color:c,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.05em" }}>{l}</div>
+            {[...Array(cnt)].map((_,i)=><div key={i} style={{ height:5,borderRadius:3,background:c,opacity:0.15+i*0.12,marginBottom:3 }}/>)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+  if (stepId === "nav_badges") return (
+    <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"12px 14px",display:"flex",flexDirection:"column",gap:7 }}>
+      {[["⬡","Dashboard","#f59e0b","8"],["✦","Tasks","#3b82f6","24"],["◈","Compliance","#f43f5e","3"],["▲","Reports","#10b981","12"],["⊕","Ownership","#8b5cf6","5"]].map(([icon,label,c,badge])=>(
+        <div key={label} style={{ display:"flex",alignItems:"center",gap:9,padding:"5px 8px",borderRadius:7,background:"rgba(255,255,255,0.025)" }}>
+          <span style={{ fontSize:13 }}>{icon}</span>
+          <span style={{ flex:1,fontSize:12,color:"var(--color-text-secondary)",fontWeight:500 }}>{label}</span>
+          <div style={{ minWidth:20,height:18,borderRadius:999,background:`${c}25`,border:`1px solid ${c}45`,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 6px" }}>
+            <span style={{ fontSize:10,fontWeight:700,color:c }}>{badge}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  if (stepId === "tasks") return (
+    <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"12px 14px" }}>
+      <div style={{ display:"flex",gap:6,marginBottom:10 }}>
+        {["All","To Do","In Progress","Done"].map((t,i)=>(
+          <div key={t} style={{ padding:"3px 10px",borderRadius:999,fontSize:10,fontWeight:600,background:i===0?"rgba(139,92,246,0.2)":"rgba(255,255,255,0.04)",border:i===0?"1px solid rgba(139,92,246,0.4)":"1px solid var(--border-glass)",color:i===0?"#8b5cf6":"var(--color-text-tertiary)" }}>{t}</div>
+        ))}
+      </div>
+      {[["Fix auth bug","critical","#f43f5e","Alex"],["Write docs","high","#f59e0b","Sam"],["Deploy v2","medium","#8b5cf6","Kim"],["Add tests","low","#10b981","—"]].map(([task,pri,c,ass])=>(
+        <div key={task} style={{ display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+          <div style={{ width:6,height:6,borderRadius:"50%",background:c,flexShrink:0 }}/>
+          <span style={{ flex:1,fontSize:11,color:"var(--color-text-secondary)" }}>{task}</span>
+          <span style={{ fontSize:9,padding:"2px 7px",borderRadius:999,background:`${c}18`,color:c,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em" }}>{pri}</span>
+          <span style={{ fontSize:10,color:"var(--color-text-tertiary)",minWidth:28,textAlign:"right" }}>{ass}</span>
+        </div>
+      ))}
+    </div>
+  );
+  if (stepId === "compliance") return (
+    <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"14px 16px" }}>
+      <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
+        <span style={{ fontSize:11,color:"var(--color-text-secondary)",fontWeight:600 }}>Compliance Score</span>
+        <span style={{ fontSize:22,fontWeight:800,color:"#10b981",fontFamily:"var(--font-display)" }}>84%</span>
+      </div>
+      <div style={{ height:5,borderRadius:999,background:"rgba(255,255,255,0.06)",marginBottom:12,overflow:"hidden" }}>
+        <div style={{ height:"100%",width:"84%",borderRadius:999,background:"linear-gradient(90deg,#10b981,#06b6d4)",transition:"width 0.6s" }}/>
+      </div>
+      {[["Overdue tasks","2","#f43f5e"],["Unassigned","1","#f59e0b"],["Stale (7d+)","0","#10b981"],["High priority idle","1","#8b5cf6"]].map(([l,n,c])=>(
+        <div key={l} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
+          <span style={{ fontSize:11,color:"var(--color-text-tertiary)" }}>{l}</span>
+          <span style={{ fontSize:12,fontWeight:700,color:c }}>{n}</span>
+        </div>
+      ))}
+    </div>
+  );
+  if (stepId === "knowledge") return (
+    <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"12px 14px" }}>
+      <div style={{ display:"flex",gap:6,marginBottom:9 }}>
+        {[["📌","Pinned","#f59e0b"],["📄","SOP","#3b82f6"],["📋","Runbook","#8b5cf6"]].map(([e,l,c])=>(
+          <div key={l} style={{ flex:1,padding:"6px 8px",borderRadius:8,background:`${c}12`,border:`1px solid ${c}28` }}>
+            <div style={{ fontSize:14,marginBottom:4 }}>{e}</div>
+            <div style={{ fontSize:9,color:c,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em" }}>{l}</div>
+          </div>
+        ))}
+      </div>
+      {[["Deploy Runbook","📋","#8b5cf6"],["Auth SOP","📄","#3b82f6"],["Q3 Decisions","📝","#10b981"],["On-call Guide","⚡","#f43f5e"]].map(([title,e,c])=>(
+        <div key={title} style={{ display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+          <span style={{ fontSize:12 }}>{e}</span>
+          <span style={{ flex:1,fontSize:11,color:"var(--color-text-secondary)" }}>{title}</span>
+          <div style={{ width:6,height:6,borderRadius:"50%",background:c }}/>
+        </div>
+      ))}
+    </div>
+  );
+  if (stepId === "ownership") return (
+    <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"12px 14px",display:"flex",flexDirection:"column",gap:7 }}>
+      {[["Alex Chen","#3b82f6",8,75],["Sam Park","#8b5cf6",5,60],["Kim Lee","#10b981",3,90],["Jordan","#f59e0b",11,45]].map(([name,c,tasks,pct])=>(
+        <div key={name} style={{ display:"flex",alignItems:"center",gap:9 }}>
+          <div style={{ width:28,height:28,borderRadius:"50%",background:`${c}25`,border:`1.5px solid ${c}50`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:c,flexShrink:0 }}>{name[0]}</div>
+          <div style={{ flex:1 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",marginBottom:3 }}>
+              <span style={{ fontSize:11,color:"var(--color-text-secondary)",fontWeight:500 }}>{name}</span>
+              <span style={{ fontSize:10,color:"var(--color-text-tertiary)" }}>{tasks} tasks · {pct}%</span>
+            </div>
+            <div style={{ height:3,borderRadius:999,background:"rgba(255,255,255,0.06)",overflow:"hidden" }}>
+              <div style={{ height:"100%",width:`${pct}%`,borderRadius:999,background:c,opacity:0.7 }}/>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+  if (stepId === "reports") return (
+    <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"14px 16px" }}>
+      <div style={{ display:"flex",gap:8,marginBottom:12 }}>
+        {[["Velocity","↑12%","#10b981"],["Done Rate","78%","#3b82f6"],["Avg Time","2.4d","#8b5cf6"]].map(([l,v,c])=>(
+          <div key={l} style={{ flex:1,padding:"8px",borderRadius:8,background:`${c}10`,border:`1px solid ${c}25`,textAlign:"center" }}>
+            <div style={{ fontSize:14,fontWeight:800,color:c,fontFamily:"var(--font-display)" }}>{v}</div>
+            <div style={{ fontSize:9,color:"var(--color-text-tertiary)",marginTop:2,fontWeight:600 }}>{l}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ display:"flex",alignItems:"flex-end",gap:4,height:52 }}>
+        {[35,55,42,68,50,75,90,62,80,95].map((h,i)=>(
+          <div key={i} style={{ flex:1,height:`${h}%`,borderRadius:"3px 3px 0 0",background:i===9?"#3b82f6":i===8?"rgba(59,130,246,0.6)":"rgba(59,130,246,0.25)",transition:"height 0.3s" }}/>
+        ))}
+      </div>
+      <div style={{ height:1,background:"rgba(255,255,255,0.05)",marginTop:2 }}/>
+    </div>
+  );
+  if (stepId === "integrations") return (
+    <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"12px 14px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:7 }}>
+      {[["Slack","#4A154B","💬","Connected"],["GitHub","#24292e","⚡","Connect"],["Zapier","#FF4A00","⚙","Connect"],["Notion","#fff","📝","Connect"]].map(([name,c,e,status])=>(
+        <div key={name} style={{ padding:"10px",borderRadius:8,background:"rgba(255,255,255,0.025)",border:`1px solid ${status==="Connected"?"rgba(16,185,129,0.35)":"var(--border-glass)"}` }}>
+          <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5 }}>
+            <span style={{ fontSize:16 }}>{e}</span>
+            <div style={{ fontSize:9,padding:"2px 6px",borderRadius:999,background:status==="Connected"?"rgba(16,185,129,0.2)":"rgba(255,255,255,0.07)",color:status==="Connected"?"#10b981":"var(--color-text-tertiary)",fontWeight:600 }}>{status}</div>
+          </div>
+          <div style={{ fontSize:11,color:"var(--color-text-secondary)",fontWeight:600 }}>{name}</div>
+        </div>
+      ))}
+    </div>
+  );
+  if (stepId === "api") return (
+    <div style={{ ...s, background:"#0a0c14",border:"1px solid rgba(16,185,129,0.2)",padding:"12px 16px",fontFamily:"var(--font-mono)" }}>
+      <div style={{ display:"flex",gap:6,marginBottom:8 }}>
+        {["GET","POST","PUT","DELETE"].map((m,i)=>(<div key={m} style={{ padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,background:["rgba(16,185,129,0.2)","rgba(59,130,246,0.2)","rgba(245,158,11,0.2)","rgba(244,63,94,0.2)"][i],color:["#10b981","#3b82f6","#f59e0b","#f43f5e"][i] }}>{m}</div>))}
+      </div>
+      {["/tasks","  → list + filter","/tasks/:id","  → task details","/tasks (POST)","  → create task"].map((line,i)=>(
+        <div key={i} style={{ fontSize:10,color:i%2===0?"#06b6d4":"var(--color-text-tertiary)",marginBottom:1,lineHeight:1.7 }}>{line}</div>
+      ))}
+      <div style={{ marginTop:8,padding:"6px 10px",borderRadius:6,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.15)",fontSize:10,color:"#10b981" }}>✓ Authorization: Bearer ••••••••</div>
+    </div>
+  );
+  if (stepId === "finish") return (
+    <div style={{ ...s, background:`${color}0d`,border:`1px solid ${color}30`,padding:"16px 18px",textAlign:"center" }}>
+      <div style={{ fontSize:42,marginBottom:8,animation:"pulse 1.5s ease-in-out infinite" }}>🏆</div>
+      <div style={{ fontSize:13,fontWeight:700,color:"var(--color-text-primary)",marginBottom:6 }}>You earned 100 XP!</div>
+      <div style={{ display:"flex",gap:6,flexWrap:"wrap",justifyContent:"center" }}>
+        {["Dashboard","Tasks","Compliance","Knowledge","Ownership","Reports","API"].map((l,i)=>(
+          <div key={l} style={{ padding:"3px 10px",borderRadius:999,fontSize:10,fontWeight:600,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.12)",color:"var(--color-text-secondary)",animation:`fadeUp 0.3s ${i*0.06}s ease both` }}>✓ {l}</div>
+        ))}
+      </div>
+    </div>
+  );
+  return null;
+}
+
+// ── Main Tour Overlay — MANDATORY, no skip ────────────────────────────────────
 function TourOverlay({ onComplete }) {
-  const [step, setStep]       = useState(0);
-  const [xp, setXp]           = useState(0);
-  const [exiting, setExiting] = useState(false);
-  const [typing, setTyping]   = useState(true);
+  const [step, setStep]             = useState(0);
+  const [xp, setXp]                 = useState(0);
+  const [exiting, setExiting]       = useState(false);
+  const [typing, setTyping]         = useState(true);
   const [shownChars, setShownChars] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [btnHover, setBtnHover]     = useState(false);
 
   const current = TOUR_STEPS[step];
   const isFirst = step === 0;
   const isLast  = step === TOUR_STEPS.length - 1;
+  const progress = ((step) / (TOUR_STEPS.length - 1)) * 100;
 
-  // Typewriter effect
+  // Typewriter effect — faster on later steps so users don't get impatient
   useEffect(() => {
     setTyping(true);
     setShownChars(0);
     const text = current.description;
     let i = 0;
+    const speed = isFirst ? 22 : 14;
     const interval = setInterval(() => {
       i++;
       setShownChars(i);
       if (i >= text.length) { clearInterval(interval); setTyping(false); }
-    }, 18);
+    }, speed);
     return () => clearInterval(interval);
   }, [step]);
 
@@ -524,182 +737,218 @@ function TourOverlay({ onComplete }) {
   };
 
   const finish = () => {
-    setExiting(true);
-    localStorage.setItem("aw_tour_done", "1");
-    setTimeout(() => onComplete(), 400);
+    setShowConfetti(true);
+    setTimeout(() => {
+      setExiting(true);
+      localStorage.setItem("aw_tour_done", "1");
+      setTimeout(() => onComplete(), 500);
+    }, 900);
   };
 
-  const skip = () => {
-    localStorage.setItem("aw_tour_done", "1");
-    onComplete();
-  };
+  // Keyboard shortcut: Space / Enter to advance
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); advance(); }
+      if (e.code === "ArrowLeft" && !isFirst && !isLast && step > 1) setStep(s => s - 1);
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [step, typing, isFirst, isLast]);
 
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
-      background: "rgba(5,6,14,0.92)", backdropFilter: "blur(12px)",
+      background: "rgba(4,5,12,0.96)", backdropFilter: "blur(16px)",
       display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
-      opacity: exiting ? 0 : 1, transition: "opacity 0.35s ease",
+      opacity: exiting ? 0 : 1, transition: "opacity 0.45s ease",
     }}>
-      {/* Ambient glow */}
+      {showConfetti && <ConfettiBurst />}
+
+      {/* Dynamic ambient glow — large, shifts color with step */}
       <div style={{
-        position: "absolute", width: 700, height: 700, borderRadius: "50%",
-        background: `radial-gradient(circle,${current.color}18 0%,transparent 70%)`,
+        position: "absolute", width: 900, height: 900, borderRadius: "50%",
+        background: `radial-gradient(circle,${current.color}14 0%,transparent 65%)`,
         top: "50%", left: "50%", transform: "translate(-50%,-50%)",
-        pointerEvents: "none", transition: "background 0.5s ease",
+        pointerEvents: "none", transition: "background 0.6s ease",
+      }} />
+      {/* Secondary smaller orb — offset for depth */}
+      <div style={{
+        position: "absolute", width: 400, height: 400, borderRadius: "50%",
+        background: `radial-gradient(circle,${current.color}0e 0%,transparent 70%)`,
+        top: "20%", left: "65%", pointerEvents: "none", transition: "background 0.6s ease",
       }} />
 
+      {/* ── Keyboard hint (top right) ── */}
+      <div style={{
+        position: "absolute", top: 20, right: 24,
+        fontSize: 11, color: "var(--color-text-muted)",
+        display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-mono)",
+      }}>
+        <kbd style={{ padding:"2px 7px",borderRadius:5,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",fontSize:10 }}>Space</kbd>
+        <span>to advance</span>
+      </div>
+
+      {/* ── Step counter (top left) ── */}
+      <div style={{
+        position: "absolute", top: 20, left: 24,
+        fontSize: 11, color: "var(--color-text-muted)", fontFamily: "var(--font-mono)",
+        display: "flex", alignItems: "center", gap: 8,
+      }}>
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: current.color, boxShadow: `0 0 10px ${current.color}` }} />
+        Step {step + 1} of {TOUR_STEPS.length}
+      </div>
+
+      {/* ── Main card ── */}
       <div className="tour-card" style={{
-        width: "100%", maxWidth: 560,
-        background: "linear-gradient(160deg,#12152a 0%,#0d1020 100%)",
-        border: `1px solid ${current.color}35`, borderRadius: 24,
-        boxShadow: `0 40px 120px rgba(0,0,0,0.8),0 0 0 1px ${current.color}20`,
+        width: "100%", maxWidth: 620,
+        background: "linear-gradient(160deg,#111526 0%,#0c0f1e 50%,#080a16 100%)",
+        border: `1px solid ${current.color}30`, borderRadius: 26,
+        boxShadow: `0 50px 140px rgba(0,0,0,0.85),0 0 0 1px ${current.color}18,0 0 80px ${current.color}08`,
         overflow: "hidden", position: "relative",
-        transition: "border-color 0.4s ease,box-shadow 0.4s ease",
+        transition: "border-color 0.5s ease,box-shadow 0.5s ease",
       }}>
         <TourParticles color={current.color} />
-        <div style={{ height: 3, background: current.gradient, transition: "background 0.4s ease" }} />
 
-        {/* Progress dots + XP */}
-        <div style={{ padding: "14px 24px 0", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ display: "flex", gap: 5, flex: 1 }}>
-            {TOUR_STEPS.map((_, i) => (
+        {/* Top progress bar — continuous fill */}
+        <div style={{ height: 3, background: "rgba(255,255,255,0.05)", position: "relative" }}>
+          <div style={{
+            height: "100%", background: current.gradient,
+            width: `${progress}%`, transition: "width 0.5s cubic-bezier(0.34,1.56,0.64,1),background 0.4s",
+            borderRadius: "0 999px 999px 0",
+            boxShadow: `0 0 10px ${current.color}60`,
+          }} />
+        </div>
+
+        {/* Header row */}
+        <div style={{ padding: "16px 26px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          {/* XP pill */}
+          <div style={{
+            padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700,
+            background: `${current.color}18`, color: current.color,
+            border: `1px solid ${current.color}38`, fontFamily: "var(--font-display)",
+            transition: "all 0.35s", display: "flex", alignItems: "center", gap: 5,
+          }}>
+            <span>⚡</span>
+            <span style={{ fontVariantNumeric: "tabular-nums" }}>{xp} XP</span>
+          </div>
+          {/* Step dots */}
+          <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+            {TOUR_STEPS.map((s2, i) => (
               <div key={i} style={{
-                flex: i === step ? 3 : 1, height: 4, borderRadius: 999,
-                background: i <= step ? current.color : "rgba(255,255,255,0.1)",
-                opacity: i > step ? 0.4 : 1,
-                transition: "flex 0.4s cubic-bezier(0.34,1.56,0.64,1),background 0.3s",
+                width: i === step ? 22 : 6, height: 6, borderRadius: 999,
+                background: i < step ? current.color : i === step ? current.color : "rgba(255,255,255,0.1)",
+                opacity: i > step ? 0.35 : 1,
+                transition: "width 0.4s cubic-bezier(0.34,1.56,0.64,1),background 0.3s,opacity 0.3s",
+                boxShadow: i === step ? `0 0 8px ${current.color}80` : "none",
               }} />
             ))}
-          </div>
-          <div style={{
-            padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700,
-            background: `${current.color}20`, color: current.color,
-            border: `1px solid ${current.color}40`, fontFamily: "var(--font-display)",
-            transition: "all 0.3s",
-          }}>⚡ {xp} XP</div>
-          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", fontFamily: "var(--font-mono)", whiteSpace: "nowrap" }}>
-            {step + 1} / {TOUR_STEPS.length}
           </div>
         </div>
 
         {/* Step content */}
-        <div className="tour-step-slide" key={step} style={{ padding: "24px 28px 28px" }}>
-          {/* Icon */}
-          <div style={{
-            width: 72, height: 72, borderRadius: 20, marginBottom: 20,
-            background: `${current.color}18`, border: `1.5px solid ${current.color}40`,
-            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32,
-            boxShadow: `0 0 32px ${current.color}25`, transition: "all 0.3s ease",
-          }}>{current.emoji}</div>
-
-          {/* Subtitle chip */}
-          <div style={{
-            display: "inline-flex", alignItems: "center", padding: "3px 11px",
-            borderRadius: 999, marginBottom: 10,
-            background: `${current.color}15`, border: `1px solid ${current.color}30`,
-            fontSize: 11, fontWeight: 600, color: current.color,
-            letterSpacing: "0.04em", textTransform: "uppercase",
-          }}>{current.subtitle}</div>
-
-          {/* Title */}
-          <div style={{
-            fontSize: 26, fontWeight: 800, color: "var(--color-text-primary)",
-            fontFamily: "var(--font-display)", letterSpacing: "-0.03em",
-            lineHeight: 1.2, marginBottom: 14,
-          }}>{current.title}</div>
+        <div className="tour-step-slide" key={step} style={{ padding: "22px 26px 26px" }}>
+          {/* Icon + subtitle row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18 }}>
+            <div style={{
+              width: 64, height: 64, borderRadius: 18, flexShrink: 0,
+              background: `${current.color}15`, border: `1.5px solid ${current.color}38`,
+              display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28,
+              boxShadow: `0 0 28px ${current.color}22,inset 0 1px 0 rgba(255,255,255,0.08)`,
+              transition: "all 0.35s ease",
+            }}>{current.emoji}</div>
+            <div>
+              <div style={{
+                display: "inline-flex", alignItems: "center", padding: "3px 11px",
+                borderRadius: 999, marginBottom: 6,
+                background: `${current.color}12`, border: `1px solid ${current.color}28`,
+                fontSize: 10, fontWeight: 700, color: current.color,
+                letterSpacing: "0.06em", textTransform: "uppercase",
+              }}>{current.subtitle}</div>
+              <div style={{
+                fontSize: 22, fontWeight: 800, color: "var(--color-text-primary)",
+                fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1.2,
+              }}>{current.title}</div>
+            </div>
+          </div>
 
           {/* Typewriter description */}
-          <div style={{ fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.7, minHeight: 72, marginBottom: 20 }}>
+          <div style={{
+            fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.75,
+            minHeight: 56, marginBottom: 16,
+          }}>
             {current.description.slice(0, shownChars)}
-            {typing && <span style={{ opacity: 0.7, animation: "pulse 0.6s ease-in-out infinite" }}>|</span>}
+            {typing && <span style={{ opacity: 0.7, animation: "pulse 0.55s ease-in-out infinite" }}>|</span>}
           </div>
 
-          {/* Tip box */}
-          {current.tip && !typing && (
+          {/* Feature visual — mini preview of the section */}
+          {!typing && (
+            <div style={{ marginBottom: 18, animation: "fadeUp 0.35s 0.05s ease both" }}>
+              <StepVisual stepId={current.id} color={current.color} />
+            </div>
+          )}
+
+          {/* Tip box — shown after typing */}
+          {current.tip && !typing && !current.isBadgeStep && (
             <div style={{
-              padding: "12px 16px", borderRadius: 12, marginBottom: 20,
-              background: `${current.color}0d`, border: `1px solid ${current.color}25`,
-              fontSize: 12.5, color: "var(--color-text-secondary)", lineHeight: 1.6,
-              animation: "fadeUp 0.3s ease both",
+              padding: "11px 15px", borderRadius: 11, marginBottom: 18,
+              background: `${current.color}0a`, border: `1px solid ${current.color}22`,
+              fontSize: 12.5, color: "var(--color-text-secondary)", lineHeight: 1.65,
+              animation: "fadeUp 0.3s 0.12s ease both", display: "flex", gap: 9, alignItems: "flex-start",
             }}>
-              {current.isBadgeStep ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-                  <div style={{ fontWeight: 600, color: "var(--color-text-primary)", marginBottom: 4 }}>💡 What each badge means:</div>
-                  {[
-                    { dot: "#f59e0b", label: "Dashboard",  desc: "active (in-progress) tasks" },
-                    { dot: "#3b82f6", label: "Tasks",      desc: "total task count" },
-                    { dot: "#f43f5e", label: "Compliance", desc: "issues needing attention" },
-                    { dot: "#10b981", label: "Reports",    desc: "completed tasks" },
-                    { dot: "#8b5cf6", label: "Ownership",  desc: "number of owners" },
-                  ].map(b => (
-                    <div key={b.label} style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: "50%", background: b.dot, flexShrink: 0, boxShadow: `0 0 6px ${b.dot}80` }} />
-                      <span style={{ fontWeight: 600, color: "var(--color-text-primary)", minWidth: 80 }}>{b.label}</span>
-                      <span style={{ color: "var(--color-text-tertiary)" }}>— {b.desc}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : current.tip}
+              <span style={{ fontSize: 14, flexShrink: 0, marginTop: 1 }}>💡</span>
+              <span>{current.tip.replace("💡 Pro tip: ","").replace("💡 ","")}</span>
             </div>
           )}
 
-          {/* Final step badge row */}
-          {isLast && !typing && (
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 20, animation: "fadeUp 0.3s 0.1s ease both" }}>
-              {["Dashboard","Tasks","Compliance","Knowledge","Ownership","Reports","API"].map((label, i) => (
-                <div key={label} style={{
-                  padding: "5px 13px", borderRadius: 999, fontSize: 12, fontWeight: 600,
-                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-                  color: "var(--color-text-secondary)", animation: `fadeUp 0.3s ${i * 0.05}s ease both`,
-                }}>✓ {label}</div>
-              ))}
-            </div>
-          )}
-
-          {/* Buttons */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button onClick={advance} style={{
-              flex: 1, height: 46, borderRadius: 12, border: "none",
+          {/* CTA button */}
+          <button
+            onClick={advance}
+            onMouseEnter={() => setBtnHover(true)}
+            onMouseLeave={() => setBtnHover(false)}
+            style={{
+              width: "100%", height: 52, borderRadius: 14, border: "none",
               background: current.gradient, color: "#fff",
-              fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 700,
-              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              boxShadow: `0 0 28px ${current.color}45,inset 0 1px 0 rgba(255,255,255,0.2)`,
-              transition: "transform 0.15s,box-shadow 0.15s", letterSpacing: "-0.01em",
+              fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 700,
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
+              boxShadow: `0 0 32px ${current.color}40,0 8px 24px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.22)`,
+              transform: btnHover ? "translateY(-2px) scale(1.01)" : "translateY(0) scale(1)",
+              transition: "transform 0.18s cubic-bezier(0.34,1.56,0.64,1),box-shadow 0.18s",
+              letterSpacing: "-0.01em",
             }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = ""; }}
-            >
-              {typing ? <><span style={{ fontSize: 16 }}>⏭</span> Skip typing</>
-                : isLast ? <><span style={{ fontSize: 16 }}>🚀</span> Launch Dashboard</>
-                : isFirst ? <><span style={{ fontSize: 16 }}>▶</span> Start Tour — +{TOUR_STEPS[1].xp} XP</>
-                : <>Next <span style={{ fontSize: 13, opacity: 0.8 }}>+{(TOUR_STEPS[step + 1]?.xp ?? current.xp) - current.xp} XP</span> →</>}
-            </button>
+          >
+            {typing
+              ? <><span style={{ fontSize: 17 }}>⏭</span> Skip typing</>
+              : isLast
+                ? <><span style={{ fontSize: 19 }}>🚀</span> Launch Dashboard — Let's Go!</>
+                : isFirst
+                  ? <><span style={{ fontSize: 17 }}>▶</span> Start Tour &nbsp;<span style={{ opacity: 0.75, fontSize: 13 }}>+{TOUR_STEPS[1].xp} XP</span></>
+                  : <><span style={{ fontSize: 14, opacity: 0.85 }}>Continue</span> &nbsp;→&nbsp; <span style={{ opacity: 0.7, fontSize: 13 }}>+{Math.max(0,(TOUR_STEPS[step + 1]?.xp ?? current.xp) - current.xp)} XP</span></>
+            }
+          </button>
 
-            {!isFirst && !isLast && (
+          {/* Back + "why no skip" row */}
+          {!isFirst && !isLast && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
               <button onClick={() => setStep(s => s - 1)} style={{
-                height: 46, padding: "0 18px", borderRadius: 12,
-                border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.04)",
-                color: "var(--color-text-secondary)", fontFamily: "var(--font-sans)",
-                fontSize: 13, fontWeight: 500, cursor: "pointer", transition: "all 0.15s",
+                height: 34, padding: "0 14px", borderRadius: 9,
+                border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.03)",
+                color: "var(--color-text-tertiary)", fontFamily: "var(--font-sans)",
+                fontSize: 12, fontWeight: 500, cursor: "pointer", transition: "all 0.12s",
               }}
-                onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.08)"}
-                onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.04)"}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.color = "var(--color-text-tertiary)"; }}
               >← Back</button>
-            )}
-
-            {!isLast && (
-              <button onClick={skip} style={{
-                height: 46, padding: "0 14px", borderRadius: 12, border: "none",
-                background: "transparent", color: "var(--color-text-tertiary)",
-                fontFamily: "var(--font-sans)", fontSize: 12, cursor: "pointer",
-                transition: "color 0.15s", whiteSpace: "nowrap",
-              }}
-                onMouseEnter={e => e.currentTarget.style.color = "var(--color-text-secondary)"}
-                onMouseLeave={e => e.currentTarget.style.color = "var(--color-text-tertiary)"}
-              >Skip tour</button>
-            )}
-          </div>
+              <div style={{ fontSize: 11, color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 12 }}>🔒</span>
+                <span>Complete the tour to unlock the dashboard</span>
+              </div>
+            </div>
+          )}
+          {isFirst && !typing && (
+            <div style={{ marginTop: 10, textAlign: "center", fontSize: 11, color: "var(--color-text-muted)" }}>
+              ✦ Takes ~2 minutes &nbsp;·&nbsp; Earn 100 XP &nbsp;·&nbsp; Learn every feature
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -4514,7 +4763,7 @@ function AuthenticatedApp() {
     );
   }
 
-  // Step 2 — Onboarding: after billing is sorted, new users complete the intro tour
+  // Step 2 — Onboarding: after billing is sorted, new users complete role selection
   // onboardingDone is a local override so we don't loop back if AuthContext
   // hasn't re-fetched is_onboarded from the server yet after completion.
   if ((!isOnboarded && !onboardingDone) || showOnboarding) {
@@ -4523,6 +4772,9 @@ function AuthenticatedApp() {
         onComplete={() => {
           setOnboardingDone(true);
           setShowOnboarding(false);
+          // Always force the feature tour after role selection — clear any old skip flag
+          localStorage.removeItem("aw_tour_done");
+          setShowTour(true);
         }}
       />
     );
