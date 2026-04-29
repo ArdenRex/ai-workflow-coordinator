@@ -58,10 +58,20 @@ def create_checkout(
     After payment, LS redirects back to the dashboard.
     """
     if not all([LS_API_KEY, LS_STORE_ID, LS_VARIANT_ID]):
-        # Test mode — return a mock checkout URL
-        logger.warning("Lemon Squeezy not configured — returning test checkout URL")
+        # Test mode — simulate webhook by updating user directly in DB
+        logger.warning("Lemon Squeezy not configured — simulating subscription in test mode")
+        try:
+            current_user.subscription_status = "active"
+            current_user.ls_customer_id      = f"test_customer_{current_user.id}"
+            current_user.ls_subscription_id  = f"test_sub_{current_user.id}"
+            db.commit()
+            db.refresh(current_user)
+            logger.info("Test mode: user_id=%d marked as active", current_user.id)
+        except Exception as exc:
+            db.rollback()
+            logger.warning("Test mode DB update failed: %s", exc)
         return {
-            "checkout_url": f"{FRONTEND_URL}?billing=test_success&user={current_user.id}",
+            "checkout_url": f"{FRONTEND_URL}?billing=success",
             "test_mode": True,
         }
 
