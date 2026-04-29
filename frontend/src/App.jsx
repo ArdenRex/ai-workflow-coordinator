@@ -11,6 +11,32 @@ import AddToSlackButton from "./components/AddToSlackButton";
 // ── API base URL — env var with hardcoded fallback ───────────────────────────
 const BASE_URL = process.env.REACT_APP_API_URL || "https://ai-workflow-coordinator-api-production.up.railway.app";
 
+// ── Date formatting utility ───────────────────────────────────────────────────
+// Normalises "2026-04-30" and "2026-04-30T00:00:00[Z]" → local Date object.
+// When a timezone string (IANA, e.g. "Asia/Karachi") is supplied the date is
+// displayed in that zone; otherwise it falls back to the browser's local time.
+function formatDeadline(raw, timezone, opts = {}) {
+  if (!raw) return null;
+  // Force local-time parsing for bare date strings (avoids UTC-midnight shift)
+  const normalised = /T/.test(raw) ? raw : raw + "T00:00:00";
+  const date = new Date(normalised);
+  if (isNaN(date.getTime())) return raw; // unparseable — return raw as fallback
+  const baseOpts = { day: "numeric", month: "short", year: "numeric", ...opts };
+  try {
+    return date.toLocaleDateString(undefined, timezone ? { ...baseOpts, timeZone: timezone } : baseOpts);
+  } catch {
+    return date.toLocaleDateString(undefined, baseOpts);
+  }
+}
+
+// Same normalisation used for overdue comparisons (returns a Date)
+function parseDeadline(raw) {
+  if (!raw) return null;
+  const normalised = /T/.test(raw) ? raw : raw + "T00:00:00";
+  const d = new Date(normalised);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 // ── CSS variables + animations ────────────────────────────────────────────────
 const GLOBAL_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -1564,7 +1590,7 @@ function OwnershipGraph() {
                       </span>
                       {task.deadline && (
                         <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: "rgba(255,255,255,0.05)", color: "var(--color-text-tertiary)", border: "1px solid var(--border-glass)" }}>
-                          📅 {task.deadline}
+                          📅 {formatDeadline(task.deadline, user?.timezone)}
                         </span>
                       )}
                     </div>
@@ -1816,8 +1842,8 @@ function TasksPage() {
                   </div>
 
                   {/* Deadline */}
-                  <div style={{ fontSize:12, color: t.deadline && new Date(t.deadline) < new Date() ? "#f87171" : "var(--color-text-secondary)" }}>
-                    {t.deadline ? new Date(t.deadline).toLocaleDateString("en-US", { month:"short", day:"numeric", year:"numeric" }) : <span style={{ color:"var(--color-text-tertiary)" }}>—</span>}
+                  <div style={{ fontSize:12, color: parseDeadline(t.deadline) && parseDeadline(t.deadline) < new Date() ? "#f87171" : "var(--color-text-secondary)" }}>
+                    {t.deadline ? formatDeadline(t.deadline, user?.timezone) : <span style={{ color:"var(--color-text-tertiary)" }}>—</span>}
                   </div>
 
                   {/* Actions */}
@@ -1949,7 +1975,7 @@ function ReportsPage() {
 
     // Overdue
     const overdue = tasks.filter(t =>
-      t.deadline && new Date(t.deadline) < now && t.status !== "completed" && t.status !== "cancelled"
+      t.deadline && parseDeadline(t.deadline) < now && t.status !== "completed" && t.status !== "cancelled"
     );
 
     const completionRate = tasks.length ? Math.round(byStatus.completed / tasks.length * 100) : 0;
@@ -2098,7 +2124,7 @@ function ReportsPage() {
                       {stats.overdue.map(t => (
                         <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>{t.title || t.task_description}</span>
-                          <span style={{ fontSize: 11, color: "#f87171", flexShrink: 0 }}>{new Date(t.deadline).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                          <span style={{ fontSize: 11, color: "#f87171", flexShrink: 0 }}>{formatDeadline(t.deadline, user?.timezone, { month: "short", day: "numeric", year: undefined })}</span>
                         </div>
                       ))}
                     </div>
@@ -2175,9 +2201,9 @@ function CompliancePage() {
 
     // Overdue tasks (past deadline, not done/cancelled)
     const overdue = tasks.filter(t =>
-      t.deadline && new Date(t.deadline) < now &&
+      t.deadline && parseDeadline(t.deadline) < now &&
       t.status !== "completed" && t.status !== "cancelled"
-    ).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+    ).sort((a, b) => parseDeadline(a.deadline) - parseDeadline(b.deadline));
 
     // Unassigned tasks
     const unassigned = tasks.filter(t =>
@@ -2247,7 +2273,9 @@ function CompliancePage() {
 
   const daysOverdue = (dateStr) => {
     if (!dateStr) return "";
-    const d = Math.floor((now - new Date(dateStr)) / 86400000);
+    const parsed = parseDeadline(dateStr);
+    if (!parsed) return "";
+    const d = Math.floor((now - parsed) / 86400000);
     return d > 0 ? `${d}d overdue` : "Due today";
   };
 
@@ -3419,6 +3447,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
                 <KanbanColumn
                   key={col.status} status={col.status} label={col.label}
                   tasks={col.tasks} onMove={moveTask} onDelete={removeTask}
+                  timezone={user?.timezone}
                 />
               ))}
             </div>
@@ -4841,7 +4870,7 @@ function AuthenticatedApp() {
     const inProgress      = tasks.filter(t => t.status === "in_progress").length;
     const completed       = tasks.filter(t => t.status === "completed").length;
     const now             = Date.now();
-    const overdue         = tasks.filter(t => t.deadline && new Date(t.deadline) < now && t.status !== "completed" && t.status !== "cancelled").length;
+    const overdue         = tasks.filter(t => t.deadline && parseDeadline(t.deadline) < now && t.status !== "completed" && t.status !== "cancelled").length;
     const unassigned      = tasks.filter(t => !t.assignee).length;
     const stale           = tasks.filter(t => {
       const d = t.updated_at || t.created_at;
