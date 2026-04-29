@@ -1,14 +1,32 @@
 """
 routers/tasks.py
 ────────────────
-GET    /tasks                  →  list all tasks (with optional filters)
-GET    /tasks/{id}             →  get a single task
-PATCH  /tasks/{id}/status      →  update task status
-DELETE /tasks/{id}             →  delete a task
-GET    /tasks/{id}/share-link  →  get the public share URL for a task  [Segment 8]
-GET    /share/{token}          →  public view of a task (no auth)       [Segment 8]
-POST   /tasks/ping-overdue     →  manually trigger overdue ping job (Segment 3)
-POST   /tasks/daily-rollup     →  manually trigger daily rollup job (Segment 4)
+All task endpoints. Every endpoint (except public share) requires authentication.
+Task visibility is scoped by role:
+
+  architect  → all tasks in the workspace
+  navigator  → team tasks (same team_name) + own tasks
+  operator   → only own tasks (assigned to them)
+  solo       → only own tasks
+
+Dashboard split:
+  GET /tasks/my       → Individual section: tasks where owner_id = current user
+                        OR assignee matches current user's name
+  GET /tasks/team     → Team section: tasks in current user's workspace,
+                        filtered by role (architect sees all, navigator sees team,
+                        operator/solo see own)
+  GET /tasks          → Kept for backwards compatibility — same as /tasks/team
+
+GET    /tasks/my               → Individual tasks for current user
+GET    /tasks/team             → Team tasks filtered by role
+GET    /tasks                  → List tasks (role-scoped, auth required)
+GET    /tasks/{id}             → Get a single task (auth required)
+PATCH  /tasks/{id}/status      → Update task status (auth required)
+DELETE /tasks/{id}             → Delete a task (auth required)
+GET    /tasks/{id}/share-link  → Get the public share URL for a task
+GET    /share/{token}          → Public view of a task (no auth)
+POST   /tasks/ping-overdue     → Manually trigger overdue ping job
+POST   /tasks/daily-rollup     → Manually trigger daily rollup job
 """
 
 import logging
@@ -17,13 +35,13 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
-from fastapi.responses import HTMLResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import crud
+from app.auth import get_current_user
 from app.database import get_db
-from app.models import Priority, TaskStatus
+from app.models import Priority, Task, TaskStatus, User, UserRole
 from app.schemas import TaskListResponse, TaskResponse, TaskStatusUpdate
 
 logger = logging.getLogger(__name__)
@@ -36,10 +54,193 @@ router = APIRouter(
 )
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _build_role_scoped_tasks(
+    db: Session,
+    current_user: User,
+    status: Optional[TaskStatus] = None,
+    assignee: Optional[str] = None,
+    priority: Optional[Priority] = None,
+    skip: int = 0,
+    limit: int = 50,
+) -> tuple[int, list[Task]]:
+    """
+    Return tasks visible to the current user based on their role.
+
+    architect  → all tasks in the workspace
+    navigator  → tasks in the workspace where assignee matches their team_name
+    operator   → only tasks assigned to them (by owner_id or assignee name)
+    solo       → only tasks assigned to them (by owner_id or assignee name)
+    """
+    role = current_user.role
+    workspace_id = current_user.workspace_id
+
+    if not workspace_id:
+        # User is not part of any workspace — return only their own tasks
+        return crud.list_tasks(
+            db,
+            status=status,
+            assignee=assignee,
+            priority=priority,
+            skip=skip,
+            limit=limit,
+            owner_id=current_user.id,
+        )
+
+    if role == UserRole.architect:
+        # Sees all workspace tasks
+        return crud.list_tasks(
+            db,
+            status=status,
+            assignee=assignee,
+            priority=priority,
+            skip=skip,
+            limit=limit,
+            workspace_id=workspace_id,
+        )
+
+    elif role == UserRole.navigator:
+        # Sees tasks for their team (filtered by team_name) within workspace
+        team = current_user.team_name
+        return crud.list_tasks(
+            db,
+            status=status,
+            assignee=assignee or team,  # if no specific assignee filter, default to team
+            priority=priority,
+            skip=skip,
+            limit=limit,
+            workspace_id=workspace_id,
+            team_name=team if not assignee else None,
+        )
+
+    else:
+        # operator / solo — only own tasks
+        return crud.list_tasks(
+            db,
+            status=status,
+            assignee=assignee,
+            priority=priority,
+            skip=skip,
+            limit=limit,
+            owner_id=current_user.id,
+            workspace_id=workspace_id,
+        )
+
+
+# ── Individual tasks endpoint ─────────────────────────────────────────────────
+
+@router.get(
+    "/my",
+    response_model=TaskListResponse,
+    summary="Individual section — tasks assigned to the current user",
+)
+def list_my_tasks(
+    status: Optional[TaskStatus] = Query(default=None),
+    priority: Optional[Priority] = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TaskListResponse:
+    """
+    Returns only tasks that belong to the currently logged-in user.
+    These are tasks where owner_id = current user's ID OR
+    where the task assignee name matches the current user's name.
+    This populates the INDIVIDUAL section of the dashboard.
+    """
+    try:
+        total, tasks = crud.list_tasks(
+            db,
+            status=status,
+            priority=priority,
+            skip=skip,
+            limit=limit,
+            owner_id=current_user.id,
+            workspace_id=current_user.workspace_id,
+        )
+        # Also pick up tasks assigned by name (e.g. created via Slack)
+        # where owner_id is NULL but assignee matches the user's name
+        from sqlalchemy import select, func, or_
+        from app.models import Task as TaskModel
+
+        stmt = select(TaskModel).where(
+            or_(
+                TaskModel.owner_id == current_user.id,
+                TaskModel.assignee.ilike(f"%{current_user.name.strip()}%"),
+            )
+        )
+        if current_user.workspace_id:
+            stmt = stmt.where(TaskModel.workspace_id == current_user.workspace_id)
+        if status is not None:
+            stmt = stmt.where(TaskModel.status == status)
+        if priority is not None:
+            stmt = stmt.where(TaskModel.priority == priority)
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total = db.scalar(count_stmt) or 0
+        stmt = stmt.order_by(TaskModel.created_at.desc()).offset(skip).limit(limit)
+        tasks = list(db.scalars(stmt).all())
+
+    except SQLAlchemyError as exc:
+        logger.exception("DB error listing my tasks: %s", exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database error. Please retry.",
+        ) from exc
+
+    return TaskListResponse(total=total, skip=skip, limit=limit, tasks=tasks)
+
+
+# ── Team tasks endpoint ───────────────────────────────────────────────────────
+
+@router.get(
+    "/team",
+    response_model=TaskListResponse,
+    summary="Team section — tasks visible based on user role",
+)
+def list_team_tasks(
+    status: Optional[TaskStatus] = Query(default=None),
+    assignee: Optional[str] = Query(default=None),
+    priority: Optional[Priority] = Query(default=None),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TaskListResponse:
+    """
+    Returns tasks filtered by the user's role within their workspace.
+    - architect → all workspace tasks
+    - navigator → tasks for their team
+    - operator/solo → their own tasks only
+    This populates the TEAM section of the dashboard.
+    """
+    try:
+        total, tasks = _build_role_scoped_tasks(
+            db,
+            current_user,
+            status=status,
+            assignee=assignee,
+            priority=priority,
+            skip=skip,
+            limit=limit,
+        )
+    except SQLAlchemyError as exc:
+        logger.exception("DB error listing team tasks: %s", exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database error. Please retry.",
+        ) from exc
+
+    return TaskListResponse(total=total, skip=skip, limit=limit, tasks=tasks)
+
+
+# ── Main list endpoint (backwards compat, now auth-required + role-scoped) ────
+
 @router.get(
     "",
     response_model=TaskListResponse,
-    summary="List all tasks",
+    summary="List tasks (role-scoped, auth required)",
 )
 def list_tasks(
     status: Optional[TaskStatus] = Query(default=None),
@@ -48,10 +249,16 @@ def list_tasks(
     skip: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TaskListResponse:
+    """
+    Same as /tasks/team — role-scoped, requires authentication.
+    Kept for backwards compatibility with existing frontend calls.
+    """
     try:
-        total, tasks = crud.list_tasks(
+        total, tasks = _build_role_scoped_tasks(
             db,
+            current_user,
             status=status,
             assignee=assignee,
             priority=priority,
@@ -64,23 +271,27 @@ def list_tasks(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database error. Please retry.",
         ) from exc
+
     return TaskListResponse(total=total, skip=skip, limit=limit, tasks=tasks)
 
 
-# ── Segment 10: Ownership graph endpoint ──────────────────────────────────────
+# ── Segment 10: Ownership graph endpoint ─────────────────────────────────────
 
 @router.get(
     "/graph",
     summary="Get ownership graph data",
-    description="Returns task counts grouped by assignee for the ownership graph view.",
+    description="Returns task counts grouped by assignee. Scoped to the user's workspace.",
 )
 def get_ownership_graph(
-    workspace_id: Optional[int] = Query(default=None),
-    owner_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
     try:
-        data = crud.get_ownership_graph(db, workspace_id=workspace_id, owner_id=owner_id)
+        data = crud.get_ownership_graph(
+            db,
+            workspace_id=current_user.workspace_id,
+            owner_id=current_user.id if current_user.role in (UserRole.operator, UserRole.solo) else None,
+        )
     except Exception as exc:
         logger.exception("Error fetching ownership graph: %s", exc)
         raise HTTPException(
@@ -90,14 +301,17 @@ def get_ownership_graph(
     return data
 
 
+# ── Single task endpoints ─────────────────────────────────────────────────────
+
 @router.get(
     "/{task_id}",
     response_model=TaskResponse,
-    summary="Get a task by ID",
+    summary="Get a task by ID (auth required)",
 )
 def get_task(
     task_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TaskResponse:
     if task_id <= 0:
         raise HTTPException(
@@ -117,18 +331,30 @@ def get_task(
             status_code=http_status.HTTP_404_NOT_FOUND,
             detail=f"Task #{task_id} not found.",
         )
+
+    # Enforce visibility: operator/solo can only see their own tasks
+    if current_user.role in (UserRole.operator, UserRole.solo):
+        if task.owner_id != current_user.id and (
+            not task.assignee or current_user.name.lower() not in task.assignee.lower()
+        ):
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to view this task.",
+            )
+
     return task
 
 
 @router.patch(
     "/{task_id}/status",
     response_model=TaskResponse,
-    summary="Update a task's status",
+    summary="Update a task's status (auth required)",
 )
 def update_task_status(
     task_id: int,
     update: TaskStatusUpdate,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> TaskResponse:
     if task_id <= 0:
         raise HTTPException(
@@ -136,9 +362,9 @@ def update_task_status(
             detail="task_id must be a positive integer.",
         )
     try:
-        task = crud.update_task_status(db, task_id, update)
+        task = crud.get_task(db, task_id)
     except SQLAlchemyError as exc:
-        logger.exception("DB error updating task %d status: %s", task_id, exc)
+        logger.exception("DB error fetching task %d for status update: %s", task_id, exc)
         raise HTTPException(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Database error. Please retry.",
@@ -148,17 +374,38 @@ def update_task_status(
             status_code=http_status.HTTP_404_NOT_FOUND,
             detail=f"Task #{task_id} not found.",
         )
+
+    # Enforce: operator/solo can only update their own tasks
+    if current_user.role in (UserRole.operator, UserRole.solo):
+        if task.owner_id != current_user.id and (
+            not task.assignee or current_user.name.lower() not in task.assignee.lower()
+        ):
+            raise HTTPException(
+                status_code=http_status.HTTP_403_FORBIDDEN,
+                detail="You can only update tasks assigned to you.",
+            )
+
+    try:
+        task = crud.update_task_status(db, task_id, update)
+    except SQLAlchemyError as exc:
+        logger.exception("DB error updating task %d status: %s", task_id, exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database error. Please retry.",
+        ) from exc
+
     return task
 
 
 @router.delete(
     "/{task_id}",
     status_code=http_status.HTTP_204_NO_CONTENT,
-    summary="Delete a task",
+    summary="Delete a task (auth required)",
 )
 def delete_task(
     task_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> None:
     if task_id <= 0:
         raise HTTPException(
@@ -178,10 +425,18 @@ def delete_task(
             status_code=http_status.HTTP_404_NOT_FOUND,
             detail=f"Task #{task_id} not found.",
         )
+
+    # Enforce: only architect or task owner can delete
+    if current_user.role != UserRole.architect and task.owner_id != current_user.id:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to delete this task.",
+        )
+
     try:
         db.delete(task)
         db.commit()
-        logger.info("Deleted task id=%d", task_id)
+        logger.info("Deleted task id=%d by user id=%d", task_id, current_user.id)
     except SQLAlchemyError as exc:
         db.rollback()
         logger.exception("DB error deleting task %d: %s", task_id, exc)
@@ -196,17 +451,12 @@ def delete_task(
 @router.get(
     "/{task_id}/share-link",
     summary="Get the public share URL for a task",
-    description="Returns the shareable public URL for this task. No auth required to VIEW the link.",
 )
 def get_share_link(
     task_id: int,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
-    """
-    Returns the share URL for the task.
-    The URL points to the frontend public task view page.
-    Format: https://your-app.vercel.app/t/<share_token>
-    """
     if task_id <= 0:
         raise HTTPException(
             status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -232,9 +482,7 @@ def get_share_link(
     }
 
 
-# ── Segment 8: Public task view (no auth) ────────────────────────────────────
-# This is mounted on a SEPARATE router prefix so it lives at /share/{token}
-# not /tasks/share/{token}. It is registered in main.py separately.
+# ── Segment 8: Public task view (no auth) ─────────────────────────────────────
 
 share_router = APIRouter(tags=["Public Share"])
 
@@ -248,13 +496,6 @@ def public_task_view(
     token: str,
     db: Session = Depends(get_db),
 ) -> dict:
-    """
-    Public endpoint — anyone with the link can view the task.
-    Returns enough info to render the public task card:
-      title, priority, status, assignee, deadline, created_at.
-    Does NOT return internal fields like source_message, owner_id, workspace_id.
-    Includes a signup_url so visitors can click "Join" and create an account.
-    """
     task = crud.get_task_by_share_token(db, token)
     if not task:
         raise HTTPException(
@@ -281,16 +522,16 @@ def public_task_view(
     }.get(task.status.value if hasattr(task.status, "value") else task.status, "To Do")
 
     return {
-        "id":           task.id,
-        "title":        task.title,
-        "priority":     task.priority,
+        "id":             task.id,
+        "title":          task.title,
+        "priority":       task.priority,
         "priority_emoji": priority_emoji,
-        "status":       task.status,
-        "status_label": status_label,
-        "assignee":     task.assignee,
-        "deadline":     task.deadline,
-        "created_at":   task.created_at.isoformat() if task.created_at else None,
-        "signup_url":   signup_url,
+        "status":         task.status,
+        "status_label":   status_label,
+        "assignee":       task.assignee,
+        "deadline":       task.deadline,
+        "created_at":     task.created_at.isoformat() if task.created_at else None,
+        "signup_url":     signup_url,
     }
 
 
@@ -301,7 +542,7 @@ def public_task_view(
     summary="Manually trigger overdue task pings",
     status_code=http_status.HTTP_200_OK,
 )
-def trigger_ping_overdue():
+def trigger_ping_overdue(current_user: User = Depends(get_current_user)):
     try:
         from app.scheduler import run_ping_now
         summary = run_ping_now()
@@ -321,7 +562,7 @@ def trigger_ping_overdue():
     summary="Manually trigger the daily rollup job",
     status_code=http_status.HTTP_200_OK,
 )
-def trigger_daily_rollup():
+def trigger_daily_rollup(current_user: User = Depends(get_current_user)):
     try:
         from app.scheduler import run_daily_rollup_now
         summary = run_daily_rollup_now()
