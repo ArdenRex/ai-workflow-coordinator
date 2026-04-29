@@ -276,6 +276,8 @@ def list_tasks(
 
 
 # ── Segment 10: Ownership graph endpoint ─────────────────────────────────────
+# ⚠️  MUST be defined BEFORE /{task_id} — FastAPI matches routes top-to-bottom,
+#    so /graph would otherwise be captured by /{task_id} and fail to parse.
 
 @router.get(
     "/graph",
