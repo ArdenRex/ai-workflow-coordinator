@@ -1354,7 +1354,7 @@ function Sparkline({ color }) {
 
 // ── Segment 10: Ownership Graph view ─────────────────────────────────────────
 function OwnershipGraph() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const API = BASE_URL;
   const [data, setData]         = useState(null);
   const [loading, setLoading]   = useState(true);
@@ -1363,15 +1363,18 @@ function OwnershipGraph() {
   const [filter, setFilter]     = useState("");
 
   useEffect(() => {
+    if (!token) return;
     const params = new URLSearchParams();
     if (user?.workspace?.id) params.set("workspace_id", user.workspace.id);
     else if (user?.id)       params.set("owner_id", user.id);
 
-    fetch(`${API}/tasks/graph?${params}`)
+    fetch(`${API}/tasks/graph?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
       .then(r => { if (!r.ok) throw new Error("Failed to load graph"); return r.json(); })
       .then(d => { setData(d); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });
-  }, [API, user]);
+  }, [API, user, token]);
 
   const PRIORITY_COLOR = { critical: "#f87171", high: "#fb923c", medium: "#fbbf24", low: "#34d399" };
   const STATUS_COLOR   = { to_do: "#3b82f6", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
