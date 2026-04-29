@@ -2,6 +2,9 @@
 routers/messages.py
 ────────────────────
 POST /process-message  →  AI extracts task  →  saves to DB  →  returns result
+
+Auth required: tasks are stamped with the current user's owner_id and workspace_id
+so they are isolated per user/workspace and never leak to other accounts.
 """
 
 import logging
@@ -12,7 +15,9 @@ from sqlalchemy.orm import Session
 
 from app import crud
 from app.ai_extractor import extract_task_from_message
+from app.auth import get_current_user
 from app.database import get_db
+from app.models import User
 from app.schemas import MessageRequest, ProcessMessageResponse
 
 logger = logging.getLogger(__name__)
@@ -30,15 +35,18 @@ router = APIRouter(
     summary="Process a Slack/email message with AI",
     description=(
         "Send a raw message. The AI extracts the task, assignee, deadline, and priority, "
-        "then stores it in the database."
+        "then stores it in the database under the authenticated user's workspace."
     ),
 )
 async def process_message(
     payload: MessageRequest,
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ) -> ProcessMessageResponse:
     """
     Full pipeline: raw message → AI extraction → DB persist → response.
+    Tasks are always stamped with owner_id and workspace_id from the
+    authenticated user so they never leak across accounts.
     """
 
     # ── Step 1: AI extraction ─────────────────────────────────────────────────
@@ -57,12 +65,14 @@ async def process_message(
             detail="Unexpected error during task extraction.",
         ) from exc
 
-    # ── Step 2: Persist to database ───────────────────────────────────────────
+    # ── Step 2: Persist to database (stamped with current user) ──────────────
     try:
         task = crud.create_task(
             db=db,
             source_message=payload.message,
             extracted=extracted,
+            owner_id=current_user.id,                  # ← locks task to this user
+            workspace_id=current_user.workspace_id,    # ← locks task to this workspace
         )
     except SQLAlchemyError as exc:
         logger.exception("Database error saving task: %s", exc)
@@ -78,8 +88,9 @@ async def process_message(
         ) from exc
 
     logger.info(
-        "Task #%d created — assignee=%r priority=%s source=%s",
-        task.id, task.assignee, task.priority, payload.source,
+        "Task #%d created — owner_id=%d workspace_id=%s assignee=%r priority=%s",
+        task.id, current_user.id, current_user.workspace_id,
+        task.assignee, task.priority,
     )
 
     return ProcessMessageResponse(
