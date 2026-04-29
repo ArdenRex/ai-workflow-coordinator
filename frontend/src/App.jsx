@@ -3149,14 +3149,26 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
     { label: "Completed",   value: counts.completed,   icon: <IconDone />,     color: "#22d3a8", variant: "teal"  },
   ], [counts]);
 
+  // Call /process-message directly with the auth token so the task gets
+  // stamped with owner_id + workspace_id (the useTasks hook doesn't send auth).
   const handleModalAdd = useCallback(async (msg) => {
-    const result = await addTask(msg);
+    const res = await fetch(`${BASE_URL}/process-message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ message: msg, source: "dashboard" }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || "Database error. Task could not be saved.");
+    }
     setShowModal(false);
-    // Refresh both sections after adding a task
     reload();
     fetchMyTasks();
-    return result;
-  }, [addTask, reload, fetchMyTasks]);
+    return data;
+  }, [token, reload, fetchMyTasks]);
 
   const handleReload = () => {
     reload();
