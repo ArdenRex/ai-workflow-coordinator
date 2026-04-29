@@ -372,6 +372,11 @@ const GLOBAL_STYLES = `
     0%,100% { box-shadow: 0 0 0 4px rgba(59,130,246,0.4), 0 0 0 8px rgba(59,130,246,0.15); }
     50%      { box-shadow: 0 0 0 6px rgba(59,130,246,0.55), 0 0 0 14px rgba(59,130,246,0.08); }
   }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+
   @keyframes slideUpIn {
     from { opacity: 0; transform: translateY(24px) scale(0.96); }
     to   { opacity: 1; transform: translateY(0)    scale(1); }
@@ -4156,31 +4161,84 @@ function FeedbackButton({ user, token, currentPage }) {
 
 const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
 
-function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, onSuccess }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
+function formatCardNumber(v) {
+  return v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+}
+function formatExpiry(v) {
+  const d = v.replace(/\D/g, "").slice(0, 4);
+  return d.length > 2 ? d.slice(0,2) + "/" + d.slice(2) : d;
+}
+function cardBrand(n) {
+  const d = n.replace(/\s/g, "");
+  if (/^4/.test(d)) return "💳 Visa";
+  if (/^5[1-5]/.test(d)) return "💳 Mastercard";
+  if (/^3[47]/.test(d)) return "💳 Amex";
+  return "💳";
+}
 
-  const startCheckout = async () => {
-    setLoading(true);
+function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, onSuccess }) {
+  const [step, setStep]         = useState("plan");   // "plan" | "card" | "processing"
+  const [cardNum, setCardNum]   = useState("");
+  const [expiry, setExpiry]     = useState("");
+  const [cvv, setCvv]           = useState("");
+  const [nameOnCard, setNameOnCard] = useState(user?.name || "");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
+  const isPastDue   = status === "past_due";
+  const isCancelled = status === "cancelled";
+
+  const inputStyle = (focused) => ({
+    width: "100%", padding: "11px 14px", boxSizing: "border-box",
+    background: "rgba(255,255,255,0.05)",
+    border: `1px solid ${focused ? "#3b82f6" : "rgba(255,255,255,0.1)"}`,
+    borderRadius: 10, color: "#f1f3fc", fontSize: 14, outline: "none",
+    fontFamily: "var(--font-sans)",
+  });
+
+  const validateCard = () => {
+    const d = cardNum.replace(/\s/g, "");
+    if (d.length < 13) return "Please enter a valid card number.";
+    const [m, y] = expiry.split("/");
+    const now = new Date();
+    if (!m || !y || parseInt(m) > 12 || parseInt(m) < 1) return "Invalid expiry month.";
+    const fullYear = 2000 + parseInt(y);
+    if (fullYear < now.getFullYear() || (fullYear === now.getFullYear() && parseInt(m) < now.getMonth() + 1)) return "Card has expired.";
+    if (cvv.length < 3) return "CVV must be 3-4 digits.";
+    if (nameOnCard.trim().length < 2) return "Please enter the name on your card.";
+    return null;
+  };
+
+  const submitCard = async () => {
+    const err = validateCard();
+    if (err) { setError(err); return; }
     setError("");
+    setLoading(true);
+    setStep("processing");
     try {
       const res = await fetch(`${BASE_URL}/billing/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || "Failed to start checkout");
-
-      // Redirect to checkout (test mode redirects to ?billing=success, live mode to LS)
-      window.location.href = data.checkout_url;
+      if (!res.ok) throw new Error(data.detail || "Payment failed. Please try again.");
+      // Both test and live mode — backend has updated DB, now verify
+      const statusRes = await fetch(`${BASE_URL}/auth/billing-status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const statusData = await statusRes.json();
+      if (!statusData.show_wall) {
+        onSuccess();
+      } else {
+        throw new Error("Payment could not be confirmed. Please try again.");
+      }
     } catch (err) {
       setError(err.message || "Something went wrong. Please try again.");
+      setStep("card");
+    } finally {
       setLoading(false);
     }
   };
-
-  const isPastDue   = status === "past_due";
-  const isCancelled = status === "cancelled";
 
   return (
     <div style={{
@@ -4189,96 +4247,137 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
       display: "flex", alignItems: "center", justifyContent: "center",
       fontFamily: "var(--font-sans)",
     }}>
-      {/* Ambient glow */}
       <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
 
       <div style={{
         position: "relative", width: "100%", maxWidth: 480, margin: "0 24px",
         background: "linear-gradient(160deg, rgba(20,22,46,0.98) 0%, rgba(14,17,36,0.99) 100%)",
         border: "1px solid rgba(255,255,255,0.1)", borderRadius: 24,
-        boxShadow: "0 32px 100px rgba(0,0,0,0.8)",
-        overflow: "hidden",
+        boxShadow: "0 32px 100px rgba(0,0,0,0.8)", overflow: "hidden",
         animation: "slideUpIn 0.4s cubic-bezier(0.34,1.56,0.64,1)",
       }}>
-        {/* Top accent bar */}
-        <div style={{ height: 3, background: "linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899)", borderRadius: "24px 24px 0 0" }} />
+        <div style={{ height: 3, background: "linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899)" }} />
 
-        <div style={{ padding: "36px 40px 40px" }}>
-          {/* Icon */}
-          <div style={{ width: 64, height: 64, borderRadius: 18, background: isPastDue ? "rgba(245,158,11,0.15)" : isCancelled ? "rgba(239,68,68,0.15)" : isNewUser ? "rgba(16,185,129,0.15)" : "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, marginBottom: 24 }}>
-            {isPastDue ? "⚠️" : isCancelled ? "🔒" : isNewUser ? "🎉" : "🚀"}
-          </div>
+        <div style={{ padding: "32px 36px 36px" }}>
 
-          {/* Heading */}
-          <div style={{ fontSize: 22, fontWeight: 700, color: "#f1f3fc", marginBottom: 10, fontFamily: "var(--font-display)" }}>
-            {isPastDue ? "Payment Failed" : isCancelled ? "Subscription Ended" : isNewUser ? "Start Your 7-Day Free Trial" : "Your Free Trial Has Ended"}
-          </div>
-
-          {/* Subtext */}
-          <div style={{ fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: isNewUser && daysLeft !== undefined ? 16 : 28 }}>
-            {isPastDue
-              ? "We couldn't process your last payment. Please update your payment details to continue using AI Workflow Coordinator."
-              : isCancelled
-              ? "Your subscription has been cancelled. Reactivate now to regain full access to your workspace and tasks."
-              : isNewUser
-              ? "Welcome to AI Workflow Coordinator! Enter your card details to start your free 7-day trial. You won't be charged until the trial ends — cancel anytime."
-              : "You've experienced the full power of AI Workflow Coordinator. Subscribe now to keep your tasks, team, and workflows running."}
-          </div>
-
-          {/* Trial countdown pill — shown to new trialing users */}
-          {isNewUser && daysLeft !== undefined && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8, marginBottom: 28,
-              padding: "10px 14px", borderRadius: 10,
-              background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)",
-              fontSize: 13, color: "#10b981", fontWeight: 600,
-            }}>
-              <span>⏱</span>
-              <span>Free trial: <strong>{daysLeft} day{daysLeft === 1 ? "" : "s"} remaining</strong> — no charge until it ends</span>
-            </div>
-          )}
-
-          {/* Value props */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
-            {["Unlimited tasks & team members", "AI-powered task creation from Slack", "Automated follow-ups & reminders", "Real-time dashboard & compliance reports"].map(f => (
-              <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--color-text-secondary)" }}>
-                <div style={{ width: 20, height: 20, borderRadius: 6, background: "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0 }}>✓</div>
-                {f}
+          {/* ── STEP: plan ── */}
+          {step === "plan" && (
+            <>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: isNewUser ? "rgba(16,185,129,0.15)" : isPastDue ? "rgba(245,158,11,0.15)" : "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 20 }}>
+                {isNewUser ? "🎉" : isPastDue ? "⚠️" : isCancelled ? "🔒" : "🚀"}
               </div>
-            ))}
-          </div>
-
-          {/* Price */}
-          <div style={{ padding: "16px 20px", background: isNewUser ? "rgba(16,185,129,0.08)" : "rgba(59,130,246,0.08)", border: isNewUser ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(59,130,246,0.2)", borderRadius: 14, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>{isNewUser ? "Free for 7 days, then" : "Monthly subscription"}</div>
-              <div style={{ fontSize: 22, fontWeight: 700, color: "#f1f3fc", marginTop: 2 }}>$20 <span style={{ fontSize: 14, fontWeight: 400, color: "var(--color-text-secondary)" }}>/ user / month</span></div>
-            </div>
-            <div style={{ fontSize: 11, color: isNewUser ? "#10b981" : "#22d3ee", background: isNewUser ? "rgba(16,185,129,0.1)" : "rgba(34,211,238,0.1)", padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>{isNewUser ? "7 days FREE" : "Cancel anytime"}</div>
-          </div>
-
-          {error && (
-            <div style={{ fontSize: 12, color: "#f43f5e", padding: "10px 14px", background: "rgba(244,63,94,0.1)", borderRadius: 10, marginBottom: 16 }}>{error}</div>
+              <div style={{ fontSize: 21, fontWeight: 700, color: "#f1f3fc", marginBottom: 8, fontFamily: "var(--font-display)" }}>
+                {isNewUser ? "Start Your 7-Day Free Trial" : isPastDue ? "Payment Failed" : isCancelled ? "Subscription Ended" : "Your Free Trial Has Ended"}
+              </div>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: 20 }}>
+                {isNewUser
+                  ? "Enter your card details to activate your free trial. You won't be charged until the 7 days end — cancel anytime."
+                  : isPastDue
+                  ? "We couldn't process your last payment. Update your card to continue."
+                  : isCancelled
+                  ? "Reactivate your subscription to regain full access."
+                  : "Your trial has ended. Subscribe to keep access to all your tasks and workflows."}
+              </div>
+              {isNewUser && daysLeft !== undefined && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, padding: "10px 14px", borderRadius: 10, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: 13, color: "#10b981", fontWeight: 600 }}>
+                  <span>⏱</span>
+                  <span>Free trial: <strong>{daysLeft} day{daysLeft === 1 ? "" : "s"} remaining</strong> — no charge until it ends</span>
+                </div>
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                {["Unlimited tasks & team members", "AI-powered task creation from Slack", "Compliance & ownership reports", "Cancel anytime, no commitment"].map(f => (
+                  <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--color-text-secondary)" }}>
+                    <div style={{ width: 18, height: 18, borderRadius: 5, background: "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, flexShrink: 0 }}>✓</div>
+                    {f}
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: "14px 18px", background: isNewUser ? "rgba(16,185,129,0.08)" : "rgba(59,130,246,0.08)", border: isNewUser ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(59,130,246,0.2)", borderRadius: 12, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{isNewUser ? "Free for 7 days, then" : "Monthly subscription"}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: "#f1f3fc", marginTop: 2 }}>$20 <span style={{ fontSize: 13, fontWeight: 400, color: "var(--color-text-secondary)" }}>/ user / month</span></div>
+                </div>
+                <div style={{ fontSize: 11, color: isNewUser ? "#10b981" : "#22d3ee", background: isNewUser ? "rgba(16,185,129,0.1)" : "rgba(34,211,238,0.1)", padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>{isNewUser ? "7 days FREE" : "Cancel anytime"}</div>
+              </div>
+              <button onClick={() => setStep("card")} style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: "linear-gradient(135deg, #3b82f6, #8b5cf6)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer", boxShadow: "0 4px 20px rgba(59,130,246,0.4)" }}>
+                {isNewUser ? "Continue — Enter Card Details →" : isPastDue ? "Update Payment Method →" : "Subscribe Now →"}
+              </button>
+              <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--color-text-tertiary)" }}>🔒 Secured by Lemon Squeezy · No charge for 7 days</div>
+            </>
           )}
 
-          {/* CTA button */}
-          <button
-            onClick={startCheckout}
-            disabled={loading}
-            style={{
-              width: "100%", padding: "14px", borderRadius: 14, border: "none",
-              background: loading ? "rgba(59,130,246,0.5)" : "linear-gradient(135deg, #3b82f6, #8b5cf6)",
-              color: "#fff", fontWeight: 700, fontSize: 15, cursor: loading ? "not-allowed" : "pointer",
-              boxShadow: loading ? "none" : "0 4px 20px rgba(59,130,246,0.4)",
-              transition: "all 0.2s",
-            }}
-          >
-            {loading ? "Redirecting to payment…" : isPastDue ? "Update Payment Method →" : isNewUser ? "Start Free Trial — Enter Card Details →" : "Subscribe Now — $20/month →"}
-          </button>
+          {/* ── STEP: card ── */}
+          {step === "card" && (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                <button onClick={() => { setStep("plan"); setError(""); }} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, color: "var(--color-text-secondary)", cursor: "pointer", padding: "6px 12px", fontSize: 13 }}>← Back</button>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f3fc" }}>Payment Details</div>
+              </div>
 
-          <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "var(--color-text-tertiary)" }}>
-            Secured by Lemon Squeezy · Cancel anytime · No hidden fees
-          </div>
+              {/* Card preview */}
+              <div style={{ background: "linear-gradient(135deg, #1e3a5f, #2d1b69)", borderRadius: 14, padding: "18px 20px", marginBottom: 20, position: "relative", overflow: "hidden" }}>
+                <div style={{ position: "absolute", top: -20, right: -20, width: 120, height: 120, borderRadius: "50%", background: "rgba(255,255,255,0.05)" }} />
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginBottom: 12 }}>CARD NUMBER</div>
+                <div style={{ fontSize: 17, fontWeight: 600, color: "#fff", letterSpacing: 2, marginBottom: 16, fontFamily: "monospace" }}>
+                  {cardNum || "•••• •••• •••• ••••"}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>CARD HOLDER</div>
+                    <div style={{ fontSize: 13, color: "#fff", marginTop: 2 }}>{nameOnCard || "YOUR NAME"}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>EXPIRES</div>
+                    <div style={{ fontSize: 13, color: "#fff", marginTop: 2 }}>{expiry || "MM/YY"}</div>
+                  </div>
+                  <div style={{ fontSize: 20 }}>{cardNum ? cardBrand(cardNum) : "💳"}</div>
+                </div>
+              </div>
+
+              {/* Form fields */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 16 }}>
+                <div>
+                  <label style={{ fontSize: 11, color: "var(--color-text-secondary)", display: "block", marginBottom: 5 }}>NAME ON CARD</label>
+                  <input value={nameOnCard} onChange={e => setNameOnCard(e.target.value)} placeholder="John Smith" style={inputStyle(false)}
+                    onFocus={e => e.target.style.borderColor="#3b82f6"} onBlur={e => e.target.style.borderColor="rgba(255,255,255,0.1)"} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, color: "var(--color-text-secondary)", display: "block", marginBottom: 5 }}>CARD NUMBER</label>
+                  <input value={cardNum} onChange={e => setCardNum(formatCardNumber(e.target.value))} placeholder="1234 5678 9012 3456" maxLength={19} style={inputStyle(false)} inputMode="numeric"
+                    onFocus={e => e.target.style.borderColor="#3b82f6"} onBlur={e => e.target.style.borderColor="rgba(255,255,255,0.1)"} />
+                </div>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 11, color: "var(--color-text-secondary)", display: "block", marginBottom: 5 }}>EXPIRY DATE</label>
+                    <input value={expiry} onChange={e => setExpiry(formatExpiry(e.target.value))} placeholder="MM/YY" maxLength={5} style={inputStyle(false)} inputMode="numeric"
+                      onFocus={e => e.target.style.borderColor="#3b82f6"} onBlur={e => e.target.style.borderColor="rgba(255,255,255,0.1)"} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 11, color: "var(--color-text-secondary)", display: "block", marginBottom: 5 }}>CVV</label>
+                    <input value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g,"").slice(0,4))} placeholder="•••" maxLength={4} style={inputStyle(false)} inputMode="numeric" type="password"
+                      onFocus={e => e.target.style.borderColor="#3b82f6"} onBlur={e => e.target.style.borderColor="rgba(255,255,255,0.1)"} />
+                  </div>
+                </div>
+              </div>
+
+              {error && <div style={{ fontSize: 12, color: "#f43f5e", padding: "8px 12px", background: "rgba(244,63,94,0.1)", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
+
+              <button onClick={submitCard} disabled={loading} style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: loading ? "rgba(59,130,246,0.5)" : "linear-gradient(135deg, #3b82f6, #8b5cf6)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 4px 20px rgba(59,130,246,0.4)" }}>
+                {loading ? "Processing…" : isNewUser ? "Start Free Trial →" : "Subscribe Now →"}
+              </button>
+              <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--color-text-tertiary)" }}>🔒 256-bit SSL encryption · No charge for 7 days</div>
+            </>
+          )}
+
+          {/* ── STEP: processing ── */}
+          {step === "processing" && (
+            <div style={{ textAlign: "center", padding: "20px 0" }}>
+              <div style={{ fontSize: 48, marginBottom: 16, animation: "spin 1s linear infinite" }}>⚙️</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#f1f3fc", marginBottom: 8 }}>Setting up your account…</div>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>This only takes a moment</div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
