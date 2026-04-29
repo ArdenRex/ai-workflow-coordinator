@@ -4171,12 +4171,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to start checkout");
 
-      if (data.test_mode) {
-        // Test mode — simulate success
-        onSuccess();
-        return;
-      }
-      // Redirect to Lemon Squeezy hosted checkout
+      // Redirect to checkout (test mode redirects to ?billing=success, live mode to LS)
       window.location.href = data.checkout_url;
     } catch (err) {
       setError(err.message || "Something went wrong. Please try again.");
@@ -4452,7 +4447,7 @@ function AuthenticatedApp() {
           <button onClick={async () => {
             const res = await fetch(`${BASE_URL}/billing/checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             const d = await res.json();
-            if (d.test_mode) { setBilling({ status: "active", show_wall: false }); } else { window.location.href = d.checkout_url; }
+            window.location.href = d.checkout_url;
           }} style={{ padding: "5px 14px", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
             Subscribe Now →
           </button>
