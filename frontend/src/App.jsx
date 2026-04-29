@@ -3067,13 +3067,43 @@ function PlaceholderPage({ label }) {
 }
 
 // ── Dashboard — now role-aware ────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// INSTRUCTIONS: Replace lines 3070–3318 in App.jsx (the entire Dashboard function)
+// with the code below. Nothing else in App.jsx needs to change.
+// ─────────────────────────────────────────────────────────────────────────────
+
 function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError }) {
-  const { user, isArchitect, isNavigator } = useAuth();          // ✅ NEW
+  const { user, isArchitect, isNavigator, token } = useAuth();
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter]       = useState("");
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState(0);  // 0 = Team, 1 = Individual
 
-  // ✅ Role-aware welcome message
+  // ── Fetch individual tasks (/tasks/my) separately ────────────────────────
+  const [myTasks, setMyTasks]         = useState([]);
+  const [myLoading, setMyLoading]     = useState(true);
+  const [myError, setMyError]         = useState(null);
+
+  const fetchMyTasks = useCallback(async () => {
+    if (!token) return;
+    setMyLoading(true);
+    setMyError(null);
+    try {
+      const res = await fetch(`${BASE_URL}/tasks/my?limit=200`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load individual tasks");
+      const data = await res.json();
+      setMyTasks(data.tasks || []);
+    } catch (e) {
+      setMyError(e.message);
+    } finally {
+      setMyLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { fetchMyTasks(); }, [fetchMyTasks]);
+
+  // ── Role-aware labels ─────────────────────────────────────────────────────
   const roleGreeting = isArchitect
     ? "Architect View — All workspace tasks"
     : isNavigator
@@ -3082,33 +3112,36 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         ? "Solo Dashboard — Your personal tasks"
         : "Operator View — Tasks assigned to you";
 
+  // ── Source tasks depend on active tab ─────────────────────────────────────
+  // Team tab  → `tasks` prop (role-scoped, passed from AuthenticatedApp)
+  // Individual tab → `myTasks` (fetched from /tasks/my)
+  const isIndividualTab = activeTab === 1;
+  const sourceTasks     = isIndividualTab ? myTasks : tasks;
+  const isLoadingSource = isIndividualTab ? myLoading : loading;
+
+  // ── Kanban columns for the active tab ────────────────────────────────────
   const columns = useMemo(() => {
-    const tabFilter = TABS[activeTab]?.filter;
-    const filtered = tasks.filter(t => {
-      const matchesSearch =
-        !filter ||
-        (t.assignee || "").toLowerCase().includes(filter.toLowerCase()) ||
-        (t.title || t.task_description || "").toLowerCase().includes(filter.toLowerCase());
-      const matchesTab = !tabFilter || t.status === tabFilter;
-      return matchesSearch && matchesTab;
+    const filtered = sourceTasks.filter(t => {
+      if (!filter) return true;
+      const q = filter.toLowerCase();
+      return (
+        (t.assignee || "").toLowerCase().includes(q) ||
+        (t.title || t.task_description || "").toLowerCase().includes(q)
+      );
     });
-
-    const visibleColumns = tabFilter
-      ? COLUMNS.filter(col => col.status === tabFilter)
-      : COLUMNS;
-
-    return visibleColumns.map(col => ({
+    return COLUMNS.map(col => ({
       ...col,
       tasks: filtered.filter(t => t.status === col.status),
     }));
-  }, [tasks, filter, activeTab]);
+  }, [sourceTasks, filter]);
 
+  // ── Counts for the active tab ─────────────────────────────────────────────
   const counts = useMemo(() => ({
-    to_do:       tasks.filter(t => t.status === "to_do").length,
-    in_progress: tasks.filter(t => t.status === "in_progress").length,
-    completed:   tasks.filter(t => t.status === "completed").length,
-    cancelled:   tasks.filter(t => t.status === "cancelled").length,
-  }), [tasks]);
+    to_do:       sourceTasks.filter(t => t.status === "to_do").length,
+    in_progress: sourceTasks.filter(t => t.status === "in_progress").length,
+    completed:   sourceTasks.filter(t => t.status === "completed").length,
+    cancelled:   sourceTasks.filter(t => t.status === "cancelled").length,
+  }), [sourceTasks]);
 
   const METRICS = useMemo(() => [
     { label: "To Do",       value: counts.to_do,       icon: <IconCheckbox />, color: "#3b82f6", variant: "blue"  },
@@ -3119,10 +3152,34 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
   const handleModalAdd = useCallback(async (msg) => {
     const result = await addTask(msg);
     setShowModal(false);
+    // Refresh both sections after adding a task
+    reload();
+    fetchMyTasks();
     return result;
-  }, [addTask]);
+  }, [addTask, reload, fetchMyTasks]);
 
-  const gridCols = TABS[activeTab]?.filter ? 1 : `repeat(${COLUMNS.length}, minmax(0,1fr))`;
+  const handleReload = () => {
+    reload();
+    fetchMyTasks();
+  };
+
+  // ── Tab config ────────────────────────────────────────────────────────────
+  const SECTION_TABS = [
+    {
+      label: "Team",
+      description: isArchitect
+        ? "All workspace tasks"
+        : isNavigator
+          ? `${user?.team_name || "Team"} tasks`
+          : "Tasks in your workspace",
+      color: "#3b82f6",
+    },
+    {
+      label: "Individual",
+      description: "My assigned tasks",
+      color: "#8b5cf6",
+    },
+  ];
 
   return (
     <>
@@ -3170,9 +3227,9 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             </span>
           ))}
 
-          <button onClick={() => reload()} title="Refresh" aria-label="Refresh tasks" disabled={loading}
+          <button onClick={handleReload} title="Refresh" aria-label="Refresh tasks" disabled={isLoadingSource}
             className="btn-ghost has-tooltip" data-tip="Refresh"
-            style={{ width: 36, height: 36, padding: 0, justifyContent: "center", opacity: loading ? 0.5 : 1, fontSize: 15 }}
+            style={{ width: 36, height: 36, padding: 0, justifyContent: "center", opacity: isLoadingSource ? 0.5 : 1, fontSize: 15 }}
           >↻</button>
 
           <button onClick={() => setShowModal(true)} disabled={submitting} aria-label="Create new task"
@@ -3188,7 +3245,6 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         {/* Hero row */}
         <div className="fade-up" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
           <div>
-            {/* ✅ Personalised greeting */}
             <h1 style={{
               fontSize: 28, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.1,
               fontFamily: "var(--font-display)",
@@ -3216,7 +3272,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
           </div>
         </div>
 
-        {/* Error banner */}
+        {/* Error banners */}
         {error && (
           <div role="alert" style={{
             padding: "12px 18px", borderRadius: 10, fontSize: 13,
@@ -3226,8 +3282,18 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             <span>⚠ {error}</span>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={clearError} style={{ border: "1px solid rgba(248,113,113,0.3)", borderRadius: 6, background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Dismiss</button>
-              <button onClick={reload} style={{ border: "1px solid rgba(248,113,113,0.3)", borderRadius: 6, background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Retry</button>
+              <button onClick={handleReload} style={{ border: "1px solid rgba(248,113,113,0.3)", borderRadius: 6, background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Retry</button>
             </div>
+          </div>
+        )}
+        {myError && isIndividualTab && (
+          <div role="alert" style={{
+            padding: "12px 18px", borderRadius: 10, fontSize: 13,
+            background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)",
+            color: "#f87171", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+          }}>
+            <span>⚠ {myError}</span>
+            <button onClick={fetchMyTasks} style={{ border: "1px solid rgba(248,113,113,0.3)", borderRadius: 6, background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Retry</button>
           </div>
         )}
 
@@ -3240,53 +3306,93 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
               position: "relative", overflow: "hidden", cursor: "default",
               animationDelay: `${0.05 + i * 0.05}s`,
             }}>
-              {/* Top gradient accent bar */}
               <div aria-hidden="true" style={{
                 position: "absolute", top: 0, left: 0, right: 0, height: 2, borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
                 background: m.variant === "blue" ? "linear-gradient(90deg,#3b82f6,#8b5cf6)" : m.variant === "amber" ? "linear-gradient(90deg,#f59e0b,#fb923c)" : "linear-gradient(90deg,#10b981,#06b6d4)",
               }} />
-              {/* Ambient glow blob */}
               <div className="glow-orb" style={{ top: -10, left: -10, width: 100, height: 100, background: m.color, opacity: 0.07 }} />
-              {/* Corner sparkline */}
               <div style={{ position: "absolute", right: 14, bottom: 14, opacity: 0.2 }}><Sparkline color={m.color} /></div>
-
-              {/* Icon */}
               <div className="icon-bubble" style={{ width: 42, height: 42, marginBottom: 18, color: m.color, background: `${m.color}15`, border: `1px solid ${m.color}25`, boxShadow: `0 0 16px ${m.color}18` }}>{m.icon}</div>
-
-              {/* Label */}
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6, fontFamily: "var(--font-display)" }}>{m.label}</div>
-
-              {/* Value */}
               <div style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--color-text-primary)", lineHeight: 1, fontFamily: "var(--font-display)" }}>
-                {loading ? <div className="skeleton" style={{ width: 60, height: 38, display: "inline-block" }} /> : <span className="count-up">{m.value}</span>}
+                {isLoadingSource ? <div className="skeleton" style={{ width: 60, height: 38, display: "inline-block" }} /> : <span className="count-up">{m.value}</span>}
               </div>
             </div>
           ))}
         </div>
 
-        {/* Kanban */}
+        {/* ── Team / Individual section tabs ───────────────────────────────── */}
         <div className="fade-up delay-2">
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.03em", fontFamily: "var(--font-display)" }}>Task Board</h2>
-            <div role="tablist" aria-label="Filter tasks" style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 999, padding: 3 }}>
-              {TABS.map((tab, i) => (
-                <button key={tab.label} role="tab" aria-selected={activeTab === i} onClick={() => setActiveTab(i)}
+
+          {/* Section switcher */}
+          <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 20, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", borderRadius: 14, padding: 4, width: "fit-content" }}>
+            {SECTION_TABS.map((tab, i) => {
+              const isActive = activeTab === i;
+              return (
+                <button
+                  key={tab.label}
+                  onClick={() => setActiveTab(i)}
                   style={{
-                    padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 600,
+                    padding: "8px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600,
                     cursor: "pointer", border: "none", fontFamily: "var(--font-sans)",
-                    background: activeTab === i ? "var(--grad-primary)" : "transparent",
-                    color: activeTab === i ? "#fff" : "var(--color-text-secondary)",
-                    boxShadow: activeTab === i ? "0 0 14px rgba(59,130,246,0.4)" : "none",
+                    background: isActive ? `linear-gradient(135deg, ${tab.color}22, ${tab.color}14)` : "transparent",
+                    color: isActive ? tab.color : "var(--color-text-secondary)",
+                    borderColor: isActive ? `${tab.color}40` : "transparent",
+                    borderWidth: 1, borderStyle: "solid",
+                    boxShadow: isActive ? `0 0 16px ${tab.color}25` : "none",
                     transition: "all 0.15s",
+                    display: "flex", alignItems: "center", gap: 7,
                   }}
-                  onMouseEnter={e => { if (activeTab !== i) { e.currentTarget.style.background = "rgba(255,255,255,0.06)"; e.currentTarget.style.color = "var(--color-text-primary)"; } }}
-                  onMouseLeave={e => { if (activeTab !== i) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--color-text-secondary)"; } }}
-                >{tab.label}</button>
-              ))}
-            </div>
+                  onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "var(--color-text-primary)"; }}}
+                  onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}}
+                >
+                  {/* Icon */}
+                  {i === 0 ? (
+                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
+                      <circle cx="5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.4"/>
+                      <circle cx="10.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.4" opacity="0.7"/>
+                      <path d="M1.5 13c0-1.7 1.6-3 3.5-3s3.5 1.3 3.5 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                      <path d="M10.5 10.5c1.6.3 3 1.5 3 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.6"/>
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
+                      <circle cx="7.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+                      <path d="M3 13c0-2.2 2-4 4.5-4s4.5 1.8 4.5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                  {tab.label}
+                  {/* Task count badge */}
+                  <span style={{
+                    minWidth: 20, height: 18, borderRadius: 999, fontSize: 10, fontWeight: 700,
+                    background: isActive ? `${tab.color}25` : "rgba(255,255,255,0.07)",
+                    color: isActive ? tab.color : "var(--color-text-tertiary)",
+                    border: `1px solid ${isActive ? tab.color + "40" : "transparent"}`,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px",
+                  }}>
+                    {i === 0 ? (loading ? "…" : tasks.length) : (myLoading ? "…" : myTasks.length)}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {loading && tasks.length === 0 ? (
+          {/* Section description */}
+          <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 3, height: 16, borderRadius: 999, background: SECTION_TABS[activeTab].color, opacity: 0.8 }} />
+            <span style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>
+              {activeTab === 0
+                ? isArchitect
+                  ? "Showing all tasks in your workspace — role-filtered by default for team members"
+                  : isNavigator
+                    ? `Showing tasks for ${user?.team_name || "your team"} — switch to Individual to see your own`
+                    : "Your workspace tasks — switch to Individual to focus on what's assigned to you"
+                : "Tasks assigned to you directly — your personal work queue"
+              }
+            </span>
+          </div>
+
+          {/* Kanban board */}
+          {isLoadingSource && sourceTasks.length === 0 ? (
             <div role="status" aria-label="Loading tasks" style={{ textAlign: "center", padding: "60px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
               <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
               <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading tasks…</span>
@@ -3294,7 +3400,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
           ) : (
             <div style={{
               display: "grid",
-              gridTemplateColumns: typeof gridCols === "number" ? `repeat(${gridCols}, minmax(0,1fr))` : gridCols,
+              gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(0,1fr))`,
               gap: 20, alignItems: "start",
             }}>
               {columns.map(col => (
@@ -3303,6 +3409,23 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
                   tasks={col.tasks} onMove={moveTask} onDelete={removeTask}
                 />
               ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!isLoadingSource && sourceTasks.length === 0 && (
+            <div style={{ textAlign: "center", padding: "60px 0", border: "1px dashed var(--border-glass)", borderRadius: 16 }}>
+              <div style={{ fontSize: 36, marginBottom: 10, opacity: 0.3 }}>
+                {activeTab === 0 ? "👥" : "👤"}
+              </div>
+              <div style={{ fontSize: 14, color: "var(--color-text-secondary)", marginBottom: 6 }}>
+                {activeTab === 0 ? "No team tasks yet" : "No individual tasks yet"}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>
+                {activeTab === 0
+                  ? "Tasks created by your team will appear here"
+                  : "Tasks assigned to you will appear here — create one or ask your team lead"}
+              </div>
             </div>
           )}
         </div>
@@ -3316,6 +3439,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
     </>
   );
 }
+
 
 // ── Segment 11: Integrations Page ────────────────────────────────────────────
 function IntegrationsPage() {
