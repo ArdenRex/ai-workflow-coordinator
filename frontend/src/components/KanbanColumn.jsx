@@ -9,7 +9,7 @@ const COLUMN_CONFIG = {
   cancelled:   { accent: "#6b7280", dotShadow: "0 0 6px rgba(107,114,128,0.6)" },
 };
 
-export default function KanbanColumn({ status, label, tasks, onMove, onDelete }) {
+export default function KanbanColumn({ status, label, tasks, onMove, onDelete, timezone }) {
   const config = COLUMN_CONFIG[status] || { accent: "#4f8ef7", dotShadow: "none" };
 
   return (
@@ -59,6 +59,7 @@ export default function KanbanColumn({ status, label, tasks, onMove, onDelete })
               task={task}
               onMove={onMove}
               onDelete={onDelete}
+              timezone={timezone}
             />
           ))
         )}
