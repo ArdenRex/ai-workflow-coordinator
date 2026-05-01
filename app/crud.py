@@ -535,8 +535,8 @@ def get_ownership_graph(
             "title":    task.title or task.task_description,
             "status":   status_val,
             "priority": priority_val,
-            "deadline": task.deadline.isoformat() if task.deadline else None,
-            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "deadline": task.deadline.isoformat() if task.deadline and hasattr(task.deadline, "isoformat") else (str(task.deadline) if task.deadline else None),
+            "created_at": task.created_at.isoformat() if task.created_at and hasattr(task.created_at, "isoformat") else (str(task.created_at) if task.created_at else None),
         })
 
     nodes = sorted(by_assignee.values(), key=lambda x: x["total"], reverse=True)
