@@ -302,10 +302,39 @@ def list_workspaces(
             "owner_email": owner.email if owner else None,
             "member_count": member_count,
             "task_count": task_count,
+            "is_active": ws.is_active if hasattr(ws, "is_active") else True,
             "created_at": ws.created_at.isoformat() if ws.created_at else None,
         })
 
     return {"total": total, "workspaces": result}
+
+
+# ── PATCH /admin/workspaces/{id} ──────────────────────────────────────────────
+
+@router.patch("/workspaces/{workspace_id}", summary="Enable or disable a workspace")
+def update_workspace(
+    workspace_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> dict:
+    ws = db.get(Workspace, workspace_id)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found.")
+
+    # Protect the admin's own workspace from being disabled
+    owner = db.get(User, ws.owner_id) if ws.owner_id else None
+    if owner and owner.email.lower() in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Cannot disable admin workspace.")
+
+    allowed = {"is_active", "name"}
+    for key, val in payload.items():
+        if key in allowed and hasattr(ws, key):
+            setattr(ws, key, val)
+
+    db.commit()
+    db.refresh(ws)
+    return {"ok": True, "workspace_id": workspace_id, "updated": list(payload.keys())}
 
 
 # ── GET /admin/feedback ───────────────────────────────────────────────────────
