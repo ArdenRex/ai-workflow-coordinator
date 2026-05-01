@@ -280,12 +280,20 @@ function UsersTable() {
                     {u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}
                   </td>
                   <td style={td}>
-                    <button
-                      onClick={() => handleToggleActive(u.id, u.is_active)}
-                      className={u.is_active ? "toggle-btn-active" : "toggle-btn-inactive"}
-                    >
-                      {u.is_active ? "● Active" : "○ Disabled"}
-                    </button>
+                    {u.email === "wahaj@acedengroup.com" ? (
+                      <span style={{
+                        fontSize: 10, color: "#374151", fontFamily: "'JetBrains Mono', monospace",
+                        padding: "4px 10px", border: "1px solid #1e2130", borderRadius: 8,
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                      }}>⬡ Super Admin</span>
+                    ) : (
+                      <button
+                        onClick={() => handleToggleActive(u.id, u.is_active)}
+                        className={u.is_active ? "toggle-btn-active" : "toggle-btn-inactive"}
+                      >
+                        {u.is_active ? "● Active" : "○ Disabled"}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -303,14 +311,25 @@ function UsersTable() {
 
 // ── Workspaces Table ───────────────────────────────────────────────────────────
 function WorkspacesTable() {
-  const { data, loading } = useAdminFetch("/admin/workspaces?limit=100");
+  const { data, loading, refetch } = useAdminFetch("/admin/workspaces?limit=100");
+
+  const handleToggleWorkspace = async (wsId, current) => {
+    const token = localStorage.getItem("access_token");
+    await fetch(`${API}/admin/workspaces/${wsId}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: !current }),
+    });
+    refetch();
+  };
+
   if (loading) return <Loader />;
   return (
     <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
         <thead>
           <tr>
-            {["#", "Workspace", "Owner", "Members", "Tasks", "Created"].map(h => (
+            {["#", "Workspace", "Owner", "Members", "Tasks", "Created", "Action"].map(h => (
               <th key={h} style={{
                 padding: "10px 14px", textAlign: "left", color: "#4b5563",
                 fontWeight: 500, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.07em",
@@ -320,30 +339,52 @@ function WorkspacesTable() {
           </tr>
         </thead>
         <tbody>
-          {data?.workspaces?.map((ws, idx) => (
-            <tr key={ws.id} className="table-row">
-              <td style={{ ...td, color: "#374151", fontSize: 11 }}>{idx + 1}</td>
-              <td style={{ ...td, fontWeight: 600, color: "#e2e8f0" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{
-                    width: 28, height: 28, borderRadius: 8,
-                    background: `linear-gradient(135deg, #7c3aed, #c084fc)`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0,
-                  }}>{ws.name?.[0]?.toUpperCase() || "W"}</div>
-                  {ws.name}
-                </div>
-              </td>
-              <td style={{ ...td, color: "#6b7280", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{ws.owner_email ?? "—"}</td>
-              <td style={{ ...td }}>
-                <span style={{ color: "#c084fc", fontWeight: 600 }}>{ws.member_count}</span>
-              </td>
-              <td style={{ ...td }}>
-                <span style={{ color: "#34d399", fontWeight: 600 }}>{ws.task_count}</span>
-              </td>
-              <td style={{ ...td, color: "#4b5563" }}>{ws.created_at ? new Date(ws.created_at).toLocaleDateString() : "—"}</td>
-            </tr>
-          ))}
+          {data?.workspaces?.map((ws, idx) => {
+            const isActive = ws.is_active !== false; // default true if field missing
+            return (
+              <tr key={ws.id} className="table-row">
+                <td style={{ ...td, color: "#374151", fontSize: 11 }}>{idx + 1}</td>
+                <td style={{ ...td, fontWeight: 600, color: "#e2e8f0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{
+                      width: 28, height: 28, borderRadius: 8,
+                      background: isActive
+                        ? "linear-gradient(135deg, #7c3aed, #c084fc)"
+                        : "linear-gradient(135deg, #1e2130, #374151)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0,
+                      transition: "background 0.3s",
+                    }}>{ws.name?.[0]?.toUpperCase() || "W"}</div>
+                    <span style={{ color: isActive ? "#e2e8f0" : "#4b5563", transition: "color 0.2s" }}>{ws.name}</span>
+                  </div>
+                </td>
+                <td style={{ ...td, color: "#6b7280", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{ws.owner_email ?? "—"}</td>
+                <td style={td}>
+                  <span style={{ color: "#c084fc", fontWeight: 600 }}>{ws.member_count}</span>
+                </td>
+                <td style={td}>
+                  <span style={{ color: "#34d399", fontWeight: 600 }}>{ws.task_count}</span>
+                </td>
+                <td style={{ ...td, color: "#4b5563" }}>{ws.created_at ? new Date(ws.created_at).toLocaleDateString() : "—"}</td>
+                <td style={td}>
+                  {ws.owner_email === "wahaj@acedengroup.com" ? (
+                    <span style={{
+                      fontSize: 10, color: "#374151", fontFamily: "'JetBrains Mono', monospace",
+                      padding: "4px 10px", border: "1px solid #1e2130", borderRadius: 8,
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                    }}>⬡ Protected</span>
+                  ) : (
+                    <button
+                      onClick={() => handleToggleWorkspace(ws.id, isActive)}
+                      className={isActive ? "toggle-btn-active" : "toggle-btn-inactive"}
+                    >
+                      {isActive ? "● Active" : "○ Disabled"}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       <div style={{ marginTop: 14, color: "#374151", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
