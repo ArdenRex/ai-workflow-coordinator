@@ -68,6 +68,9 @@ class Workspace(Base):
         ForeignKey("users.id", use_alter=True, name="fk_workspace_owner"),
         nullable=True,
     )
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true", nullable=False,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,
     )
@@ -657,4 +660,8 @@ CREATE TABLE IF NOT EXISTS feedback (
 CREATE INDEX IF NOT EXISTS ix_feedback_user_id ON feedback(user_id);
 CREATE INDEX IF NOT EXISTS ix_feedback_type    ON feedback(type);
 CREATE INDEX IF NOT EXISTS ix_feedback_status  ON feedback(status);
+
+-- Admin dashboard — workspace active toggle
+ALTER TABLE workspaces
+    ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
 """
