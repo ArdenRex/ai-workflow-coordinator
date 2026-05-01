@@ -44,6 +44,7 @@ from app.routers import teams as teams_router                    # Segment 9
 from app.routers import public_api as public_api_router          # Segment 13
 from app.routers import feedback as feedback_router              # Segment 14
 from app.routers import billing as billing_router               # Segment 15
+from app.routers import admin as admin_router                    # Super-admin
 from app.routers.tasks import share_router                       # ✅ Segment 8: public share route
 from app.scheduler import start_scheduler, stop_scheduler        # Segment 3
 
@@ -261,6 +262,7 @@ app.include_router(teams_router.router)                  # /teams/*         (Seg
 app.include_router(public_api_router.router)             # /api/v1/*        (Segment 13)
 app.include_router(feedback_router.router)               # /feedback/*      (Segment 14)
 app.include_router(billing_router.router)               # /billing/*       (Segment 15)
+app.include_router(admin_router.router)                 # /admin/*         (Super-admin)
 
 
 # ── Global exception handler ───────────────────────────────────────────────────
