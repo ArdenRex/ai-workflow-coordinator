@@ -1076,6 +1076,38 @@ export default function AdminDashboard() {
                 </div>
               </div>
             ))}
+
+            {/* Sign Out */}
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,51,102,0.1)" }}>
+              <button
+                onClick={() => {
+                  localStorage.removeItem("access_token");
+                  window.location.href = "/";
+                }}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", gap: 10,
+                  padding: "9px 12px", cursor: "pointer",
+                  background: "rgba(255,51,102,0.05)",
+                  border: "1px solid rgba(255,51,102,0.2)",
+                  borderRadius: 3, transition: "all 0.2s",
+                  clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                  fontFamily: "'Share Tech Mono', monospace",
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = "rgba(255,51,102,0.12)";
+                  e.currentTarget.style.borderColor = "rgba(255,51,102,0.45)";
+                  e.currentTarget.style.boxShadow = "0 0 20px rgba(255,51,102,0.15)";
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = "rgba(255,51,102,0.05)";
+                  e.currentTarget.style.borderColor = "rgba(255,51,102,0.2)";
+                  e.currentTarget.style.boxShadow = "none";
+                }}
+              >
+                <span style={{ fontSize: 11, color: "rgba(255,51,102,0.7)" }}>⏻</span>
+                <span style={{ fontSize: 9, color: "rgba(255,51,102,0.6)", letterSpacing: "0.18em", textTransform: "uppercase" }}>Terminate Session</span>
+              </button>
+            </div>
           </div>
         </aside>
 
