@@ -19,8 +19,8 @@ function useAdminFetch(path) {
   return { data, loading, error, refetch: fetch_ };
 }
 
-// ── 3D Crystal Scene Background ────────────────────────────────────────────────
-function CrystalField() {
+// ── HOLOGRAPHIC GRID BACKGROUND ──────────────────────────────────────────────
+function HoloGrid() {
   const canvasRef = useRef(null);
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -29,98 +29,105 @@ function CrystalField() {
     let W = canvas.width = canvas.offsetWidth;
     let H = canvas.height = canvas.offsetHeight;
     let t = 0;
-
-    const crystals = Array.from({ length: 40 }, (_, i) => ({
-      x: Math.random() * W, y: Math.random() * H,
-      size: Math.random() * 18 + 6,
-      speed: Math.random() * 0.3 + 0.05,
-      hue: Math.random() > 0.5 ? 270 + Math.random() * 40 : 170 + Math.random() * 40,
-      phase: Math.random() * Math.PI * 2,
-      rotSpeed: (Math.random() - 0.5) * 0.01,
-      rot: Math.random() * Math.PI * 2,
-      depth: Math.random() * 3 + 1,
-    }));
-
-    const stars = Array.from({ length: 200 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      r: Math.random() * 1.2,
-      twinkle: Math.random() * Math.PI * 2,
-      speed: Math.random() * 0.02 + 0.005,
-    }));
-
     let raf;
-    function drawCrystal(x, y, size, rot, hue, alpha, depth) {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(rot);
-      const s = size / depth;
-      // 3D diamond shape
-      ctx.beginPath();
-      ctx.moveTo(0, -s * 1.6);
-      ctx.lineTo(s * 0.7, -s * 0.3);
-      ctx.lineTo(s * 0.5, s * 1.2);
-      ctx.lineTo(0, s * 0.7);
-      ctx.lineTo(-s * 0.5, s * 1.2);
-      ctx.lineTo(-s * 0.7, -s * 0.3);
-      ctx.closePath();
-      const grad = ctx.createLinearGradient(0, -s * 1.6, 0, s * 1.2);
-      grad.addColorStop(0, `hsla(${hue}, 100%, 90%, ${alpha * 0.9})`);
-      grad.addColorStop(0.3, `hsla(${hue - 20}, 80%, 60%, ${alpha * 0.6})`);
-      grad.addColorStop(0.7, `hsla(${hue + 30}, 90%, 40%, ${alpha * 0.4})`);
-      grad.addColorStop(1, `hsla(${hue}, 70%, 20%, ${alpha * 0.2})`);
-      ctx.fillStyle = grad;
-      ctx.fill();
-      // highlight facet
-      ctx.beginPath();
-      ctx.moveTo(0, -s * 1.6);
-      ctx.lineTo(s * 0.3, -s * 0.5);
-      ctx.lineTo(0, s * 0.2);
-      ctx.lineTo(-s * 0.2, -s * 0.5);
-      ctx.closePath();
-      ctx.fillStyle = `hsla(${hue - 10}, 100%, 95%, ${alpha * 0.35})`;
-      ctx.fill();
-      // inner glow
-      ctx.beginPath();
-      ctx.arc(0, 0, s * 0.4, 0, Math.PI * 2);
-      const innerGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.4);
-      innerGrad.addColorStop(0, `hsla(${hue}, 100%, 100%, ${alpha * 0.5})`);
-      innerGrad.addColorStop(1, `hsla(${hue}, 100%, 80%, 0)`);
-      ctx.fillStyle = innerGrad;
-      ctx.fill();
-      ctx.restore();
-    }
+
+    // Scanning lines
+    const scanLines = Array.from({ length: 6 }, (_, i) => ({
+      y: Math.random() * H,
+      speed: 0.4 + Math.random() * 0.6,
+      alpha: 0.04 + Math.random() * 0.06,
+      width: 40 + Math.random() * 80,
+    }));
+
+    // Floating data nodes
+    const nodes = Array.from({ length: 18 }, () => ({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2,
+      r: 1.5 + Math.random() * 2,
+      hue: Math.random() > 0.5 ? 195 : 280,
+      pulse: Math.random() * Math.PI * 2,
+    }));
 
     function draw() {
       ctx.clearRect(0, 0, W, H);
-      t += 0.008;
-      // stars
-      stars.forEach(s => {
-        s.twinkle += s.speed;
-        const alpha = 0.3 + Math.sin(s.twinkle) * 0.25;
-        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${alpha})`; ctx.fill();
+      t += 0.006;
+
+      // Deep space gradient
+      const bg = ctx.createRadialGradient(W * 0.5, H * 0.3, 0, W * 0.5, H * 0.5, W * 0.8);
+      bg.addColorStop(0, "rgba(0,20,40,0.0)");
+      bg.addColorStop(1, "rgba(0,5,15,0.0)");
+      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+      // Perspective grid floor
+      const gridAlpha = 0.07;
+      const vanishY = H * 0.55;
+      const gridLines = 24;
+      ctx.strokeStyle = `rgba(0,200,255,${gridAlpha})`;
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= gridLines; i++) {
+        const x = (i / gridLines) * W;
+        const wave = Math.sin(t + i * 0.3) * 2;
+        ctx.beginPath();
+        ctx.moveTo(x + wave, vanishY);
+        ctx.lineTo(W * 0.5 + (x - W * 0.5) * 3, H + 50);
+        ctx.stroke();
+      }
+      for (let i = 0; i <= 10; i++) {
+        const progress = i / 10;
+        const y = vanishY + progress * (H - vanishY + 50);
+        const spread = progress * W * 1.5;
+        ctx.globalAlpha = gridAlpha * (0.3 + progress * 0.7);
+        ctx.beginPath();
+        ctx.moveTo(W * 0.5 - spread * 0.5, y);
+        ctx.lineTo(W * 0.5 + spread * 0.5, y);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+
+      // Horizontal scan lines sweeping down
+      scanLines.forEach(s => {
+        s.y += s.speed;
+        if (s.y > H + s.width) s.y = -s.width;
+        const sg = ctx.createLinearGradient(0, s.y - s.width, 0, s.y + s.width);
+        sg.addColorStop(0, "rgba(0,200,255,0)");
+        sg.addColorStop(0.5, `rgba(0,220,255,${s.alpha})`);
+        sg.addColorStop(1, "rgba(0,200,255,0)");
+        ctx.fillStyle = sg;
+        ctx.fillRect(0, s.y - s.width, W, s.width * 2);
       });
-      // nebula glow blobs
-      [[W * 0.15, H * 0.25, 280, 0.03], [W * 0.85, H * 0.7, 200, 0.04], [W * 0.5, H * 0.5, 230, 0.025]].forEach(([cx, cy, r, a]) => {
-        const g = ctx.createRadialGradient(cx + Math.sin(t) * 30, cy + Math.cos(t * 0.7) * 20, 0, cx, cy, r);
-        g.addColorStop(0, `rgba(140,80,255,${a})`);
-        g.addColorStop(0.5, `rgba(80,200,180,${a * 0.4})`);
-        g.addColorStop(1, `rgba(0,0,0,0)`);
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+
+      // Floating nodes with connections
+      nodes.forEach(n => {
+        n.x += n.vx; n.y += n.vy; n.pulse += 0.02;
+        if (n.x < 0 || n.x > W) n.vx *= -1;
+        if (n.y < 0 || n.y > H) n.vy *= -1;
+        const alpha = 0.4 + Math.sin(n.pulse) * 0.3;
+        const glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 4);
+        glow.addColorStop(0, `hsla(${n.hue},100%,70%,${alpha * 0.8})`);
+        glow.addColorStop(1, `hsla(${n.hue},100%,70%,0)`);
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 4, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = `hsla(${n.hue},100%,90%,${alpha})`;
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); ctx.fill();
       });
-      // crystals
-      crystals.forEach(c => {
-        c.y -= c.speed; c.rot += c.rotSpeed; c.phase += 0.01;
-        if (c.y < -50) { c.y = H + 50; c.x = Math.random() * W; }
-        const bob = Math.sin(c.phase) * 3;
-        const alpha = (0.4 + Math.sin(c.phase * 0.5) * 0.2) / c.depth;
-        drawCrystal(c.x, c.y + bob, c.size, c.rot, c.hue, alpha, c.depth);
-        // glow halo
-        const haloG = ctx.createRadialGradient(c.x, c.y + bob, 0, c.x, c.y + bob, c.size * 2.5 / c.depth);
-        haloG.addColorStop(0, `hsla(${c.hue}, 100%, 80%, ${0.12 / c.depth})`);
-        haloG.addColorStop(1, `hsla(${c.hue}, 100%, 80%, 0)`);
-        ctx.fillStyle = haloG; ctx.beginPath(); ctx.arc(c.x, c.y + bob, c.size * 2.5 / c.depth, 0, Math.PI * 2); ctx.fill();
-      });
+
+      // Connections between nearby nodes
+      ctx.lineWidth = 0.4;
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x;
+          const dy = nodes[i].y - nodes[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 160) {
+            ctx.strokeStyle = `rgba(0,200,255,${(1 - dist / 160) * 0.12})`;
+            ctx.beginPath();
+            ctx.moveTo(nodes[i].x, nodes[i].y);
+            ctx.lineTo(nodes[j].x, nodes[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
       raf = requestAnimationFrame(draw);
     }
     draw();
@@ -131,388 +138,543 @@ function CrystalField() {
   return <canvas ref={canvasRef} style={{ position: "fixed", inset: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }} />;
 }
 
-// ── 3D Metric Card ─────────────────────────────────────────────────────────────
-function CrystalCard({ label, value, sub, color = "#a855f7", spark, icon, trend, delay = 0 }) {
+// ── HOLOGRAPHIC METRIC CARD — each tells a story ──────────────────────────────
+function HoloCard({ label, value, sub, color = "#00d4ff", icon, trend, delay = 0, story, accentShape }) {
   const [hov, setHov] = useState(false);
   const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const [particles, setParticles] = useState([]);
   const ref = useRef(null);
 
   const onMove = (e) => {
     const r = ref.current.getBoundingClientRect();
-    const x = ((e.clientX - r.left) / r.width - 0.5) * 18;
-    const y = ((e.clientY - r.top) / r.height - 0.5) * -18;
+    const x = ((e.clientX - r.left) / r.width - 0.5) * 22;
+    const y = ((e.clientY - r.top) / r.height - 0.5) * -22;
     setTilt({ x, y });
   };
   const onLeave = () => { setTilt({ x: 0, y: 0 }); setHov(false); };
+  const onEnter = () => {
+    setHov(true);
+    setParticles(Array.from({ length: 8 }, (_, i) => ({ id: i, x: Math.random() * 100, delay: i * 80 })));
+  };
+
+  const hexToRgb = (hex) => {
+    if (hex === "#00d4ff") return "0,212,255";
+    if (hex === "#00ff88") return "0,255,136";
+    if (hex === "#ff6b35") return "255,107,53";
+    if (hex === "#a855f7") return "168,85,247";
+    if (hex === "#ffd700") return "255,215,0";
+    if (hex === "#ff3366") return "255,51,102";
+    return "0,212,255";
+  };
+  const rgb = hexToRgb(color);
 
   return (
     <div
       ref={ref}
       onMouseMove={onMove}
-      onMouseEnter={() => setHov(true)}
+      onMouseEnter={onEnter}
       onMouseLeave={onLeave}
       style={{
         position: "relative",
-        borderRadius: 20,
-        padding: "22px 20px 18px",
+        borderRadius: 4,
+        padding: "20px 22px 18px",
         cursor: "default",
         animationDelay: `${delay}ms`,
-        animation: "crystalRise 0.7s cubic-bezier(0.22,1,0.36,1) both",
+        animation: "holoRise 0.8s cubic-bezier(0.16,1,0.3,1) both",
         transformStyle: "preserve-3d",
-        transform: `perspective(800px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg) ${hov ? "translateZ(12px) scale(1.015)" : "translateZ(0) scale(1)"}`,
-        transition: hov ? "transform 0.08s linear" : "transform 0.5s cubic-bezier(0.22,1,0.36,1)",
-        background: `linear-gradient(135deg, rgba(8,5,22,0.92) 0%, rgba(14,8,35,0.88) 50%, rgba(8,5,22,0.95) 100%)`,
-        border: `1px solid ${hov ? color + "55" : color + "28"}`,
+        transform: `perspective(900px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg) ${hov ? "translateZ(18px) scale(1.02)" : "translateZ(0)"}`,
+        transition: hov ? "transform 0.06s linear" : "transform 0.6s cubic-bezier(0.16,1,0.3,1)",
+        background: `linear-gradient(135deg, rgba(0,10,25,0.95) 0%, rgba(0,${color === "#00d4ff" ? "25,40" : color === "#00ff88" ? "35,20" : color === "#ff6b35" ? "20,10" : "15,35"},0.9) 100%)`,
+        border: `1px solid rgba(${rgb},${hov ? 0.5 : 0.2})`,
         boxShadow: hov
-          ? `0 0 0 1px ${color}18, 0 8px 40px rgba(0,0,0,0.7), 0 0 60px ${color}22, inset 0 1px 0 rgba(255,255,255,0.07)`
-          : `0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)`,
-        backdropFilter: "blur(24px)",
+          ? `0 0 0 1px rgba(${rgb},0.1), 0 20px 60px rgba(0,0,0,0.8), 0 0 80px rgba(${rgb},0.15), inset 0 0 40px rgba(${rgb},0.03)`
+          : `0 4px 30px rgba(0,0,0,0.7), inset 0 0 20px rgba(${rgb},0.02)`,
+        backdropFilter: "blur(20px)",
         overflow: "hidden",
+        clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))",
       }}
     >
-      {/* crystal facet overlay */}
+      {/* Corner cuts */}
+      <div style={{ position: "absolute", top: 0, right: 14, width: 0, height: 0, borderTop: `14px solid rgba(${rgb},${hov ? 0.5 : 0.2})`, borderLeft: "14px solid transparent", pointerEvents: "none", zIndex: 3 }} />
+      <div style={{ position: "absolute", bottom: 0, left: 14, width: 0, height: 0, borderBottom: `14px solid rgba(${rgb},${hov ? 0.5 : 0.2})`, borderRight: "14px solid transparent", pointerEvents: "none", zIndex: 3 }} />
+
+      {/* Top scan line */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.8), rgba(${rgb},0.4), transparent)`, pointerEvents: "none" }} />
+
+      {/* Animated corner bracket TL */}
+      <div style={{ position: "absolute", top: 6, left: 6, width: 14, height: 14, borderTop: `1.5px solid ${color}`, borderLeft: `1.5px solid ${color}`, opacity: hov ? 1 : 0.4, transition: "opacity 0.3s" }} />
+      <div style={{ position: "absolute", bottom: 6, right: 6, width: 14, height: 14, borderBottom: `1.5px solid ${color}`, borderRight: `1.5px solid ${color}`, opacity: hov ? 1 : 0.4, transition: "opacity 0.3s" }} />
+
+      {/* Story accent shape */}
+      {accentShape === "ring" && (
+        <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, borderRadius: "50%", border: `1px solid rgba(${rgb},0.12)`, pointerEvents: "none" }} />
+      )}
+      {accentShape === "hex" && (
+        <div style={{ position: "absolute", bottom: -30, right: -10, fontSize: 80, color: `rgba(${rgb},0.04)`, pointerEvents: "none", lineHeight: 1 }}>⬡</div>
+      )}
+      {accentShape === "cross" && (
+        <div style={{ position: "absolute", top: "50%", right: 10, transform: "translateY(-50%)", fontSize: 60, color: `rgba(${rgb},0.05)`, pointerEvents: "none" }}>✚</div>
+      )}
+
+      {/* Floating particles on hover */}
+      {hov && particles.map(p => (
+        <div key={p.id} style={{
+          position: "absolute", bottom: 0, left: `${p.x}%`,
+          width: 2, height: 2, borderRadius: "50%",
+          background: color,
+          boxShadow: `0 0 6px ${color}`,
+          animation: `particleFloat 1.2s ease-out ${p.delay}ms forwards`,
+          pointerEvents: "none",
+        }} />
+      ))}
+
+      {/* Icon + label row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ fontSize: 9, color: color, letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", opacity: 0.8 }}>
+          {label}
+        </div>
+        <div style={{
+          width: 30, height: 30,
+          border: `1px solid rgba(${rgb},0.35)`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 14, color: color,
+          clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+          background: `rgba(${rgb},0.08)`,
+        }}>{icon}</div>
+      </div>
+
+      {/* Main value */}
       <div style={{
-        position: "absolute", inset: 0, borderRadius: 20, pointerEvents: "none",
-        background: `linear-gradient(135deg, rgba(255,255,255,${hov ? 0.06 : 0.02}) 0%, transparent 40%, rgba(${color === "#a855f7" ? "168,85,247" : color === "#34d399" ? "52,211,153" : "251,191,36"},${hov ? 0.05 : 0.01}) 100%)`,
-        transition: "opacity 0.3s",
-      }} />
-      {/* top edge glow */}
-      <div style={{
-        position: "absolute", top: 0, left: "10%", right: "10%", height: 1,
-        background: `linear-gradient(90deg, transparent, ${color}${hov ? "88" : "44"}, transparent)`,
-        transition: "opacity 0.3s",
-      }} />
-      {/* floating icon orb */}
-      <div style={{
-        position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%",
-        background: `radial-gradient(circle at 35% 35%, ${color}33, ${color}11)`,
-        border: `1px solid ${color}33`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 16,
-        boxShadow: `0 0 20px ${color}22, inset 0 1px 0 rgba(255,255,255,0.1)`,
-        transform: `translateZ(8px)`,
-        transition: "box-shadow 0.3s",
-        ...(hov ? { boxShadow: `0 0 30px ${color}44, inset 0 1px 0 rgba(255,255,255,0.15)` } : {}),
-      }}>{icon}</div>
-      <div style={{ fontSize: 10, color: color + "99", letterSpacing: "0.15em", textTransform: "uppercase", fontFamily: "'Space Mono', monospace", marginBottom: 10, position: "relative", zIndex: 1 }}>{label}</div>
-      <div style={{
-        fontSize: 28, fontWeight: 700, color: "#fff", letterSpacing: "-0.02em",
-        fontFamily: "'Playfair Display', serif",
-        textShadow: `0 0 30px ${color}55`,
-        position: "relative", zIndex: 1,
-        transform: "translateZ(4px)",
+        fontSize: 32, fontWeight: 700, color: "#fff",
+        fontFamily: "'Orbitron', monospace",
+        textShadow: `0 0 20px rgba(${rgb},0.6), 0 0 60px rgba(${rgb},0.2)`,
+        letterSpacing: "-0.02em",
+        lineHeight: 1,
+        marginBottom: 6,
       }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: "rgba(200,180,255,0.45)", marginTop: 4, position: "relative", zIndex: 1 }}>{sub}</div>}
+
+      {/* Sub label */}
+      {sub && <div style={{ fontSize: 10, color: `rgba(${rgb},0.55)`, fontFamily: "'Share Tech Mono', monospace", marginBottom: 8 }}>{sub}</div>}
+
+      {/* Story line */}
+      {story && (
+        <div style={{ fontSize: 9, color: "rgba(150,220,255,0.35)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.06em", lineHeight: 1.6, marginBottom: 8 }}>
+          {story}
+        </div>
+      )}
+
+      {/* Trend badge */}
       {trend !== undefined && (
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, position: "relative", zIndex: 1 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
           <div style={{
-            fontSize: 10, color: trend >= 0 ? "#4ade80" : "#f87171", fontWeight: 700,
-            background: trend >= 0 ? "rgba(74,222,128,0.1)" : "rgba(248,113,113,0.1)",
-            border: `1px solid ${trend >= 0 ? "rgba(74,222,128,0.3)" : "rgba(248,113,113,0.3)"}`,
-            padding: "1px 7px", borderRadius: 20,
-            boxShadow: trend >= 0 ? "0 0 8px rgba(74,222,128,0.2)" : "0 0 8px rgba(248,113,113,0.2)",
-          }}>{trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}%</div>
-          <span style={{ fontSize: 10, color: "rgba(148,163,184,0.35)" }}>vs last month</span>
+            fontSize: 9, fontWeight: 700,
+            color: trend >= 0 ? "#00ff88" : "#ff4466",
+            background: trend >= 0 ? "rgba(0,255,136,0.08)" : "rgba(255,68,102,0.08)",
+            border: `1px solid ${trend >= 0 ? "rgba(0,255,136,0.3)" : "rgba(255,68,102,0.3)"}`,
+            padding: "2px 8px", borderRadius: 2,
+            fontFamily: "'Share Tech Mono', monospace",
+            letterSpacing: "0.05em",
+          }}>{trend >= 0 ? "▲" : "▼"} {Math.abs(trend)}%</div>
+          <span style={{ fontSize: 8, color: "rgba(150,200,255,0.25)", fontFamily: "'Share Tech Mono', monospace" }}>30D</span>
         </div>
       )}
-      {spark && (
-        <div style={{ marginTop: 14, position: "relative", zIndex: 1 }}>
-          <CrystalSparkline values={spark} color={color} />
-        </div>
-      )}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0, height: 2, borderRadius: "0 0 20px 20px",
-        background: `linear-gradient(90deg, transparent, ${color}${hov ? "88" : "44"}, transparent)`,
-        transition: "opacity 0.3s",
-      }} />
+
+      {/* Bottom scan */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.3), transparent)`, pointerEvents: "none" }} />
+
+      {/* Left accent bar */}
+      <div style={{ position: "absolute", left: 0, top: "20%", bottom: "20%", width: 2, background: `linear-gradient(180deg, transparent, ${color}, transparent)`, opacity: hov ? 1 : 0.3, transition: "opacity 0.4s" }} />
     </div>
   );
 }
 
-function CrystalSparkline({ values, color = "#a855f7" }) {
-  if (!values || values.length < 2) return null;
-  const max = Math.max(...values, 1); const min = Math.min(...values);
-  const range = max - min || 1;
-  const w = 100, h = 36;
-  const pts = values.map((v, i) => {
-    const x = (i / (values.length - 1)) * w;
-    const y = h - ((v - min) / range) * (h - 6) - 3;
-    return `${x},${y}`;
-  });
-  const gradId = `sg-${color.replace(/[^a-z0-9]/gi, "")}`;
-  return (
-    <svg width="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ height: 36 }}>
-      <defs>
-        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.5" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-        <filter id="glow-spark">
-          <feGaussianBlur stdDeviation="1.5" result="blur" />
-          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-      </defs>
-      <polyline points={`0,${h} ${pts.join(" ")} ${w},${h}`} fill={`url(#${gradId})`} stroke="none" />
-      <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" filter="url(#glow-spark)" />
-    </svg>
-  );
+// ── JARVIS SPARKLINE ──────────────────────────────────────────────────────────
+function HoloSparkline({ values, color = "#00d4ff", height = 60 }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !values || values.length < 2) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width = canvas.offsetWidth * 2;
+    const H = canvas.height = height * 2;
+    canvas.style.width = "100%";
+    canvas.style.height = `${height}px`;
+    const max = Math.max(...values, 1);
+    const min = Math.min(...values);
+    const range = max - min || 1;
+    const pts = values.map((v, i) => ({
+      x: (i / (values.length - 1)) * W,
+      y: H - ((v - min) / range) * (H * 0.8) - H * 0.1,
+    }));
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Area fill
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, color + "44");
+    grad.addColorStop(1, color + "00");
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, H);
+    pts.forEach(p => ctx.lineTo(p.x, p.y));
+    ctx.lineTo(pts[pts.length - 1].x, H);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Main line with glow
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Grid lines
+    ctx.strokeStyle = color + "18";
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 4; i++) {
+      const y = (H / 4) * i;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+    }
+
+    // Data points
+    pts.forEach((p, i) => {
+      if (i % Math.max(1, Math.floor(pts.length / 6)) === 0) {
+        ctx.shadowColor = color; ctx.shadowBlur = 10;
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    });
+  }, [values, color, height]);
+  return <canvas ref={canvasRef} />;
 }
 
-// ── 3D Bar Chart ───────────────────────────────────────────────────────────────
-function CrystalBarChart({ data }) {
+// ── 3D HOLOGRAPHIC BAR CHART ─────────────────────────────────────────────────
+function HoloBarChart({ data }) {
   const [hov, setHov] = useState(null);
   if (!data || !data.length) return null;
   const max = Math.max(...data.map(d => d.revenue), 1);
+  const colors = ["#00d4ff", "#00c8f0", "#00bbe0", "#00afd0", "#00a3c0"];
+
   return (
-    <div style={{ overflowX: "auto", paddingBottom: 4 }}>
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 160, minWidth: data.length * 50, padding: "0 4px", paddingTop: 30 }}>
-        {data.map((d, i) => {
-          const isH = hov === i;
-          const h = Math.max(6, (d.revenue / max) * 130);
-          return (
-            <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, cursor: "pointer" }}
-              onMouseEnter={() => setHov(i)} onMouseLeave={() => setHov(null)}>
-              {isH && d.revenue > 0 && (
-                <div style={{
-                  fontSize: 10, color: "#f0e6ff", background: "rgba(8,4,20,0.97)",
-                  border: "1px solid rgba(168,85,247,0.5)", borderRadius: 8,
-                  padding: "4px 8px", whiteSpace: "nowrap",
-                  boxShadow: "0 0 20px rgba(168,85,247,0.4), 0 0 40px rgba(168,85,247,0.15)",
-                  fontFamily: "'Space Mono', monospace",
-                }}>${d.revenue.toFixed(0)}</div>
-              )}
-              {!isH && <div style={{ height: 22 }} />}
-              {/* 3D bar */}
-              <div style={{ width: "100%", position: "relative", height: h }}>
-                {/* front face */}
-                <div style={{
-                  position: "absolute", bottom: 0, left: "8%", right: "8%", height: "100%",
-                  background: d.revenue > 0
-                    ? isH
-                      ? "linear-gradient(180deg, #f0abff 0%, #a855f7 30%, #7c3aed 70%, #4c1d95 100%)"
-                      : "linear-gradient(180deg, rgba(192,132,252,0.8) 0%, rgba(139,92,246,0.7) 40%, rgba(109,40,217,0.5) 100%)"
-                    : "rgba(18,12,40,0.4)",
-                  borderRadius: "4px 4px 2px 2px",
-                  transition: "all 0.25s cubic-bezier(0.4,0,0.2,1)",
-                  opacity: hov !== null && !isH ? 0.3 : 1,
-                  boxShadow: isH ? "0 0 30px rgba(168,85,247,0.6), 0 -6px 20px rgba(168,85,247,0.4)" : d.revenue > 0 ? "0 0 10px rgba(168,85,247,0.2)" : "none",
-                }} />
-                {/* top face 3D */}
-                {d.revenue > 0 && (
-                  <div style={{
-                    position: "absolute", top: -5, left: "8%", right: "0%", height: 8,
-                    background: isH ? "linear-gradient(135deg, #fde8ff, #e879f9)" : "rgba(200,160,255,0.4)",
-                    borderRadius: "3px 5px 3px 0", transform: "skewX(-20deg)",
-                    opacity: hov !== null && !isH ? 0.3 : 1,
-                    transition: "all 0.25s",
-                  }} />
-                )}
-                {/* right face 3D */}
-                {d.revenue > 0 && (
-                  <div style={{
-                    position: "absolute", bottom: 0, right: "-6%", width: "14%", height: "93%",
-                    background: isH ? "linear-gradient(180deg, rgba(120,50,200,0.9), rgba(80,20,150,0.7))" : "rgba(100,50,180,0.25)",
-                    borderRadius: "0 2px 2px 0", transform: "skewY(-8deg)",
-                    opacity: hov !== null && !isH ? 0.3 : 1,
-                    transition: "all 0.25s",
-                  }} />
-                )}
-              </div>
-              <div style={{ fontSize: 9, color: isH ? "#c084fc" : "rgba(148,163,184,0.35)", textAlign: "center", transition: "color 0.2s", fontWeight: isH ? 700 : 400, fontFamily: "'Space Mono', monospace" }}>
-                {d.month?.split(" ")[0]}
-              </div>
-            </div>
-          );
-        })}
+    <div style={{ position: "relative" }}>
+      {/* Y-axis labels */}
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 28, display: "flex", flexDirection: "column", justifyContent: "space-between", pointerEvents: "none" }}>
+        {[1, 0.75, 0.5, 0.25, 0].map(v => (
+          <div key={v} style={{ fontSize: 8, color: "rgba(0,212,255,0.3)", fontFamily: "'Share Tech Mono', monospace", textAlign: "right", width: 35 }}>
+            ${Math.round(max * v)}
+          </div>
+        ))}
       </div>
-    </div>
-  );
-}
 
-// ── Signup Trend ───────────────────────────────────────────────────────────────
-function SignupTrend({ data }) {
-  if (!data || !data.length) return null;
-  const max = Math.max(...data.map(d => d.signups), 1);
-  const w = 100, h = 70;
-  const pts = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - (d.signups / max) * (h - 6) - 3;
-    return `${x},${y}`;
-  });
-  return (
-    <svg width="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ height: 70 }}>
-      <defs>
-        <linearGradient id="signup-g" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#34d399" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
-        </linearGradient>
-        <filter id="glow-line"><feGaussianBlur stdDeviation="1.5" result="blur" /><feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-      </defs>
-      <polyline points={`0,${h} ${pts.join(" ")} ${w},${h}`} fill="url(#signup-g)" stroke="none" />
-      <polyline points={pts.join(" ")} fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" filter="url(#glow-line)" />
-    </svg>
-  );
-}
+      <div style={{ marginLeft: 42, overflow: "hidden" }}>
+        {/* Grid lines */}
+        <div style={{ position: "relative" }}>
+          {[0.25, 0.5, 0.75, 1].map(v => (
+            <div key={v} style={{ position: "absolute", left: 0, right: 0, top: `${(1 - v) * 100}%`, height: 1, background: "rgba(0,212,255,0.06)" }} />
+          ))}
 
-// ── Badge ───────────────────────────────────────────────────────────────────────
-function Badge({ text }) {
-  const map = {
-    active:    { bg: "rgba(52,211,153,0.08)", color: "#34d399", border: "rgba(52,211,153,0.25)" },
-    trialing:  { bg: "rgba(251,191,36,0.08)", color: "#fbbf24", border: "rgba(251,191,36,0.25)" },
-    cancelled: { bg: "rgba(248,113,113,0.08)", color: "#f87171", border: "rgba(248,113,113,0.25)" },
-    exempt:    { bg: "rgba(168,85,247,0.08)", color: "#a855f7", border: "rgba(168,85,247,0.25)" },
-    paid:      { bg: "rgba(52,211,153,0.08)", color: "#34d399", border: "rgba(52,211,153,0.25)" },
-    open:      { bg: "rgba(251,191,36,0.08)", color: "#fbbf24", border: "rgba(251,191,36,0.25)" },
-    resolved:  { bg: "rgba(52,211,153,0.08)", color: "#34d399", border: "rgba(52,211,153,0.25)" },
-    admin:     { bg: "rgba(168,85,247,0.08)", color: "#a855f7", border: "rgba(168,85,247,0.25)" },
-    member:    { bg: "rgba(148,163,184,0.06)", color: "#94a3b8", border: "rgba(148,163,184,0.15)" },
-  };
-  const s = map[text?.toLowerCase()] || { bg: "rgba(148,163,184,0.06)", color: "#94a3b8", border: "rgba(148,163,184,0.15)" };
-  return (
-    <span style={{
-      background: s.bg, color: s.color, border: `1px solid ${s.border}`,
-      padding: "2px 10px", borderRadius: 20, fontSize: 10.5, fontWeight: 700,
-      letterSpacing: "0.06em", textTransform: "uppercase",
-      boxShadow: `0 0 10px ${s.bg}`,
-      fontFamily: "'Space Mono', monospace",
-    }}>{text}</span>
-  );
-}
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 160, padding: "4px 0 0" }}>
+            {data.map((d, i) => {
+              const isH = hov === i;
+              const barH = Math.max(3, (d.revenue / max) * 140);
+              const col = colors[i % colors.length];
+              return (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", position: "relative" }}
+                  onMouseEnter={() => setHov(i)} onMouseLeave={() => setHov(null)}>
+                  {isH && d.revenue > 0 && (
+                    <div style={{
+                      position: "absolute", bottom: barH + 6, left: "50%", transform: "translateX(-50%)",
+                      background: "rgba(0,10,25,0.98)", border: "1px solid rgba(0,212,255,0.4)",
+                      borderRadius: 3, padding: "4px 8px", whiteSpace: "nowrap", zIndex: 10,
+                      fontSize: 9, color: "#00d4ff", fontFamily: "'Share Tech Mono', monospace",
+                    }}>
+                      ${d.revenue.toFixed(0)} · {d.new_paid} users
+                    </div>
+                  )}
 
-// ── 3D Nav Tab ─────────────────────────────────────────────────────────────────
-function NavTab({ label, active, onClick, count, icon }) {
-  return (
-    <button onClick={onClick} style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "11px 20px", width: "100%", border: "none",
-      background: active
-        ? "linear-gradient(135deg, rgba(88,28,135,0.35) 0%, rgba(55,15,100,0.25) 100%)"
-        : "transparent",
-      color: active ? "#e9d5ff" : "rgba(148,163,184,0.45)",
-      fontSize: 13, fontWeight: 500, cursor: "pointer",
-      transition: "all 0.2s cubic-bezier(0.22,1,0.36,1)",
-      fontFamily: "'Syne', sans-serif",
-      position: "relative", textAlign: "left", borderRadius: 12,
-      marginBottom: 2, marginLeft: 8, marginRight: 8,
-      boxShadow: active ? "0 4px 20px rgba(88,28,135,0.25), inset 0 1px 0 rgba(255,255,255,0.06)" : "none",
-      borderLeft: active ? "2px solid rgba(168,85,247,0.7)" : "2px solid transparent",
-      transform: active ? "translateX(2px)" : "translateX(0)",
-    }}>
-      <span style={{ fontSize: 15, filter: active ? `drop-shadow(0 0 6px rgba(168,85,247,0.8))` : "none", transition: "filter 0.3s" }}>{icon}</span>
-      <span style={{ flex: 1 }}>{label}</span>
-      {count !== undefined && (
-        <span style={{
-          fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 20,
-          background: active ? "rgba(168,85,247,0.25)" : "rgba(148,163,184,0.08)",
-          color: active ? "#c084fc" : "rgba(148,163,184,0.4)",
-          border: `1px solid ${active ? "rgba(168,85,247,0.3)" : "rgba(148,163,184,0.1)"}`,
-          fontFamily: "'Space Mono', monospace",
-        }}>{count}</span>
-      )}
-    </button>
-  );
-}
+                  {/* 3D bar — front face */}
+                  <div style={{
+                    width: "100%", height: barH,
+                    background: `linear-gradient(180deg, ${col}dd 0%, ${col}66 100%)`,
+                    boxShadow: isH ? `0 0 20px ${col}55, inset 0 0 10px rgba(255,255,255,0.1)` : `inset 0 0 6px rgba(255,255,255,0.05)`,
+                    transition: "all 0.2s",
+                    position: "relative",
+                    clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)",
+                  }}>
+                    {/* Shine stripe */}
+                    <div style={{ position: "absolute", top: 0, left: "20%", width: "20%", bottom: 0, background: `linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.03))`, pointerEvents: "none" }} />
+                    {/* Top face (3D effect) */}
+                    <div style={{ position: "absolute", top: -5, left: 0, right: 0, height: 5, background: `${col}`, opacity: 0.5, transform: "skewX(-45deg) scaleY(0.6)", transformOrigin: "bottom" }} />
+                  </div>
 
-const td = { padding: "13px 14px", color: "rgba(148,163,184,0.6)", whiteSpace: "nowrap" };
-
-// ── Users Table ────────────────────────────────────────────────────────────────
-function UsersTable() {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  useEffect(() => { const t = setTimeout(() => setDebouncedSearch(search), 400); return () => clearTimeout(t); }, [search]);
-  const params = new URLSearchParams({ limit: 100 });
-  if (debouncedSearch) params.set("search", debouncedSearch);
-  if (statusFilter) params.set("status", statusFilter);
-  const { data, loading, refetch } = useAdminFetch(`/admin/users?${params}`);
-  const handleToggleActive = async (userId, current) => {
-    const token = localStorage.getItem("access_token");
-    await fetch(`${API}/admin/users/${userId}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ is_active: !current }) });
-    refetch();
-  };
-  return (
-    <div>
-      <div style={{ display: "flex", gap: 10, marginBottom: 22 }}>
-        <div style={{ position: "relative", flex: 1 }}>
-          <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "rgba(168,85,247,0.5)", fontSize: 15 }}>⌕</span>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or email…" className="crystal-input" style={{ paddingLeft: 38, width: "100%" }} />
-        </div>
-        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="crystal-input" style={{ flex: "0 0 180px" }}>
-          <option value="">All statuses</option>
-          <option value="trialing">Trialing</option>
-          <option value="active">Active (paid)</option>
-          <option value="cancelled">Cancelled</option>
-          <option value="exempt">Exempt</option>
-        </select>
-      </div>
-      {loading ? <CrystalLoader /> : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr>
-                {["#", "Name", "Email", "Role", "Status", "Workspace", "Trial Ends", "Joined", "Action"].map(h => (
-                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", color: "rgba(168,85,247,0.6)", fontWeight: 700, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", borderBottom: "1px solid rgba(168,85,247,0.12)", whiteSpace: "nowrap", fontFamily: "'Space Mono', monospace" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data?.users?.map((u, idx) => (
-                <tr key={u.id} className="crystal-row">
-                  <td style={{ ...td, color: "rgba(148,163,184,0.3)", fontSize: 11 }}>{idx + 1}</td>
-                  <td style={{ ...td, fontWeight: 600, color: "#ede9fe" }}>{u.name}</td>
-                  <td style={{ ...td, color: "rgba(148,163,184,0.5)", fontFamily: "'Space Mono', monospace", fontSize: 11 }}>{u.email}</td>
-                  <td style={td}><Badge text={u.role} /></td>
-                  <td style={td}><Badge text={u.subscription_status} /></td>
-                  <td style={{ ...td, color: "rgba(148,163,184,0.45)" }}>{u.workspace_id ?? "—"}</td>
-                  <td style={{ ...td, color: u.trial_expired ? "#f87171" : "rgba(148,163,184,0.45)" }}>
-                    {u.trial_ends_at ? new Date(u.trial_ends_at).toLocaleDateString() : "—"}
-                    {u.trial_expired && <span style={{ marginLeft: 4, fontSize: 10 }}>⚠</span>}
-                  </td>
-                  <td style={{ ...td, color: "rgba(148,163,184,0.45)" }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
-                  <td style={td}>
-                    {u.email === "wahaj@acedengroup.com" ? (
-                      <span style={{ fontSize: 10, color: "#c084fc", background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.3)", padding: "3px 10px", borderRadius: 20, fontWeight: 700, boxShadow: "0 0 12px rgba(168,85,247,0.2)" }}>⬡ Super Admin</span>
-                    ) : (
-                      <button onClick={() => handleToggleActive(u.id, u.is_active)} style={{
-                        fontSize: 10, fontWeight: 700, padding: "4px 12px", borderRadius: 20, border: "none", cursor: "pointer", fontFamily: "'Space Mono', monospace",
-                        background: u.is_active ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.08)",
-                        color: u.is_active ? "#34d399" : "#f87171",
-                        boxShadow: u.is_active ? "0 0 12px rgba(52,211,153,0.2)" : "0 0 12px rgba(248,113,113,0.15)",
-                        border: `1px solid ${u.is_active ? "rgba(52,211,153,0.3)" : "rgba(248,113,113,0.25)"}`,
-                        transition: "all 0.2s",
-                      }}>{u.is_active ? "● Active" : "○ Disabled"}</button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div style={{ marginTop: 14, color: "rgba(148,163,184,0.4)", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ color: "#a855f7", fontWeight: 700, textShadow: "0 0 10px #a855f7" }}>{data?.total}</span>
-            <span>total users</span>
+                  <div style={{ fontSize: 7, color: "rgba(0,212,255,0.35)", fontFamily: "'Share Tech Mono', monospace", textAlign: "center", marginTop: 4, lineHeight: 1.2, transform: "rotate(-35deg)", transformOrigin: "center" }}>
+                    {d.month?.slice(0, 3)}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── CIRCULAR RADAR / DONUT ────────────────────────────────────────────────────
+function HoloDonut({ segments, total }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const S = 160;
+    canvas.width = canvas.height = S * 2;
+    canvas.style.width = canvas.style.height = `${S}px`;
+    const cx = S, cy = S, r = S * 0.72, inner = S * 0.48;
+    ctx.clearRect(0, 0, S * 2, S * 2);
+
+    let startAngle = -Math.PI / 2;
+    segments.forEach((seg, i) => {
+      const slice = (seg.count / total) * Math.PI * 2;
+      // Shadow glow
+      ctx.shadowColor = seg.color; ctx.shadowBlur = 18;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, startAngle, startAngle + slice);
+      ctx.closePath();
+      const g = ctx.createRadialGradient(cx, cy, inner, cx, cy, r);
+      g.addColorStop(0, seg.color + "88");
+      g.addColorStop(1, seg.color + "cc");
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Gap
+      startAngle += slice + 0.03;
+    });
+
+    // Inner ring
+    ctx.beginPath(); ctx.arc(cx, cy, inner + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(0,212,255,0.15)"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, inner, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(0,8,20,0.95)"; ctx.fill();
+
+    // Center text
+    ctx.fillStyle = "#fff";
+    ctx.font = `bold ${S * 0.28}px 'Orbitron', monospace`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.shadowColor = "#00d4ff"; ctx.shadowBlur = 16;
+    ctx.fillText(total, cx, cy - 8);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(0,212,255,0.5)";
+    ctx.font = `${S * 0.1}px 'Share Tech Mono', monospace`;
+    ctx.fillText("TOTAL", cx, cy + S * 0.18);
+  }, [segments, total]);
+  return <canvas ref={canvasRef} style={{ display: "block" }} />;
+}
+
+// ── LOADER ────────────────────────────────────────────────────────────────────
+function HoloLoader() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", gap: 20 }}>
+      <div style={{ position: "relative", width: 70, height: 70 }}>
+        {[0, 1, 2].map(i => (
+          <div key={i} style={{
+            position: "absolute", inset: i * 10,
+            borderRadius: "50%",
+            border: "1px solid transparent",
+            borderTop: `1px solid ${["#00d4ff", "#00ff88", "#a855f7"][i]}`,
+            borderRight: `1px solid ${["#00d4ff", "#00ff88", "#a855f7"][i]}44`,
+            animation: `spin ${1 + i * 0.4}s linear infinite ${i % 2 ? "reverse" : ""}`,
+            boxShadow: `0 0 14px ${["rgba(0,212,255,0.4)", "rgba(0,255,136,0.3)", "rgba(168,85,247,0.3)"][i]}`,
+          }} />
+        ))}
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#00d4ff", animation: "pulse-glow 2s infinite", fontFamily: "'Orbitron', monospace" }}>◈</div>
+      </div>
+      <div style={{ color: "rgba(0,212,255,0.4)", fontSize: 9, letterSpacing: "0.3em", fontFamily: "'Share Tech Mono', monospace", textTransform: "uppercase" }}>
+        Initializing Systems…
+      </div>
+    </div>
+  );
+}
+
+// ── GLASS PANEL ───────────────────────────────────────────────────────────────
+function HoloPanel({ children, style = {}, title, accent = "#00d4ff" }) {
+  const rgb = accent === "#00d4ff" ? "0,212,255" : accent === "#00ff88" ? "0,255,136" : accent === "#a855f7" ? "168,85,247" : accent === "#ffd700" ? "255,215,0" : "0,212,255";
+  return (
+    <div style={{
+      background: `linear-gradient(135deg, rgba(0,8,20,0.96) 0%, rgba(0,15,35,0.92) 100%)`,
+      border: `1px solid rgba(${rgb},0.18)`,
+      borderRadius: 4,
+      padding: "20px 22px",
+      backdropFilter: "blur(20px)",
+      boxShadow: `0 8px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(${rgb},0.05), inset 0 0 30px rgba(${rgb},0.02)`,
+      position: "relative",
+      overflow: "hidden",
+      clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
+      ...style,
+    }}>
+      {/* Corner notch indicator */}
+      <div style={{ position: "absolute", top: 0, right: 10, width: 0, height: 0, borderTop: `10px solid rgba(${rgb},0.25)`, borderLeft: "10px solid transparent", zIndex: 2 }} />
+      <div style={{ position: "absolute", bottom: 0, left: 10, width: 0, height: 0, borderBottom: `10px solid rgba(${rgb},0.25)`, borderRight: "10px solid transparent", zIndex: 2 }} />
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.6), transparent)` }} />
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, rgba(${rgb},0.8), rgba(${rgb},0.1))` }} />
+      {title && (
+        <div style={{ fontSize: 9, color: `rgba(${rgb},0.7)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 4, height: 4, background: accent, borderRadius: "50%", boxShadow: `0 0 8px ${accent}` }} />
+          {title}
+          <div style={{ flex: 1, height: 1, background: `rgba(${rgb},0.15)` }} />
+        </div>
+      )}
+      {children}
+    </div>
+  );
+}
+
+// ── NAV TAB ───────────────────────────────────────────────────────────────────
+function NavTab({ label, active, onClick, count, icon }) {
+  return (
+    <div onClick={onClick} style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "10px 18px 10px 20px",
+      cursor: "pointer",
+      position: "relative",
+      transition: "all 0.2s",
+      borderLeft: active ? "2px solid #00d4ff" : "2px solid transparent",
+      background: active ? "rgba(0,212,255,0.06)" : "transparent",
+      marginBottom: 2,
+    }}>
+      {active && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: "linear-gradient(180deg, transparent, #00d4ff, #00ff88, transparent)", boxShadow: "0 0 12px #00d4ff" }} />}
+      <span style={{ fontSize: 13, color: active ? "#00d4ff" : "rgba(0,212,255,0.3)", transition: "color 0.2s", fontFamily: "'Share Tech Mono', monospace" }}>{icon}</span>
+      <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? "#e0f7ff" : "rgba(150,200,220,0.45)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.08em", flex: 1, transition: "color 0.2s" }}>{label}</span>
+      {count !== undefined && (
+        <span style={{ fontSize: 9, color: active ? "#00d4ff" : "rgba(0,212,255,0.3)", background: active ? "rgba(0,212,255,0.12)" : "rgba(0,212,255,0.04)", border: `1px solid ${active ? "rgba(0,212,255,0.35)" : "rgba(0,212,255,0.1)"}`, padding: "1px 6px", borderRadius: 2, fontFamily: "'Share Tech Mono', monospace" }}>{count}</span>
       )}
     </div>
   );
 }
 
-// ── Workspaces Table ───────────────────────────────────────────────────────────
-function WorkspacesTable() {
-  const { data, loading, refetch } = useAdminFetch("/admin/workspaces?limit=100");
-  const handleToggleWorkspace = async (wsId, current) => {
+// ── BADGE ────────────────────────────────────────────────────────────────────
+function Badge({ text }) {
+  const map = {
+    open:     { c: "#00ff88", bg: "rgba(0,255,136,0.08)", b: "rgba(0,255,136,0.25)" },
+    closed:   { c: "#00d4ff", bg: "rgba(0,212,255,0.08)", b: "rgba(0,212,255,0.25)" },
+    pending:  { c: "#ffd700", bg: "rgba(255,215,0,0.08)",  b: "rgba(255,215,0,0.25)"  },
+  };
+  const s = map[text] || map.open;
+  return (
+    <span style={{ fontSize: 8, color: s.c, background: s.bg, border: `1px solid ${s.b}`, padding: "2px 8px", borderRadius: 2, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", textTransform: "uppercase", boxShadow: `0 0 10px ${s.b}` }}>{text}</span>
+  );
+}
+
+const td = { padding: "11px 14px", verticalAlign: "middle" };
+
+// ── USERS TABLE ───────────────────────────────────────────────────────────────
+function UsersTable() {
+  const { data, loading, refetch } = useAdminFetch("/admin/users?limit=100");
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
+  const handleToggleActive = async (id, cur) => {
     const token = localStorage.getItem("access_token");
-    await fetch(`${API}/admin/workspaces/${wsId}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ is_active: !current }) });
+    await fetch(`${API}/admin/users/${id}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ is_active: !cur }) });
     refetch();
   };
-  if (loading) return <CrystalLoader />;
+  if (loading) return <HoloLoader />;
+  const rows = data?.users?.filter(u => {
+    if (filter === "active" && !u.is_active) return false;
+    if (filter === "inactive" && u.is_active) return false;
+    if (search && !u.email?.toLowerCase().includes(search.toLowerCase()) && !u.name?.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  }) || [];
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 10, marginBottom: 18, alignItems: "center", flexWrap: "wrap" }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users…" className="holo-input" style={{ flex: 1, minWidth: 200 }} />
+        <select value={filter} onChange={e => setFilter(e.target.value)} className="holo-input" style={{ width: 130 }}>
+          <option value="all">All Users</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <div style={{ fontSize: 9, color: "rgba(0,212,255,0.4)", fontFamily: "'Share Tech Mono', monospace" }}>{rows.length} records</div>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr>
+              {["#", "User", "Email", "Plan", "Role", "Joined", "Status"].map(h => (
+                <th key={h} style={{ padding: "8px 14px", textAlign: "left", color: "rgba(0,212,255,0.5)", fontWeight: 700, fontSize: 8, textTransform: "uppercase", letterSpacing: "0.18em", borderBottom: "1px solid rgba(0,212,255,0.1)", whiteSpace: "nowrap", fontFamily: "'Share Tech Mono', monospace" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((u, idx) => (
+              <tr key={u.id} className="holo-row">
+                <td style={{ ...td, color: "rgba(0,212,255,0.25)", fontSize: 9, fontFamily: "'Share Tech Mono', monospace" }}>{String(idx + 1).padStart(3, "0")}</td>
+                <td style={{ ...td }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{
+                      width: 28, height: 28,
+                      background: u.is_active ? "rgba(0,212,255,0.12)" : "rgba(0,212,255,0.04)",
+                      border: `1px solid ${u.is_active ? "rgba(0,212,255,0.3)" : "rgba(0,212,255,0.1)"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 10, fontWeight: 700, color: u.is_active ? "#00d4ff" : "rgba(0,212,255,0.3)",
+                      clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                    }}>{u.name?.[0]?.toUpperCase() || "?"}</div>
+                    <span style={{ color: u.is_active ? "#e0f7ff" : "rgba(150,200,220,0.35)", fontFamily: "'Share Tech Mono', monospace", fontSize: 11 }}>{u.name || "—"}</span>
+                  </div>
+                </td>
+                <td style={{ ...td, color: "rgba(0,212,255,0.45)", fontSize: 10, fontFamily: "'Share Tech Mono', monospace" }}>{u.email}</td>
+                <td style={td}>
+                  <span style={{ fontSize: 8, color: u.subscription_status === "paid" ? "#00ff88" : u.subscription_status === "trialing" ? "#ffd700" : "rgba(0,212,255,0.35)", fontFamily: "'Share Tech Mono', monospace", background: u.subscription_status === "paid" ? "rgba(0,255,136,0.06)" : "transparent", border: "1px solid currentColor", padding: "1px 6px", borderRadius: 2, opacity: 0.8 }}>
+                    {u.subscription_status || "—"}
+                  </span>
+                </td>
+                <td style={{ ...td, color: "rgba(0,212,255,0.4)", fontSize: 10, fontFamily: "'Share Tech Mono', monospace" }}>{u.role}</td>
+                <td style={{ ...td, color: "rgba(0,212,255,0.3)", fontSize: 9, fontFamily: "'Share Tech Mono', monospace" }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
+                <td style={td}>
+                  {u.email === "wahaj@acedengroup.com" ? (
+                    <span style={{ fontSize: 8, color: "#ffd700", background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.3)", padding: "2px 8px", borderRadius: 2, fontFamily: "'Share Tech Mono', monospace", boxShadow: "0 0 12px rgba(255,215,0,0.2)" }}>⬡ ROOT</span>
+                  ) : (
+                    <button onClick={() => handleToggleActive(u.id, u.is_active)} style={{
+                      fontSize: 8, fontWeight: 700, padding: "3px 10px", borderRadius: 2, border: "none", cursor: "pointer", fontFamily: "'Share Tech Mono', monospace",
+                      background: u.is_active ? "rgba(0,255,136,0.08)" : "rgba(255,51,102,0.08)",
+                      color: u.is_active ? "#00ff88" : "#ff3366",
+                      boxShadow: u.is_active ? "0 0 10px rgba(0,255,136,0.2)" : "0 0 10px rgba(255,51,102,0.2)",
+                      border: `1px solid ${u.is_active ? "rgba(0,255,136,0.3)" : "rgba(255,51,102,0.3)"}`,
+                      transition: "all 0.2s",
+                    }}>{u.is_active ? "● ONLINE" : "○ OFFLINE"}</button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ── WORKSPACES TABLE ──────────────────────────────────────────────────────────
+function WorkspacesTable() {
+  const { data, loading, refetch } = useAdminFetch("/admin/workspaces?limit=100");
+  const handleToggle = async (wsId, cur) => {
+    const token = localStorage.getItem("access_token");
+    await fetch(`${API}/admin/workspaces/${wsId}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ is_active: !cur }) });
+    refetch();
+  };
+  if (loading) return <HoloLoader />;
   return (
     <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
         <thead>
           <tr>
-            {["#", "Workspace", "Owner", "Members", "Tasks", "Created", "Action"].map(h => (
-              <th key={h} style={{ padding: "10px 14px", textAlign: "left", color: "rgba(168,85,247,0.6)", fontWeight: 700, fontSize: 9, textTransform: "uppercase", letterSpacing: "0.14em", borderBottom: "1px solid rgba(168,85,247,0.12)", whiteSpace: "nowrap", fontFamily: "'Space Mono', monospace" }}>{h}</th>
+            {["#", "Workspace", "Owner", "Members", "Tasks", "Created", "Status"].map(h => (
+              <th key={h} style={{ padding: "8px 14px", textAlign: "left", color: "rgba(0,212,255,0.5)", fontWeight: 700, fontSize: 8, textTransform: "uppercase", letterSpacing: "0.18em", borderBottom: "1px solid rgba(0,212,255,0.1)", whiteSpace: "nowrap", fontFamily: "'Share Tech Mono', monospace" }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -520,37 +682,37 @@ function WorkspacesTable() {
           {data?.workspaces?.map((ws, idx) => {
             const isActive = ws.is_active !== false;
             return (
-              <tr key={ws.id} className="crystal-row">
-                <td style={{ ...td, color: "rgba(148,163,184,0.3)", fontSize: 11 }}>{idx + 1}</td>
-                <td style={{ ...td, fontWeight: 600, color: "#ede9fe" }}>
+              <tr key={ws.id} className="holo-row">
+                <td style={{ ...td, color: "rgba(0,212,255,0.25)", fontSize: 9, fontFamily: "'Share Tech Mono', monospace" }}>{String(idx + 1).padStart(3, "0")}</td>
+                <td style={td}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{
-                      width: 32, height: 32, borderRadius: 10,
-                      background: isActive ? "linear-gradient(135deg, rgba(109,40,217,0.7), rgba(168,85,247,0.8))" : "rgba(18,12,40,0.7)",
-                      border: isActive ? "1px solid rgba(168,85,247,0.4)" : "1px solid rgba(168,85,247,0.1)",
+                      width: 28, height: 28,
+                      background: isActive ? "rgba(0,212,255,0.12)" : "rgba(255,51,102,0.06)",
+                      border: `1px solid ${isActive ? "rgba(0,212,255,0.3)" : "rgba(255,51,102,0.2)"}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontSize: 11, fontWeight: 700, color: isActive ? "#fff" : "rgba(148,163,184,0.3)",
-                      flexShrink: 0, boxShadow: isActive ? "0 0 16px rgba(168,85,247,0.3), inset 0 1px 0 rgba(255,255,255,0.1)" : "none",
+                      fontSize: 10, fontWeight: 700, color: isActive ? "#00d4ff" : "rgba(255,51,102,0.5)",
+                      clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))",
                     }}>{ws.name?.[0]?.toUpperCase() || "W"}</div>
-                    <span style={{ color: isActive ? "#ede9fe" : "rgba(148,163,184,0.3)" }}>{ws.name}</span>
+                    <span style={{ color: isActive ? "#e0f7ff" : "rgba(150,200,220,0.3)", fontFamily: "'Share Tech Mono', monospace", fontSize: 11 }}>{ws.name}</span>
                   </div>
                 </td>
-                <td style={{ ...td, color: "rgba(148,163,184,0.5)", fontFamily: "'Space Mono', monospace", fontSize: 11 }}>{ws.owner_email ?? "—"}</td>
-                <td style={td}><span style={{ color: "#a855f7", fontWeight: 700, textShadow: "0 0 8px rgba(168,85,247,0.6)" }}>{ws.member_count}</span></td>
-                <td style={td}><span style={{ color: "#34d399", fontWeight: 600, textShadow: "0 0 8px rgba(52,211,153,0.5)" }}>{ws.task_count}</span></td>
-                <td style={{ ...td, color: "rgba(148,163,184,0.45)" }}>{ws.created_at ? new Date(ws.created_at).toLocaleDateString() : "—"}</td>
+                <td style={{ ...td, color: "rgba(0,212,255,0.4)", fontSize: 9, fontFamily: "'Share Tech Mono', monospace" }}>{ws.owner_email ?? "—"}</td>
+                <td style={td}><span style={{ color: "#00d4ff", fontWeight: 700, fontFamily: "'Orbitron', monospace", fontSize: 13, textShadow: "0 0 10px rgba(0,212,255,0.6)" }}>{ws.member_count}</span></td>
+                <td style={td}><span style={{ color: "#00ff88", fontWeight: 600, fontFamily: "'Orbitron', monospace", fontSize: 13, textShadow: "0 0 10px rgba(0,255,136,0.5)" }}>{ws.task_count}</span></td>
+                <td style={{ ...td, color: "rgba(0,212,255,0.3)", fontSize: 9, fontFamily: "'Share Tech Mono', monospace" }}>{ws.created_at ? new Date(ws.created_at).toLocaleDateString() : "—"}</td>
                 <td style={td}>
                   {ws.owner_email === "wahaj@acedengroup.com" ? (
-                    <span style={{ fontSize: 10, color: "#c084fc", background: "rgba(168,85,247,0.12)", border: "1px solid rgba(168,85,247,0.3)", padding: "3px 10px", borderRadius: 20, fontWeight: 700 }}>⬡ Protected</span>
+                    <span style={{ fontSize: 8, color: "#ffd700", background: "rgba(255,215,0,0.08)", border: "1px solid rgba(255,215,0,0.3)", padding: "2px 8px", borderRadius: 2, fontFamily: "'Share Tech Mono', monospace" }}>⬡ PROTECTED</span>
                   ) : (
-                    <button onClick={() => handleToggleWorkspace(ws.id, isActive)} style={{
-                      fontSize: 10, fontWeight: 700, padding: "4px 12px", borderRadius: 20, border: "none", cursor: "pointer", fontFamily: "'Space Mono', monospace",
-                      background: isActive ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.08)",
-                      color: isActive ? "#34d399" : "#f87171",
-                      border: `1px solid ${isActive ? "rgba(52,211,153,0.3)" : "rgba(248,113,113,0.25)"}`,
-                      boxShadow: isActive ? "0 0 12px rgba(52,211,153,0.2)" : "0 0 12px rgba(248,113,113,0.15)",
+                    <button onClick={() => handleToggle(ws.id, isActive)} style={{
+                      fontSize: 8, fontWeight: 700, padding: "3px 10px", borderRadius: 2, border: "none", cursor: "pointer", fontFamily: "'Share Tech Mono', monospace",
+                      background: isActive ? "rgba(0,255,136,0.08)" : "rgba(255,51,102,0.08)",
+                      color: isActive ? "#00ff88" : "#ff3366",
+                      border: `1px solid ${isActive ? "rgba(0,255,136,0.3)" : "rgba(255,51,102,0.3)"}`,
+                      boxShadow: isActive ? "0 0 10px rgba(0,255,136,0.2)" : "0 0 10px rgba(255,51,102,0.2)",
                       transition: "all 0.2s",
-                    }}>{isActive ? "● Active" : "○ Disabled"}</button>
+                    }}>{isActive ? "● ACTIVE" : "○ HALTED"}</button>
                   )}
                 </td>
               </tr>
@@ -558,421 +720,359 @@ function WorkspacesTable() {
           })}
         </tbody>
       </table>
-      <div style={{ marginTop: 14, color: "rgba(148,163,184,0.4)", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ color: "#a855f7", fontWeight: 700, textShadow: "0 0 10px #a855f7" }}>{data?.total}</span>
-        <span>total workspaces</span>
+      <div style={{ marginTop: 14, color: "rgba(0,212,255,0.3)", fontSize: 10, display: "flex", alignItems: "center", gap: 6, fontFamily: "'Share Tech Mono', monospace" }}>
+        <span style={{ color: "#00d4ff", fontWeight: 700, textShadow: "0 0 10px #00d4ff", fontFamily: "'Orbitron', monospace" }}>{data?.total}</span>
+        <span>workspaces indexed</span>
       </div>
     </div>
   );
 }
 
-// ── Feedback ────────────────────────────────────────────────────────────────────
+// ── FEEDBACK ──────────────────────────────────────────────────────────────────
 function FeedbackTable() {
   const { data, loading } = useAdminFetch("/admin/feedback?limit=100");
-  if (loading) return <CrystalLoader />;
+  if (loading) return <HoloLoader />;
   const typeStyle = {
-    bug:             { bg: "rgba(248,113,113,0.06)", color: "#f87171", border: "rgba(248,113,113,0.25)", icon: "🐛" },
-    feedback:        { bg: "rgba(168,85,247,0.06)", color: "#c084fc", border: "rgba(168,85,247,0.25)", icon: "💬" },
-    feature_request: { bg: "rgba(52,211,153,0.06)", color: "#34d399", border: "rgba(52,211,153,0.25)", icon: "✦" },
+    bug:             { c: "#ff3366", bg: "rgba(255,51,102,0.06)", b: "rgba(255,51,102,0.25)", icon: "⚠" },
+    feedback:        { c: "#00d4ff", bg: "rgba(0,212,255,0.06)", b: "rgba(0,212,255,0.25)", icon: "◈" },
+    feature_request: { c: "#00ff88", bg: "rgba(0,255,136,0.06)", b: "rgba(0,255,136,0.25)", icon: "◆" },
   };
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {data?.items?.map(f => {
-        const ts = typeStyle[f.type] || { bg: "rgba(148,163,184,0.06)", color: "#94a3b8", border: "rgba(148,163,184,0.2)", icon: "•" };
+        const ts = typeStyle[f.type] || { c: "#00d4ff", bg: "rgba(0,212,255,0.06)", b: "rgba(0,212,255,0.2)", icon: "•" };
         return (
-          <div key={f.id} className="feedback-card-3d">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12, gap: 12 }}>
+          <div key={f.id} className="holo-feedback">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ background: ts.bg, color: ts.color, border: `1px solid ${ts.border}`, padding: "2px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", display: "flex", alignItems: "center", gap: 4, boxShadow: `0 0 12px ${ts.border}`, fontFamily: "'Space Mono', monospace" }}>{ts.icon} {f.type.replace("_", " ")}</span>
-                <span style={{ color: "#ede9fe", fontWeight: 600, fontSize: 13 }}>{f.title}</span>
+                <span style={{ background: ts.bg, color: ts.c, border: `1px solid ${ts.b}`, padding: "2px 8px", borderRadius: 2, fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "'Share Tech Mono', monospace", boxShadow: `0 0 10px ${ts.b}` }}>{ts.icon} {f.type.replace("_", " ")}</span>
+                <span style={{ color: "#e0f7ff", fontWeight: 600, fontSize: 12, fontFamily: "'Share Tech Mono', monospace" }}>{f.title}</span>
               </div>
               <Badge text={f.status} />
             </div>
-            <p style={{ color: "rgba(148,163,184,0.55)", fontSize: 12.5, margin: "0 0 12px", lineHeight: 1.8 }}>{f.message}</p>
-            <div style={{ display: "flex", gap: 16, fontSize: 11, color: "rgba(148,163,184,0.35)", flexWrap: "wrap" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ color: "rgba(168,85,247,0.5)" }}>◎</span>
-                <span style={{ color: "rgba(148,163,184,0.55)" }}>{f.user_name ?? "Anonymous"}</span>
-                {f.user_email && <span>({f.user_email})</span>}
-              </span>
-              {f.page_context && <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ color: "rgba(52,211,153,0.5)" }}>⊕</span> {f.page_context}</span>}
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ color: "rgba(168,85,247,0.5)" }}>◷</span>{f.created_at ? new Date(f.created_at).toLocaleString() : "—"}</span>
+            <p style={{ color: "rgba(0,212,255,0.4)", fontSize: 11, margin: "0 0 10px", lineHeight: 1.8, fontFamily: "'Share Tech Mono', monospace" }}>{f.message}</p>
+            <div style={{ display: "flex", gap: 16, fontSize: 9, color: "rgba(0,212,255,0.3)", flexWrap: "wrap", fontFamily: "'Share Tech Mono', monospace" }}>
+              <span>◎ {f.user_name ?? "Anonymous"} {f.user_email && `(${f.user_email})`}</span>
+              {f.page_context && <span>⊕ {f.page_context}</span>}
+              <span>◷ {f.created_at ? new Date(f.created_at).toLocaleString() : "—"}</span>
             </div>
           </div>
         );
       })}
       {!data?.items?.length && (
-        <div style={{ textAlign: "center", padding: 80, color: "rgba(148,163,184,0.25)" }}>
-          <div style={{ fontSize: 44, marginBottom: 14, filter: "drop-shadow(0 0 24px rgba(168,85,247,0.5))" }}>✦</div>
-          <div style={{ fontSize: 14, letterSpacing: "0.1em" }}>No feedback submissions yet</div>
+        <div style={{ textAlign: "center", padding: 80, color: "rgba(0,212,255,0.2)", fontFamily: "'Share Tech Mono', monospace", fontSize: 11, letterSpacing: "0.15em" }}>
+          NO FEEDBACK RECORDS FOUND
         </div>
       )}
     </div>
   );
 }
 
-// ── Loader ──────────────────────────────────────────────────────────────────────
-function CrystalLoader() {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 80, gap: 24 }}>
-      <div style={{ position: "relative", width: 60, height: 60 }}>
-        {[0, 1, 2].map(i => (
-          <div key={i} style={{
-            position: "absolute", inset: i * 8, borderRadius: "50%",
-            border: `1.5px solid transparent`,
-            borderTop: `1.5px solid ${["#a855f7", "#34d399", "#818cf8"][i]}`,
-            animation: `spin ${0.9 + i * 0.3}s linear infinite ${i % 2 ? "reverse" : ""}`,
-            boxShadow: `0 0 ${12 - i * 2}px ${["rgba(168,85,247,0.4)", "rgba(52,211,153,0.4)", "rgba(129,140,248,0.4)"][i]}`,
-          }} />
-        ))}
-        <div style={{
-          position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 16, filter: "drop-shadow(0 0 8px rgba(168,85,247,0.8))",
-          animation: "pulse-glow 2s ease-in-out infinite",
-        }}>✦</div>
-      </div>
-      <span style={{ color: "rgba(168,85,247,0.5)", fontSize: 10, letterSpacing: "0.25em", textTransform: "uppercase", fontFamily: "'Space Mono', monospace" }}>Channeling data…</span>
-    </div>
-  );
-}
-
-// ── Glass Panel ─────────────────────────────────────────────────────────────────
-function GlassPanel({ children, style = {} }) {
-  return (
-    <div style={{
-      background: "linear-gradient(135deg, rgba(8,5,22,0.88) 0%, rgba(12,7,30,0.82) 100%)",
-      border: "1px solid rgba(168,85,247,0.15)",
-      borderRadius: 20,
-      padding: 24,
-      backdropFilter: "blur(24px)",
-      boxShadow: "0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(168,85,247,0.05)",
-      position: "relative",
-      overflow: "hidden",
-      ...style,
-    }}>
-      <div style={{ position: "absolute", top: 0, left: "15%", right: "15%", height: 1, background: "linear-gradient(90deg, transparent, rgba(168,85,247,0.3), transparent)", pointerEvents: "none" }} />
-      {children}
-    </div>
-  );
-}
-
-// ── Main Dashboard ──────────────────────────────────────────────────────────────
+// ── MAIN DASHBOARD ────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const [tab, setTab] = useState("overview");
   const { data: metrics, loading, error, refetch } = useAdminFetch("/admin/metrics");
   const m = metrics;
   const [time, setTime] = useState(new Date());
+  const [bootSeq, setBootSeq] = useState(0);
   useEffect(() => { const t = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(t); }, []);
-  const timeStr = time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  const dateStr = time.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+  useEffect(() => { const t = setInterval(() => setBootSeq(s => s < 100 ? s + 2 : 100), 40); return () => clearInterval(t); }, []);
+
+  const timeStr = time.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+  const dateStr = time.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 
   const TABS = [
-    { id: "overview",    label: "Overview",    icon: "◈", count: undefined },
-    { id: "revenue",     label: "Revenue",     icon: "◎", count: m ? 4 : undefined },
-    { id: "users",       label: "Users",       icon: "⬡", count: m?.users?.total },
-    { id: "workspaces",  label: "Workspaces",  icon: "⊞", count: undefined },
-    { id: "feedback",    label: "Feedback",    icon: "✦", count: undefined },
+    { id: "overview",   label: "OVERVIEW",   icon: "◈" },
+    { id: "revenue",    label: "REVENUE",    icon: "◎" },
+    { id: "users",      label: "USERS",      icon: "⬡", count: m?.users?.total },
+    { id: "workspaces", label: "WORKSPACES", icon: "⊞" },
+    { id: "feedback",   label: "FEEDBACK",   icon: "◆" },
   ];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#04020d", color: "#ede9fe", position: "relative", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#000d1a", color: "#e0f7ff", position: "relative", overflow: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;900&family=Syne:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap');
-
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #04020d; }
+        body { background: #000d1a; }
 
-        /* ── DEEP SPACE BG ── */
-        .cosmos-bg {
+        /* ── SPACE BACKGROUND ── */
+        .space-bg {
           position: fixed; inset: 0;
           background:
-            radial-gradient(ellipse 80% 60% at 20% 10%, rgba(60,15,120,0.35) 0%, transparent 60%),
-            radial-gradient(ellipse 60% 50% at 80% 80%, rgba(10,60,80,0.25) 0%, transparent 60%),
-            radial-gradient(ellipse 40% 30% at 60% 40%, rgba(30,5,80,0.2) 0%, transparent 70%),
-            #04020d;
+            radial-gradient(ellipse 70% 50% at 15% 10%, rgba(0,40,80,0.4) 0%, transparent 60%),
+            radial-gradient(ellipse 50% 40% at 85% 85%, rgba(0,20,50,0.35) 0%, transparent 60%),
+            radial-gradient(ellipse 30% 25% at 60% 35%, rgba(0,50,80,0.15) 0%, transparent 70%),
+            #000d1a;
           pointer-events: none; z-index: 0;
         }
 
-        /* animated aurora top */
-        .aurora-veil {
-          position: fixed; top: 0; left: 0; right: 0; height: 3px;
-          background: linear-gradient(90deg,
-            transparent 0%,
-            rgba(88,28,135,0.6) 15%,
-            rgba(168,85,247,1) 30%,
-            rgba(99,235,200,0.8) 50%,
-            rgba(168,85,247,0.9) 70%,
-            rgba(88,28,135,0.6) 85%,
-            transparent 100%);
-          pointer-events: none; z-index: 30;
-          filter: blur(0.5px);
-          animation: auroraShift 8s ease-in-out infinite alternate;
+        /* ── TOP HUD LINE ── */
+        .hud-topline {
+          position: fixed; top: 0; left: 0; right: 0; height: 2px;
+          background: linear-gradient(90deg, transparent 0%, #00d4ff 20%, #00ff88 50%, #00d4ff 80%, transparent 100%);
+          pointer-events: none; z-index: 50;
+          animation: hudScan 4s ease-in-out infinite alternate;
+          box-shadow: 0 0 20px #00d4ff, 0 0 40px rgba(0,212,255,0.3);
         }
-        .aurora-veil-2 {
-          position: fixed; top: 0; left: 0; right: 0; height: 120px;
-          background: linear-gradient(180deg, rgba(88,28,135,0.08) 0%, transparent 100%);
-          pointer-events: none; z-index: 0;
-        }
-
-        @keyframes auroraShift {
-          0% { background-position: 0% 0%; opacity: 0.7; }
+        @keyframes hudScan {
+          0% { opacity: 0.6; }
           50% { opacity: 1; }
-          100% { background-position: 100% 0%; opacity: 0.8; }
+          100% { opacity: 0.7; }
         }
+
+        /* ── VIGNETTE ── */
+        .vignette {
+          position: fixed; inset: 0; pointer-events: none; z-index: 1;
+          background: radial-gradient(ellipse at center, transparent 50%, rgba(0,5,15,0.6) 100%);
+        }
+
+        /* scanline overlay */
+        .scanlines {
+          position: fixed; inset: 0; pointer-events: none; z-index: 2;
+          background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.012) 2px, rgba(0,212,255,0.012) 4px);
+        }
+
+        /* ── ANIMATIONS ── */
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes crystalRise {
-          from { opacity: 0; transform: perspective(800px) translateY(30px) translateZ(-20px); }
-          to { opacity: 1; transform: perspective(800px) translateY(0) translateZ(0); }
+        @keyframes holoRise {
+          from { opacity: 0; transform: perspective(900px) translateY(40px) translateZ(-30px) rotateX(5deg); }
+          to { opacity: 1; transform: perspective(900px) translateY(0) translateZ(0) rotateX(0); }
         }
         @keyframes pulse-glow {
-          0%, 100% { filter: drop-shadow(0 0 8px rgba(168,85,247,0.8)); }
-          50% { filter: drop-shadow(0 0 16px rgba(168,85,247,1)) drop-shadow(0 0 30px rgba(168,85,247,0.6)); }
+          0%, 100% { opacity: 0.7; }
+          50% { opacity: 1; filter: brightness(1.4); }
         }
-        @keyframes float-orb {
-          0%, 100% { transform: translateY(0) scale(1); }
-          50% { transform: translateY(-6px) scale(1.02); }
+        @keyframes particleFloat {
+          0% { transform: translateY(0) scale(1); opacity: 1; }
+          100% { transform: translateY(-60px) scale(0); opacity: 0; }
         }
-        @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
+        @keyframes blink {
+          0%, 100% { opacity: 1; } 50% { opacity: 0; }
         }
-        @keyframes halo-rotate {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        @keyframes rotateSlow { to { transform: rotate(360deg); } }
+        @keyframes dataStream {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(100vh); }
+        }
+        @keyframes glitchShift {
+          0%, 95%, 100% { clip-path: none; transform: none; }
+          96% { clip-path: polygon(0 20%, 100% 20%, 100% 40%, 0 40%); transform: translateX(4px); }
+          97% { clip-path: polygon(0 60%, 100% 60%, 100% 80%, 0 80%); transform: translateX(-4px); }
+          98% { clip-path: none; transform: translateX(2px); }
         }
 
+        /* ── LAYOUT ── */
         .dashboard-root {
-          font-family: 'Syne', sans-serif;
-          display: flex; min-height: 100vh;
-          position: relative; z-index: 1;
+          font-family: 'Share Tech Mono', monospace;
+          display: flex; min-height: 100vh; position: relative; z-index: 3;
         }
 
         /* ── SIDEBAR ── */
         .sidebar {
-          width: 238px; min-height: 100vh;
-          background: linear-gradient(180deg, rgba(6,3,18,0.97) 0%, rgba(8,4,22,0.95) 100%);
-          border-right: 1px solid rgba(168,85,247,0.12);
+          width: 220px; min-height: 100vh;
+          background: linear-gradient(180deg, rgba(0,5,15,0.98) 0%, rgba(0,8,20,0.96) 100%);
+          border-right: 1px solid rgba(0,212,255,0.15);
           display: flex; flex-direction: column;
           position: fixed; top: 0; left: 0; bottom: 0; z-index: 10;
-          backdrop-filter: blur(30px);
         }
         .sidebar::after {
           content: '';
-          position: absolute; top: 15%; right: -1px; bottom: 15%;
+          position: absolute; top: 10%; right: 0; bottom: 10%;
           width: 1px;
-          background: linear-gradient(180deg, transparent, rgba(168,85,247,0.5), rgba(52,211,153,0.4), rgba(168,85,247,0.5), transparent);
-          animation: pulse-glow 4s ease-in-out infinite;
+          background: linear-gradient(180deg, transparent, #00d4ff, #00ff88, #00d4ff, transparent);
+          opacity: 0.3;
+          animation: pulse-glow 3s ease-in-out infinite;
         }
 
-        .logo-orb {
-          width: 44px; height: 44px; border-radius: 14px;
-          background: linear-gradient(135deg, rgba(88,28,135,0.95), rgba(168,85,247,0.9));
-          display: flex; align-items: center; justify-content: center;
-          font-family: 'Playfair Display', serif;
-          font-size: 20px; font-weight: 900; color: #fff;
-          box-shadow: 0 0 30px rgba(168,85,247,0.5), 0 0 60px rgba(168,85,247,0.2), inset 0 1px 0 rgba(255,255,255,0.2);
-          border: 1px solid rgba(168,85,247,0.5);
-          position: relative; animation: float-orb 4s ease-in-out infinite;
-        }
-        .logo-orb::before {
-          content: ''; position: absolute; inset: -3px; border-radius: 17px;
-          border: 1px solid rgba(168,85,247,0.2); animation: halo-rotate 8s linear infinite;
-          background: linear-gradient(90deg, rgba(168,85,247,0.15), transparent, rgba(52,211,153,0.1), transparent, rgba(168,85,247,0.15));
-        }
-
-        .section-divider {
-          height: 1px; margin: 12px 20px;
-          background: linear-gradient(90deg, transparent, rgba(168,85,247,0.2), transparent);
-        }
-
-        /* ── MAIN ── */
+        /* ── MAIN CONTENT ── */
         .main-content {
-          margin-left: 238px; flex: 1; padding: 28px 32px;
+          margin-left: 220px; flex: 1;
+          padding: 0 28px 40px;
           min-height: 100vh;
+          position: relative;
         }
 
         /* ── TOPBAR ── */
         .topbar {
           display: flex; align-items: center; justify-content: space-between;
-          margin-bottom: 28px; padding-bottom: 20px;
-          border-bottom: 1px solid rgba(168,85,247,0.1);
+          padding: 20px 0 22px;
+          border-bottom: 1px solid rgba(0,212,255,0.1);
+          margin-bottom: 24px;
+          position: sticky; top: 0; z-index: 5;
+          background: rgba(0,13,26,0.92);
+          backdrop-filter: blur(20px);
+        }
+        .topbar::after {
+          content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(0,212,255,0.4), rgba(0,255,136,0.2), transparent);
         }
 
         /* ── SECTION HEADING ── */
         .section-heading {
-          font-family: 'Playfair Display', serif;
-          font-size: 22px; font-weight: 700;
-          color: #fff;
-          letter-spacing: -0.02em;
-          margin-bottom: 20px;
-          text-shadow: 0 0 30px rgba(168,85,247,0.4);
-          position: relative;
-          display: inline-block;
+          font-size: 9px; color: rgba(0,212,255,0.4); letter-spacing: 0.28em;
+          text-transform: uppercase; margin-bottom: 14px;
+          font-family: 'Share Tech Mono', monospace;
+          display: flex; align-items: center; gap: 10;
+        }
+        .section-heading::before {
+          content: '▶'; font-size: 7px; color: #00d4ff;
         }
         .section-heading::after {
-          content: '';
-          position: absolute; bottom: -6px; left: 0; right: 0; height: 1px;
-          background: linear-gradient(90deg, rgba(168,85,247,0.6), rgba(52,211,153,0.3), transparent);
+          content: ''; flex: 1; height: 1px;
+          background: linear-gradient(90deg, rgba(0,212,255,0.2), transparent);
         }
 
-        /* ── GLASS PANEL ── */
-        .panel-title {
-          font-size: 11px; font-weight: 700;
-          color: rgba(168,85,247,0.7);
-          letter-spacing: 0.14em; text-transform: uppercase;
-          font-family: 'Space Mono', monospace;
-          margin-bottom: 16px;
-          display: flex; align-items: center; gap: 8px;
-        }
-        .panel-title::before {
-          content: '';
-          display: inline-block; width: 4px; height: 4px;
-          border-radius: 50%; background: rgba(168,85,247,0.8);
-          box-shadow: 0 0 8px rgba(168,85,247,0.8);
-        }
-
-        /* ── ROWS ── */
+        /* ── STAT STRIP ── */
         .stat-row {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-          gap: 12px; margin-top: 20px;
+          display: flex; gap: 10; flex-wrap: wrap; margin-top: 16px;
         }
         .stat-item {
-          background: linear-gradient(135deg, rgba(8,5,22,0.85), rgba(12,7,30,0.8));
-          border: 1px solid rgba(168,85,247,0.12);
-          border-radius: 16px; padding: 16px 16px;
-          text-align: center;
-          transition: all 0.2s;
+          flex: 1; min-width: 110px;
+          background: rgba(0,212,255,0.03);
+          border: 1px solid rgba(0,212,255,0.1);
+          border-radius: 3px; padding: 14px 16px;
           position: relative; overflow: hidden;
-          animation: crystalRise 0.6s cubic-bezier(0.22,1,0.36,1) both;
-        }
-        .stat-item::before {
-          content: ''; position: absolute; top: 0; left: "20%"; right: "20%"; height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(168,85,247,0.25), transparent);
+          transition: all 0.2s;
+          clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
         }
         .stat-item:hover {
-          border-color: rgba(168,85,247,0.28);
-          transform: translateY(-2px);
-          box-shadow: 0 8px 30px rgba(0,0,0,0.4), 0 0 20px rgba(168,85,247,0.1);
+          border-color: rgba(0,212,255,0.28);
+          background: rgba(0,212,255,0.06);
+          box-shadow: 0 0 20px rgba(0,212,255,0.08);
         }
         .stat-label {
-          font-size: 9px; color: rgba(148,163,184,0.45);
-          text-transform: uppercase; letter-spacing: 0.14em;
-          margin-bottom: 8px; font-family: 'Space Mono', monospace;
+          font-size: 8px; color: rgba(0,212,255,0.35); text-transform: uppercase;
+          letter-spacing: 0.15em; margin-bottom: 8px; font-family: 'Share Tech Mono', monospace;
         }
         .stat-val {
-          font-size: 20px; font-weight: 700;
-          font-family: 'Playfair Display', serif;
-          letter-spacing: -0.02em;
+          font-size: 18px; font-weight: 700; font-family: 'Orbitron', monospace; letter-spacing: -0.02em;
         }
 
         /* ── TABLE ROWS ── */
-        .crystal-row { transition: background 0.15s; }
-        .crystal-row:hover { background: rgba(168,85,247,0.04); }
-        .crystal-row td { border-bottom: 1px solid rgba(168,85,247,0.05); }
+        .holo-row { transition: background 0.15s; }
+        .holo-row:hover { background: rgba(0,212,255,0.04); }
+        .holo-row td { border-bottom: 1px solid rgba(0,212,255,0.05); }
 
         /* ── INPUTS ── */
-        .crystal-input {
-          background: rgba(8,5,22,0.8);
-          border: 1px solid rgba(168,85,247,0.2);
-          border-radius: 12px; color: #ede9fe;
-          font-size: 13px; padding: 10px 14px;
-          font-family: 'Syne', sans-serif;
-          outline: none; transition: all 0.2s;
-          backdrop-filter: blur(10px);
+        .holo-input {
+          background: rgba(0,8,20,0.9);
+          border: 1px solid rgba(0,212,255,0.2); border-radius: 3px;
+          color: #e0f7ff; font-size: 11px; padding: 9px 12px;
+          font-family: 'Share Tech Mono', monospace; outline: none;
+          transition: all 0.2s; backdrop-filter: blur(10px);
         }
-        .crystal-input:focus {
-          border-color: rgba(168,85,247,0.5);
-          box-shadow: 0 0 0 3px rgba(168,85,247,0.1), 0 0 20px rgba(168,85,247,0.1);
+        .holo-input:focus {
+          border-color: rgba(0,212,255,0.5);
+          box-shadow: 0 0 0 3px rgba(0,212,255,0.08), 0 0 20px rgba(0,212,255,0.1);
         }
-        .crystal-input option { background: #0c0618; }
+        .holo-input option { background: #000d1a; }
 
         /* ── FEEDBACK CARD ── */
-        .feedback-card-3d {
-          background: linear-gradient(135deg, rgba(8,5,22,0.88), rgba(12,7,30,0.82));
-          border: 1px solid rgba(168,85,247,0.13);
-          border-radius: 18px; padding: 20px;
-          transition: all 0.25s cubic-bezier(0.22,1,0.36,1);
-          position: relative; overflow: hidden;
+        .holo-feedback {
+          background: rgba(0,8,20,0.9);
+          border: 1px solid rgba(0,212,255,0.12);
+          border-radius: 3px; padding: 18px;
+          transition: all 0.25s; position: relative; overflow: hidden;
+          clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
         }
-        .feedback-card-3d::before {
-          content: ''; position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(168,85,247,0.25), transparent);
+        .holo-feedback::before {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent);
         }
-        .feedback-card-3d:hover {
-          border-color: rgba(168,85,247,0.28);
-          transform: translateY(-2px) translateZ(4px);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 30px rgba(168,85,247,0.08);
+        .holo-feedback:hover {
+          border-color: rgba(0,212,255,0.25);
+          transform: translateY(-1px);
+          box-shadow: 0 8px 30px rgba(0,0,0,0.5), 0 0 20px rgba(0,212,255,0.06);
         }
 
-        /* refetch btn */
+        /* ── REFETCH BTN ── */
         .refetch-btn {
-          background: rgba(168,85,247,0.1);
-          border: 1px solid rgba(168,85,247,0.3);
-          color: #c084fc; border-radius: 12px;
-          padding: 8px 16px; font-size: 12px;
-          cursor: pointer; font-family: 'Space Mono', monospace;
-          transition: all 0.2s; letter-spacing: 0.05em;
+          background: rgba(0,212,255,0.06);
+          border: 1px solid rgba(0,212,255,0.25); color: #00d4ff;
+          border-radius: 3px; padding: 7px 14px; font-size: 9px;
+          cursor: pointer; font-family: 'Share Tech Mono', monospace;
+          letter-spacing: 0.1em; transition: all 0.2s; text-transform: uppercase;
+          clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
         }
         .refetch-btn:hover {
-          background: rgba(168,85,247,0.18);
-          box-shadow: 0 0 20px rgba(168,85,247,0.2);
+          background: rgba(0,212,255,0.12);
+          box-shadow: 0 0 20px rgba(0,212,255,0.2);
         }
 
         /* scrollbar */
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: rgba(8,5,22,0.5); }
-        ::-webkit-scrollbar-thumb { background: rgba(168,85,247,0.3); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(168,85,247,0.5); }
+        ::-webkit-scrollbar { width: 3px; height: 3px; }
+        ::-webkit-scrollbar-track { background: rgba(0,8,20,0.8); }
+        ::-webkit-scrollbar-thumb { background: rgba(0,212,255,0.2); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,212,255,0.4); }
       `}</style>
 
-      {/* bg layers */}
-      <div className="cosmos-bg" />
-      <div className="aurora-veil" />
-      <div className="aurora-veil-2" />
-      <CrystalField />
+      {/* Background layers */}
+      <div className="space-bg" />
+      <div className="vignette" />
+      <div className="scanlines" />
+      <div className="hud-topline" />
+      <HoloGrid />
 
       <div className="dashboard-root">
         {/* ── SIDEBAR ── */}
         <aside className="sidebar">
-          {/* logo */}
-          <div style={{ padding: "28px 22px 22px", borderBottom: "1px solid rgba(168,85,247,0.08)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div className="logo-orb">Ω</div>
+          {/* Logo block */}
+          <div style={{ padding: "24px 18px 18px", borderBottom: "1px solid rgba(0,212,255,0.08)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+              <div style={{
+                width: 40, height: 40,
+                border: "1px solid rgba(0,212,255,0.4)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 18, color: "#00d4ff",
+                background: "rgba(0,212,255,0.06)",
+                clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                animation: "pulse-glow 3s ease-in-out infinite",
+                boxShadow: "0 0 20px rgba(0,212,255,0.2)",
+              }}>Ω</div>
               <div>
-                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 14, fontWeight: 700, color: "#ede9fe", letterSpacing: 0.02 }}>ArcaneOS</div>
-                <div style={{ fontSize: 9, color: "rgba(168,85,247,0.5)", letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: "'Space Mono', monospace", marginTop: 2 }}>Admin Console</div>
+                <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 13, fontWeight: 700, color: "#e0f7ff", letterSpacing: "0.05em", animation: "glitchShift 8s infinite" }}>ArcaneOS</div>
+                <div style={{ fontSize: 7, color: "rgba(0,212,255,0.4)", letterSpacing: "0.22em", textTransform: "uppercase", marginTop: 2 }}>Admin Console v2.0</div>
+              </div>
+            </div>
+
+            {/* Boot progress */}
+            <div style={{ marginTop: 4 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 7, color: "rgba(0,212,255,0.35)", letterSpacing: "0.15em" }}>SYS INTEGRITY</span>
+                <span style={{ fontSize: 7, color: "#00ff88", letterSpacing: "0.1em", fontFamily: "'Orbitron', monospace" }}>{bootSeq}%</span>
+              </div>
+              <div style={{ height: 2, background: "rgba(0,212,255,0.1)", borderRadius: 1 }}>
+                <div style={{ height: "100%", width: `${bootSeq}%`, background: "linear-gradient(90deg, #00d4ff, #00ff88)", boxShadow: "0 0 8px #00d4ff", borderRadius: 1, transition: "width 0.1s" }} />
               </div>
             </div>
           </div>
 
-          {/* time crystal */}
-          <div style={{ margin: "16px 16px 8px", background: "rgba(168,85,247,0.04)", border: "1px solid rgba(168,85,247,0.1)", borderRadius: 14, padding: "12px 16px" }}>
-            <div style={{ fontFamily: "'Space Mono', monospace", fontSize: 18, fontWeight: 700, color: "#c084fc", letterSpacing: "0.05em", textShadow: "0 0 20px rgba(168,85,247,0.6)" }}>{timeStr}</div>
-            <div style={{ fontSize: 10, color: "rgba(148,163,184,0.4)", marginTop: 2 }}>{dateStr}</div>
+          {/* Clock */}
+          <div style={{ margin: "12px 14px", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3, padding: "10px 14px" }}>
+            <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 20, fontWeight: 700, color: "#00d4ff", letterSpacing: "0.06em", textShadow: "0 0 20px rgba(0,212,255,0.5)" }}>
+              {timeStr}
+            </div>
+            <div style={{ fontSize: 8, color: "rgba(0,212,255,0.35)", marginTop: 3, letterSpacing: "0.1em" }}>{dateStr.toUpperCase()}</div>
           </div>
 
-          <div className="section-divider" />
-
-          {/* nav */}
-          <div style={{ padding: "0 0 8px", flex: 1 }}>
-            <div style={{ fontSize: 8, color: "rgba(148,163,184,0.2)", letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Space Mono', monospace", padding: "0 22px 8px" }}>Navigation</div>
+          {/* Nav */}
+          <div style={{ flex: 1, padding: "8px 0" }}>
+            <div style={{ fontSize: 7, color: "rgba(0,212,255,0.2)", letterSpacing: "0.25em", textTransform: "uppercase", padding: "0 18px 8px" }}>Navigation</div>
             {TABS.map(t => (
               <NavTab key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} count={t.count} icon={t.icon} />
             ))}
           </div>
 
-          <div className="section-divider" />
-
-          {/* system status */}
-          <div style={{ padding: "14px 20px 24px" }}>
-            <div style={{ fontSize: 8, color: "rgba(148,163,184,0.2)", letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Space Mono', monospace", marginBottom: 12 }}>System</div>
-            {[["API", "#34d399"], ["Database", "#34d399"], ["Auth Layer", "#fbbf24"]].map(([name, col]) => (
-              <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 11, color: "rgba(148,163,184,0.4)" }}>{name}</span>
+          {/* System status */}
+          <div style={{ padding: "12px 18px 20px", borderTop: "1px solid rgba(0,212,255,0.06)" }}>
+            <div style={{ fontSize: 7, color: "rgba(0,212,255,0.2)", letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: 10 }}>Systems</div>
+            {[["API Gateway", "#00ff88", "NOMINAL"], ["Database", "#00ff88", "ONLINE"], ["Auth Layer", "#ffd700", "STANDBY"]].map(([name, col, status]) => (
+              <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 7 }}>
+                <span style={{ fontSize: 9, color: "rgba(0,212,255,0.4)" }}>{name}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: col, boxShadow: `0 0 8px ${col}`, animation: "pulse-glow 2s infinite" }} />
-                  <span style={{ fontSize: 9, color: col + "aa", fontFamily: "'Space Mono', monospace" }}>live</span>
+                  <div style={{ width: 4, height: 4, borderRadius: "50%", background: col, boxShadow: `0 0 8px ${col}`, animation: "pulse-glow 2s infinite" }} />
+                  <span style={{ fontSize: 7, color: col + "aa", letterSpacing: "0.08em" }}>{status}</span>
                 </div>
               </div>
             ))}
@@ -981,109 +1081,155 @@ export default function AdminDashboard() {
 
         {/* ── MAIN ── */}
         <main className="main-content">
-          {/* topbar */}
+          {/* Topbar */}
           <div className="topbar">
-            <div>
-              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1, textShadow: "0 0 40px rgba(168,85,247,0.4)" }}>
-                {TABS.find(t => t.id === tab)?.icon} {TABS.find(t => t.id === tab)?.label}
-              </h1>
-              <div style={{ fontSize: 11, color: "rgba(148,163,184,0.4)", marginTop: 5, fontFamily: "'Space Mono', monospace" }}>ArcaneOS · Admin Intelligence Layer</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ color: "#00d4ff", fontSize: 14, fontFamily: "'Share Tech Mono', monospace" }}>{TABS.find(t => t.id === tab)?.icon}</span>
+                <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.08em", lineHeight: 1, textShadow: "0 0 30px rgba(0,212,255,0.4)" }}>
+                  {TABS.find(t => t.id === tab)?.label}
+                </h1>
+              </div>
+              <div style={{ fontSize: 8, color: "rgba(0,212,255,0.3)", letterSpacing: "0.18em" }}>ARCANEOS · INTELLIGENCE LAYER · CLASSIFIED</div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              {error && <span style={{ fontSize: 11, color: "#f87171", fontFamily: "'Space Mono', monospace" }}>⚠ {error}</span>}
-              <button onClick={refetch} className="refetch-btn">↺ Refresh</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              {error && <span style={{ fontSize: 9, color: "#ff3366", fontFamily: "'Share Tech Mono', monospace" }}>⚠ ERR: {error}</span>}
+              <button onClick={refetch} className="refetch-btn">↺ REFRESH</button>
               <div style={{
-                width: 36, height: 36, borderRadius: "50%",
-                background: "linear-gradient(135deg, rgba(88,28,135,0.8), rgba(168,85,247,0.9))",
-                border: "1px solid rgba(168,85,247,0.4)",
+                width: 34, height: 34,
+                background: "rgba(0,212,255,0.1)",
+                border: "1px solid rgba(0,212,255,0.35)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 14, color: "#fff",
-                boxShadow: "0 0 20px rgba(168,85,247,0.3)",
+                fontSize: 13, color: "#00d4ff", fontFamily: "'Orbitron', monospace",
+                clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                boxShadow: "0 0 20px rgba(0,212,255,0.2)",
               }}>W</div>
             </div>
           </div>
 
-          {/* ── OVERVIEW TAB ── */}
+          {/* ═══════════════ OVERVIEW TAB ═══════════════ */}
           {tab === "overview" && (
             <div>
-              {loading ? <CrystalLoader /> : m && (
+              {loading ? <HoloLoader /> : m && (
                 <>
-                  <div className="section-heading">Overview</div>
+                  <div className="section-heading">Mission Status</div>
 
-                  {/* metric cards grid */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
-                    <CrystalCard label="Total Users" value={m.users.total} icon="⬡" color="#a855f7" sub={`${m.users.paid} paid`} trend={12} spark={m.signup_trend?.map(d => d.signups)} delay={0} />
-                    <CrystalCard label="MRR" value={`$${m.revenue.mrr}`} icon="◎" color="#34d399" sub="monthly recurring" trend={8} delay={80} />
-                    <CrystalCard label="ARR" value={`$${(m.revenue.arr).toLocaleString()}`} icon="↑" color="#818cf8" sub="annualized revenue" trend={15} delay={160} />
-                    <CrystalCard label="Tasks Today" value={m.tasks.created_today} icon="✦" color="#fbbf24" sub={`${m.tasks.completion_rate}% complete`} trend={5} delay={240} />
+                  {/* Metric cards — each tells a different story */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+                    <HoloCard
+                      label="Total Users" value={m.users.total} icon="⬡" color="#00d4ff"
+                      sub={`${m.users.paid} paid · ${m.users.trialing} trialing`}
+                      trend={12} delay={0} accentShape="ring"
+                      story="NETWORK GROWTH NOMINAL"
+                    />
+                    <HoloCard
+                      label="MRR" value={`$${m.revenue.mrr}`} icon="◎" color="#00ff88"
+                      sub="Monthly Recurring Revenue"
+                      trend={8} delay={80} accentShape="hex"
+                      story="CASHFLOW STREAM ACTIVE"
+                    />
+                    <HoloCard
+                      label="ARR" value={`$${m.revenue.arr?.toLocaleString()}`} icon="↑" color="#a855f7"
+                      sub="Annualized Run Rate"
+                      trend={15} delay={160} accentShape="cross"
+                      story="PROJECTION TRAJECTORY ↑"
+                    />
+                    <HoloCard
+                      label="Tasks Today" value={m.tasks.created_today} icon="✦" color="#ffd700"
+                      sub={`${m.tasks.completion_rate}% completion rate`}
+                      trend={5} delay={240} accentShape="ring"
+                      story="OPERATIONS RUNNING HOT"
+                    />
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 16, marginBottom: 20 }}>
-                    {/* signup trend */}
-                    <GlassPanel>
-                      <div className="panel-title">Signup Velocity</div>
-                      <SignupTrend data={m.signup_trend} />
-                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10, fontSize: 10, color: "rgba(148,163,184,0.3)", fontFamily: "'Space Mono', monospace" }}>
-                        <span>{m.signup_trend[0]?.date}</span><span>Today</span>
-                      </div>
-                    </GlassPanel>
+                  {/* Main panels row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr", gap: 14, marginBottom: 16 }}>
 
-                    {/* subscription split */}
-                    <GlassPanel>
-                      <div className="panel-title">Subscription Split</div>
+                    {/* Signup trend — tells story of growth */}
+                    <HoloPanel title="Signup Velocity — Live Feed" accent="#00d4ff">
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ display: "flex", gap: 20, marginBottom: 14 }}>
+                          <div>
+                            <div style={{ fontSize: 8, color: "rgba(0,212,255,0.35)", letterSpacing: "0.15em", marginBottom: 4 }}>PEAK DAY</div>
+                            <div style={{ fontSize: 16, fontFamily: "'Orbitron', monospace", color: "#00d4ff", textShadow: "0 0 15px rgba(0,212,255,0.5)" }}>
+                              {m.signup_trend ? Math.max(...m.signup_trend.map(d => d.signups)) : "—"}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 8, color: "rgba(0,212,255,0.35)", letterSpacing: "0.15em", marginBottom: 4 }}>30D TOTAL</div>
+                            <div style={{ fontSize: 16, fontFamily: "'Orbitron', monospace", color: "#00ff88", textShadow: "0 0 15px rgba(0,255,136,0.5)" }}>
+                              {m.signup_trend ? m.signup_trend.reduce((a, d) => a + d.signups, 0) : "—"}
+                            </div>
+                          </div>
+                          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 8, color: "#00ff88", fontFamily: "'Share Tech Mono', monospace" }}>
+                              <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#00ff88", animation: "pulse-glow 1s infinite" }} />
+                              LIVE
+                            </div>
+                          </div>
+                        </div>
+                        <HoloSparkline values={m.signup_trend?.map(d => d.signups)} color="#00d4ff" height={80} />
+                        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 7, color: "rgba(0,212,255,0.25)" }}>
+                          <span>{m.signup_trend?.[0]?.date}</span><span>TODAY</span>
+                        </div>
+                      </div>
+                    </HoloPanel>
+
+                    {/* Subscription breakdown — tactical breakdown */}
+                    <HoloPanel title="Subscriber Intelligence" accent="#00ff88">
                       {[
-                        { label: "Paid",      count: m.users.paid,      color: "#34d399", total: m.users.total },
-                        { label: "Trialing",  count: m.users.trialing,  color: "#fbbf24", total: m.users.total },
-                        { label: "Cancelled", count: m.users.cancelled, color: "#f87171", total: m.users.total },
-                        { label: "Exempt",    count: m.users.exempt,    color: "#a855f7", total: m.users.total },
-                      ].map(({ label, count, color, total }) => {
-                        const pct = total ? Math.round((count / total) * 100) : 0;
+                        { label: "Paid",      count: m.users.paid,      color: "#00ff88" },
+                        { label: "Trialing",  count: m.users.trialing,  color: "#ffd700" },
+                        { label: "Cancelled", count: m.users.cancelled, color: "#ff3366" },
+                        { label: "Exempt",    count: m.users.exempt,    color: "#a855f7" },
+                      ].map(({ label, count, color }) => {
+                        const pct = m.users.total ? Math.round((count / m.users.total) * 100) : 0;
                         return (
-                          <div key={label} style={{ marginBottom: 16 }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                                <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, boxShadow: `0 0 8px ${color}` }} />
-                                <span style={{ fontSize: 12, color: "rgba(148,163,184,0.55)" }}>{label}</span>
+                          <div key={label} style={{ marginBottom: 14 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5, alignItems: "center" }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <div style={{ width: 5, height: 5, background: color, boxShadow: `0 0 8px ${color}`, clipPath: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)" }} />
+                                <span style={{ fontSize: 9, color: "rgba(0,212,255,0.5)", letterSpacing: "0.1em" }}>{label.toUpperCase()}</span>
                               </div>
                               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontSize: 10, color: "rgba(148,163,184,0.3)", fontFamily: "'Space Mono', monospace" }}>{pct}%</span>
-                                <span style={{ fontSize: 14, color, fontWeight: 700, minWidth: 30, textAlign: "right", textShadow: `0 0 8px ${color}80` }}>{count}</span>
+                                <span style={{ fontSize: 8, color: "rgba(0,212,255,0.25)" }}>{pct}%</span>
+                                <span style={{ fontSize: 14, color, fontWeight: 700, fontFamily: "'Orbitron', monospace", textShadow: `0 0 10px ${color}80` }}>{count}</span>
                               </div>
                             </div>
-                            <div style={{ height: 4, background: "rgba(168,85,247,0.06)", borderRadius: 4, overflow: "hidden" }}>
-                              <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${color}50, ${color})`, borderRadius: 4, transition: "width 0.8s cubic-bezier(0.4,0,0.2,1)", boxShadow: `0 0 10px ${color}50` }} />
+                            <div style={{ height: 3, background: "rgba(0,212,255,0.06)", borderRadius: 1, overflow: "hidden" }}>
+                              <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${color}40, ${color})`, borderRadius: 1, transition: "width 1s cubic-bezier(0.4,0,0.2,1)", boxShadow: `0 0 8px ${color}50` }} />
                             </div>
                           </div>
                         );
                       })}
 
-                      {/* users by role */}
-                      <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid rgba(168,85,247,0.08)" }}>
-                        <div className="panel-title" style={{ marginBottom: 12 }}>Users by Role</div>
-                        {Object.entries(m.users.by_role).map(([role, count]) => (
-                          <div key={role} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                            <span style={{ fontSize: 12, color: "rgba(148,163,184,0.4)", textTransform: "capitalize" }}>{role}</span>
-                            <span style={{ fontSize: 14, color: "rgba(168,85,247,0.7)", fontWeight: 700, fontFamily: "'Space Mono', monospace" }}>{count}</span>
+                      <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(0,212,255,0.06)" }}>
+                        <div style={{ fontSize: 8, color: "rgba(0,212,255,0.3)", letterSpacing: "0.2em", marginBottom: 10 }}>ROLE MATRIX</div>
+                        {Object.entries(m.users.by_role || {}).map(([role, count]) => (
+                          <div key={role} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <span style={{ fontSize: 9, color: "rgba(0,212,255,0.4)", textTransform: "uppercase", letterSpacing: "0.1em" }}>{role}</span>
+                            <span style={{ fontSize: 12, color: "#00d4ff", fontWeight: 700, fontFamily: "'Orbitron', monospace" }}>{count}</span>
                           </div>
                         ))}
                       </div>
-                    </GlassPanel>
+                    </HoloPanel>
                   </div>
 
-                  {/* stat row */}
+                  {/* Stat strip */}
+                  <div className="section-heading">Telemetry</div>
                   <div className="stat-row">
                     {[
-                      { label: "New This Week",   value: m.users.new_this_week,                color: "#a855f7" },
-                      { label: "New This Month",  value: m.users.new_this_month,               color: "#a855f7" },
-                      { label: "Tasks Today",     value: m.tasks.created_today,                color: "#34d399" },
-                      { label: "Completion Rate", value: `${m.tasks.completion_rate}%`,        color: "#34d399" },
-                      { label: "MRR",             value: `$${m.revenue.mrr}`,                  color: "#fbbf24" },
-                      { label: "QRR",             value: `$${m.revenue.qrr}`,                  color: "#fbbf24" },
-                      { label: "ARR",             value: `$${m.revenue.arr.toLocaleString()}`, color: "#fbbf24" },
+                      { label: "New / Week",    value: m.users.new_this_week,                color: "#00d4ff" },
+                      { label: "New / Month",   value: m.users.new_this_month,               color: "#00d4ff" },
+                      { label: "Tasks Today",   value: m.tasks.created_today,                color: "#00ff88" },
+                      { label: "Completion",    value: `${m.tasks.completion_rate}%`,        color: "#00ff88" },
+                      { label: "MRR",           value: `$${m.revenue.mrr}`,                  color: "#ffd700" },
+                      { label: "QRR",           value: `$${m.revenue.qrr}`,                  color: "#ffd700" },
+                      { label: "ARR",           value: `$${(m.revenue.arr||0).toLocaleString()}`, color: "#ffd700" },
                     ].map(({ label, value, color }, i) => (
-                      <div key={label} className="stat-item" style={{ animationDelay: `${i * 50}ms` }}>
+                      <div key={label} className="stat-item" style={{ animationDelay: `${i * 50}ms`, animation: "holoRise 0.6s cubic-bezier(0.16,1,0.3,1) both" }}>
                         <div className="stat-label">{label}</div>
-                        <div className="stat-val" style={{ color, textShadow: `0 0 16px ${color}80` }}>{value}</div>
+                        <div className="stat-val" style={{ color, textShadow: `0 0 14px ${color}80` }}>{value}</div>
                       </div>
                     ))}
                   </div>
@@ -1092,65 +1238,70 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* ── REVENUE TAB ── */}
+          {/* ═══════════════ REVENUE TAB ═══════════════ */}
           {tab === "revenue" && (
             <div>
-              {loading ? <CrystalLoader /> : m && (
+              {loading ? <HoloLoader /> : m && (
                 <>
-                  <div className="section-heading">Revenue</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 24 }}>
-                    <CrystalCard label="MRR" value={`$${m.revenue.mrr}`} icon="◎" color="#34d399" sub={`${m.users.paid} paid users`} delay={0} />
-                    <CrystalCard label="ARR" value={`$${m.revenue.arr.toLocaleString()}`} icon="↑" color="#a855f7" sub="annualized" delay={80} />
-                    <CrystalCard label="QRR" value={`$${m.revenue.qrr}`} icon="◈" color="#fbbf24" sub="this quarter" delay={160} />
-                    <CrystalCard label="Plan Price" value={`$${m.revenue.plan_price}/mo`} icon="✦" color="#818cf8" sub="per user" delay={240} />
+                  <div className="section-heading">Financial Intelligence</div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+                    <HoloCard label="MRR" value={`$${m.revenue.mrr}`} icon="◎" color="#00ff88" sub={`${m.users.paid} active accounts`} delay={0} story="MONTHLY REVENUE STREAM" accentShape="ring" />
+                    <HoloCard label="ARR" value={`$${(m.revenue.arr||0).toLocaleString()}`} icon="↑" color="#00d4ff" sub="Annualized run rate" delay={80} story="12-MONTH PROJECTION" accentShape="hex" />
+                    <HoloCard label="QRR" value={`$${m.revenue.qrr}`} icon="◈" color="#ffd700" sub="This quarter" delay={160} story="QUARTERLY VELOCITY" accentShape="cross" />
+                    <HoloCard label="Per User" value={`$${m.revenue.plan_price}/mo`} icon="✦" color="#a855f7" sub="Plan price" delay={240} story="UNIT ECONOMICS STABLE" accentShape="ring" />
                   </div>
 
-                  <GlassPanel style={{ marginBottom: 16 }}>
-                    <div className="panel-title">Monthly Revenue — Last 12 Months</div>
-                    <CrystalBarChart data={m.revenue.monthly_breakdown} />
-                    <div style={{ marginTop: 28 }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", padding: "6px 0 10px", borderBottom: "1px solid rgba(168,85,247,0.08)" }}>
+                  <HoloPanel title="Revenue Timeline — 12 Month Arc" accent="#00ff88" style={{ marginBottom: 14 }}>
+                    <HoloBarChart data={m.revenue.monthly_breakdown} />
+
+                    <div style={{ marginTop: 24 }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", padding: "5px 0 10px", borderBottom: "1px solid rgba(0,212,255,0.07)" }}>
                         {["Month", "New Paid", "Revenue"].map(h => (
-                          <div key={h} style={{ fontSize: 9, color: "rgba(168,85,247,0.45)", textTransform: "uppercase", letterSpacing: "0.14em", fontFamily: "'Space Mono', monospace" }}>{h}</div>
+                          <div key={h} style={{ fontSize: 7, color: "rgba(0,212,255,0.35)", textTransform: "uppercase", letterSpacing: "0.18em" }}>{h}</div>
                         ))}
                       </div>
-                      {[...m.revenue.monthly_breakdown].reverse().slice(0, 8).map((d, i) => (
-                        <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", padding: "12px 0", borderBottom: "1px solid rgba(168,85,247,0.05)", fontSize: 13 }}>
-                          <span style={{ color: "rgba(148,163,184,0.45)" }}>{d.month}</span>
-                          <span style={{ color: "rgba(148,163,184,0.35)", fontFamily: "'Space Mono', monospace" }}>{d.new_paid}</span>
-                          <span style={{ color: d.revenue > 0 ? "#34d399" : "rgba(148,163,184,0.2)", fontWeight: 700, fontFamily: "'Space Mono', monospace", textShadow: d.revenue > 0 ? "0 0 8px rgba(52,211,153,0.4)" : "none" }}>${d.revenue.toFixed(2)}</span>
+                      {[...( m.revenue.monthly_breakdown || [])].reverse().slice(0, 8).map((d, i) => (
+                        <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", padding: "10px 0", borderBottom: "1px solid rgba(0,212,255,0.04)", fontSize: 11 }}>
+                          <span style={{ color: "rgba(0,212,255,0.4)", fontFamily: "'Share Tech Mono', monospace" }}>{d.month}</span>
+                          <span style={{ color: "rgba(0,212,255,0.3)", fontFamily: "'Share Tech Mono', monospace" }}>{d.new_paid}</span>
+                          <span style={{ color: d.revenue > 0 ? "#00ff88" : "rgba(0,212,255,0.2)", fontWeight: 700, fontFamily: "'Orbitron', monospace", fontSize: 12, textShadow: d.revenue > 0 ? "0 0 8px rgba(0,255,136,0.4)" : "none" }}>${d.revenue?.toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
-                    <div style={{ marginTop: 18, padding: "12px 16px", background: "rgba(168,85,247,0.04)", borderRadius: 12, border: "1px solid rgba(168,85,247,0.1)", fontSize: 11, color: "rgba(148,163,184,0.35)", fontFamily: "'Space Mono', monospace", lineHeight: 1.8 }}>
-                      ℹ Revenue at ${m.revenue.plan_price}/user/month. Set PLAN_PRICE_USD env var. Connect Lemon Squeezy webhook for real payment data.
+                    <div style={{ marginTop: 16, padding: "10px 14px", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3, fontSize: 9, color: "rgba(0,212,255,0.3)", lineHeight: 1.8, letterSpacing: "0.05em" }}>
+                      ▲ Revenue calculated at ${m.revenue.plan_price}/user/mo. Connect Lemon Squeezy webhook for live payment sync.
                     </div>
-                  </GlassPanel>
+                  </HoloPanel>
                 </>
               )}
             </div>
           )}
 
-          {/* ── USERS TAB ── */}
+          {/* ═══════════════ USERS TAB ═══════════════ */}
           {tab === "users" && (
             <div>
-              <div className="section-heading">Users</div>
-              <GlassPanel><UsersTable /></GlassPanel>
+              <div className="section-heading">User Registry</div>
+              <HoloPanel accent="#00d4ff">
+                <UsersTable />
+              </HoloPanel>
             </div>
           )}
 
-          {/* ── WORKSPACES TAB ── */}
+          {/* ═══════════════ WORKSPACES TAB ═══════════════ */}
           {tab === "workspaces" && (
             <div>
-              <div className="section-heading">Workspaces</div>
-              <GlassPanel><WorkspacesTable /></GlassPanel>
+              <div className="section-heading">Workspace Network</div>
+              <HoloPanel accent="#a855f7">
+                <WorkspacesTable />
+              </HoloPanel>
             </div>
           )}
 
-          {/* ── FEEDBACK TAB ── */}
+          {/* ═══════════════ FEEDBACK TAB ═══════════════ */}
           {tab === "feedback" && (
             <div>
-              <div className="section-heading">Feedback</div>
+              <div className="section-heading">Incoming Transmissions</div>
               <FeedbackTable />
             </div>
           )}
