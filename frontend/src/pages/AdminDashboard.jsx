@@ -357,11 +357,12 @@ function HoloSparkline({ values, color = "#00d4ff", height = 60 }) {
 }
 
 // ── 3D HOLOGRAPHIC BAR CHART ─────────────────────────────────────────────────
-function HoloBarChart({ data }) {
+function HoloBarChart({ data, activeColor }) {
   const [hov, setHov] = useState(null);
   if (!data || !data.length) return null;
   const max = Math.max(...data.map(d => d.revenue), 1);
-  const colors = ["#00d4ff", "#00c8f0", "#00bbe0", "#00afd0", "#00a3c0"];
+  const base = activeColor || "#00d4ff";
+  const colors = [base, base, base, base, base];
 
   return (
     <div style={{ position: "relative" }}>
@@ -540,23 +541,25 @@ function HoloPanel({ children, style = {}, title, accent = "#00d4ff" }) {
 }
 
 // ── NAV TAB ───────────────────────────────────────────────────────────────────
-function NavTab({ label, active, onClick, count, icon }) {
+function NavTab({ label, active, onClick, count, icon, activeColor }) {
+  const ac = activeColor || "#00d4ff";
+  const acRgb = activeColor ? activeColor.replace("rgb(","").replace(")","") : "0,212,255";
   return (
     <div onClick={onClick} style={{
       display: "flex", alignItems: "center", gap: 10,
       padding: "10px 18px 10px 20px",
       cursor: "pointer",
       position: "relative",
-      transition: "all 0.2s",
-      borderLeft: active ? "2px solid #00d4ff" : "2px solid transparent",
-      background: active ? "rgba(0,212,255,0.06)" : "transparent",
+      transition: "all 0.3s",
+      borderLeft: active ? `2px solid ${ac}` : "2px solid transparent",
+      background: active ? `rgba(${acRgb},0.07)` : "transparent",
       marginBottom: 2,
     }}>
-      {active && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: "linear-gradient(180deg, transparent, #00d4ff, #00ff88, transparent)", boxShadow: "0 0 12px #00d4ff" }} />}
-      <span style={{ fontSize: 13, color: active ? "#00d4ff" : "rgba(0,212,255,0.3)", transition: "color 0.2s", fontFamily: "'Share Tech Mono', monospace" }}>{icon}</span>
+      {active && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, transparent, ${ac}, rgba(${acRgb},0.5), transparent)`, boxShadow: `0 0 12px ${ac}`, transition: "background 0.3s, box-shadow 0.3s" }} />}
+      <span style={{ fontSize: 13, color: active ? ac : "rgba(0,212,255,0.3)", transition: "color 0.3s", fontFamily: "'Share Tech Mono', monospace", textShadow: active && activeColor ? `0 0 10px ${ac}` : "none" }}>{icon}</span>
       <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? "#e0f7ff" : "rgba(150,200,220,0.45)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.08em", flex: 1, transition: "color 0.2s" }}>{label}</span>
       {count !== undefined && (
-        <span style={{ fontSize: 9, color: active ? "#00d4ff" : "rgba(0,212,255,0.3)", background: active ? "rgba(0,212,255,0.12)" : "rgba(0,212,255,0.04)", border: `1px solid ${active ? "rgba(0,212,255,0.35)" : "rgba(0,212,255,0.1)"}`, padding: "1px 6px", borderRadius: 2, fontFamily: "'Share Tech Mono', monospace" }}>{count}</span>
+        <span style={{ fontSize: 9, color: active ? ac : "rgba(0,212,255,0.3)", background: active ? `rgba(${acRgb},0.12)` : "rgba(0,212,255,0.04)", border: `1px solid ${active ? `rgba(${acRgb},0.35)` : "rgba(0,212,255,0.1)"}`, padding: "1px 6px", borderRadius: 2, fontFamily: "'Share Tech Mono', monospace", transition: "all 0.3s" }}>{count}</span>
       )}
     </div>
   );
@@ -838,6 +841,9 @@ export default function AdminDashboard() {
     { id: "feedback",   label: "FEEDBACK",   icon: "◆" },
   ];
 
+  const isRev = tab === "revenue";
+  const rc = revColor; // shorthand
+
   return (
     <div style={{ minHeight: "100vh", background: "#000d1a", color: "#e0f7ff", position: "relative", overflow: "hidden" }}>
       <style>{`
@@ -854,6 +860,7 @@ export default function AdminDashboard() {
             radial-gradient(ellipse 30% 25% at 60% 35%, rgba(0,50,80,0.15) 0%, transparent 70%),
             #000d1a;
           pointer-events: none; z-index: 0;
+          transition: background 0.6s;
         }
 
         /* ── TOP HUD LINE ── */
@@ -863,6 +870,7 @@ export default function AdminDashboard() {
           pointer-events: none; z-index: 50;
           animation: hudScan 4s ease-in-out infinite alternate;
           box-shadow: 0 0 20px #00d4ff, 0 0 40px rgba(0,212,255,0.3);
+          transition: background 0.4s, box-shadow 0.4s;
         }
         @keyframes hudScan {
           0% { opacity: 0.6; }
@@ -880,6 +888,7 @@ export default function AdminDashboard() {
         .scanlines {
           position: fixed; inset: 0; pointer-events: none; z-index: 2;
           background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.012) 2px, rgba(0,212,255,0.012) 4px);
+          transition: background 0.4s;
         }
 
         /* ── ANIMATIONS ── */
@@ -1057,15 +1066,31 @@ export default function AdminDashboard() {
       `}</style>
 
       {/* Background layers */}
-      <div className="space-bg" />
+      <div className="space-bg" style={isRev ? {
+        background: `
+          radial-gradient(ellipse 80% 60% at 20% 15%, rgba(${rc.rgb},0.12) 0%, transparent 55%),
+          radial-gradient(ellipse 60% 50% at 80% 80%, rgba(${rc.rgb},0.09) 0%, transparent 55%),
+          radial-gradient(ellipse 40% 35% at 55% 40%, rgba(${rc.rgb},0.06) 0%, transparent 65%),
+          radial-gradient(ellipse 100% 100% at 50% 50%, rgba(${rc.rgb},0.04) 0%, transparent 80%),
+          #000d1a`
+      } : {}} />
       <div className="vignette" />
-      <div className="scanlines" />
-      <div className="hud-topline" />
+      <div className="scanlines" style={isRev ? {
+        background: `repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(${rc.rgb},0.018) 2px, rgba(${rc.rgb},0.018) 4px)`
+      } : {}} />
+      <div className="hud-topline" style={isRev ? {
+        background: `linear-gradient(90deg, transparent 0%, ${rc.hex} 20%, rgba(${rc.rgb},0.6) 50%, ${rc.hex} 80%, transparent 100%)`,
+        boxShadow: `0 0 24px ${rc.hex}, 0 0 50px rgba(${rc.rgb},0.4)`,
+        height: 3,
+      } : {}} />
       <HoloGrid />
 
       <div className="dashboard-root">
         {/* ── SIDEBAR ── */}
-        <aside className="sidebar">
+        <aside className="sidebar" style={isRev ? {
+          borderRight: `1px solid rgba(${rc.rgb},0.25)`,
+          boxShadow: `4px 0 40px rgba(${rc.rgb},0.06)`,
+        } : {}}>
           {/* Logo block */}
           <div style={{ padding: "24px 18px 18px", borderBottom: "1px solid rgba(0,212,255,0.08)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
@@ -1109,7 +1134,7 @@ export default function AdminDashboard() {
           <div style={{ flex: 1, padding: "8px 0" }}>
             <div style={{ fontSize: 7, color: "rgba(0,212,255,0.2)", letterSpacing: "0.25em", textTransform: "uppercase", padding: "0 18px 8px" }}>Navigation</div>
             {TABS.map(t => (
-              <NavTab key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} count={t.count} icon={t.icon} />
+              <NavTab key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} count={t.count} icon={t.icon} activeColor={t.id === "revenue" && tab === "revenue" ? rc.hex : undefined} />
             ))}
           </div>
 
@@ -1163,27 +1188,35 @@ export default function AdminDashboard() {
         {/* ── MAIN ── */}
         <main className="main-content">
           {/* Topbar */}
-          <div className="topbar">
+          <div className="topbar" style={isRev ? {
+            borderBottom: `1px solid rgba(${rc.rgb},0.18)`,
+            boxShadow: `0 1px 0 rgba(${rc.rgb},0.1), 0 4px 30px rgba(${rc.rgb},0.05)`,
+          } : {}}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ color: "#00d4ff", fontSize: 14, fontFamily: "'Share Tech Mono', monospace" }}>{TABS.find(t => t.id === tab)?.icon}</span>
-                <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.08em", lineHeight: 1, textShadow: "0 0 30px rgba(0,212,255,0.4)" }}>
+                <span style={{ color: isRev ? rc.hex : "#00d4ff", fontSize: 14, fontFamily: "'Share Tech Mono', monospace", textShadow: isRev ? `0 0 14px ${rc.hex}` : "none", transition: "color 0.4s, text-shadow 0.4s" }}>{TABS.find(t => t.id === tab)?.icon}</span>
+                <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.08em", lineHeight: 1, textShadow: isRev ? `0 0 30px rgba(${rc.rgb},0.7), 0 0 60px rgba(${rc.rgb},0.3)` : "0 0 30px rgba(0,212,255,0.4)", transition: "text-shadow 0.4s" }}>
                   {TABS.find(t => t.id === tab)?.label}
                 </h1>
               </div>
-              <div style={{ fontSize: 8, color: "rgba(0,212,255,0.3)", letterSpacing: "0.18em" }}>ARCANEOS · INTELLIGENCE LAYER · CLASSIFIED</div>
+              <div style={{ fontSize: 8, color: isRev ? `rgba(${rc.rgb},0.4)` : "rgba(0,212,255,0.3)", letterSpacing: "0.18em", transition: "color 0.4s" }}>ARCANEOS · INTELLIGENCE LAYER · CLASSIFIED</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               {error && <span style={{ fontSize: 9, color: "#ff3366", fontFamily: "'Share Tech Mono', monospace" }}>⚠ ERR: {error}</span>}
-              <button onClick={refetch} className="refetch-btn">↺ REFRESH</button>
+              <button onClick={refetch} className="refetch-btn" style={isRev ? {
+                borderColor: `rgba(${rc.rgb},0.3)`,
+                color: rc.hex,
+                background: `rgba(${rc.rgb},0.07)`,
+              } : {}}>↺ REFRESH</button>
               <div style={{
                 width: 34, height: 34,
-                background: "rgba(0,212,255,0.1)",
-                border: "1px solid rgba(0,212,255,0.35)",
+                background: isRev ? `rgba(${rc.rgb},0.12)` : "rgba(0,212,255,0.1)",
+                border: `1px solid ${isRev ? `rgba(${rc.rgb},0.45)` : "rgba(0,212,255,0.35)"}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 13, color: "#00d4ff", fontFamily: "'Orbitron', monospace",
+                fontSize: 13, color: isRev ? rc.hex : "#00d4ff", fontFamily: "'Orbitron', monospace",
                 clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-                boxShadow: "0 0 20px rgba(0,212,255,0.2)",
+                boxShadow: isRev ? `0 0 20px rgba(${rc.rgb},0.3)` : "0 0 20px rgba(0,212,255,0.2)",
+                transition: "all 0.4s",
               }}>W</div>
             </div>
           </div>
@@ -1321,10 +1354,46 @@ export default function AdminDashboard() {
 
           {/* ═══════════════ REVENUE TAB ═══════════════ */}
           {tab === "revenue" && (
-            <div>
+            <div style={{ position: "relative" }}>
+              {/* Full-page aurora layer — covers entire revenue content area */}
+              <div style={{
+                position: "fixed", inset: 0, pointerEvents: "none", zIndex: 1,
+                background: `
+                  radial-gradient(ellipse 60% 40% at 70% 20%, rgba(${rc.rgb},0.07) 0%, transparent 60%),
+                  radial-gradient(ellipse 50% 50% at 20% 80%, rgba(${rc.rgb},0.05) 0%, transparent 60%),
+                  radial-gradient(ellipse 80% 30% at 50% 50%, rgba(${rc.rgb},0.03) 0%, transparent 70%)
+                `,
+                transition: "background 0.3s",
+              }} />
+              {/* Animated corner scanner lines */}
+              <div style={{
+                position: "fixed", top: 0, left: 220, right: 0, height: "100vh",
+                pointerEvents: "none", zIndex: 2, overflow: "hidden",
+              }}>
+                {/* Horizontal sweep line */}
+                <div style={{
+                  position: "absolute", left: 0, right: 0, height: 1,
+                  background: `linear-gradient(90deg, transparent, rgba(${rc.rgb},0.15), transparent)`,
+                  animation: "dataStream 6s linear infinite",
+                  boxShadow: `0 0 8px rgba(${rc.rgb},0.2)`,
+                }} />
+                {/* Corner bracket TL */}
+                <div style={{ position: "absolute", top: 80, left: 28, width: 24, height: 24, borderTop: `1px solid rgba(${rc.rgb},0.4)`, borderLeft: `1px solid rgba(${rc.rgb},0.4)` }} />
+                {/* Corner bracket BR */}
+                <div style={{ position: "absolute", bottom: 40, right: 28, width: 24, height: 24, borderBottom: `1px solid rgba(${rc.rgb},0.4)`, borderRight: `1px solid rgba(${rc.rgb},0.4)` }} />
+                {/* Vertical edge glow left */}
+                <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 1, background: `linear-gradient(180deg, transparent, rgba(${rc.rgb},0.25), rgba(${rc.rgb},0.1), transparent)` }} />
+              </div>
+
               {loading ? <HoloLoader /> : m && (
                 <>
-                  <div className="section-heading">Financial Intelligence</div>
+                  <div className="section-heading" style={{ color: `rgba(${rc.rgb},0.55)` }}>
+                    <style>{`
+                      .rev-section::before { color: ${rc.hex} !important; }
+                      .rev-section::after { background: linear-gradient(90deg, rgba(${rc.rgb},0.3), transparent) !important; }
+                    `}</style>
+                    Financial Intelligence
+                  </div>
 
                   {/* All four metric cards share the same slowly-cycling color */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
@@ -1363,7 +1432,7 @@ export default function AdminDashboard() {
                       <div style={{ flex: 1, height: 1, background: `rgba(${revColor.rgb},0.2)` }} />
                     </div>
 
-                    <HoloBarChart data={m.revenue.monthly_breakdown} />
+                    <HoloBarChart data={m.revenue.monthly_breakdown} activeColor={revColor.hex} />
 
                     <div style={{ marginTop: 24 }}>
                       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", padding: "5px 0 10px", borderBottom: "1px solid rgba(0,212,255,0.07)" }}>
@@ -1382,6 +1451,22 @@ export default function AdminDashboard() {
                     <div style={{ marginTop: 16, padding: "10px 14px", background: `rgba(${revColor.rgb},0.03)`, border: `1px solid rgba(${revColor.rgb},0.1)`, borderRadius: 3, fontSize: 9, color: `rgba(${revColor.rgb},0.4)`, lineHeight: 1.8, letterSpacing: "0.05em" }}>
                       ▲ Revenue calculated at ${m.revenue.plan_price}/user/mo. Connect Lemon Squeezy webhook for live payment sync.
                     </div>
+                  </div>
+
+                  {/* ── Animated bottom status bar ── */}
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 16,
+                    padding: "10px 16px",
+                    background: `rgba(${rc.rgb},0.03)`,
+                    border: `1px solid rgba(${rc.rgb},0.12)`,
+                    borderRadius: 3,
+                    marginTop: 6,
+                    clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+                  }}>
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: rc.hex, boxShadow: `0 0 12px ${rc.hex}`, animation: "pulse-glow 1.5s infinite" }} />
+                    <span style={{ fontSize: 8, color: `rgba(${rc.rgb},0.5)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace" }}>FINANCIAL SYSTEMS NOMINAL · REVENUE ENGINE ACTIVE · DATA STREAM LIVE</span>
+                    <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, rgba(${rc.rgb},0.2), transparent)` }} />
+                    <span style={{ fontSize: 8, color: `rgba(${rc.rgb},0.35)`, fontFamily: "'Orbitron', monospace" }}>{new Date().toISOString().slice(0,19).replace("T"," ")}</span>
                   </div>
                 </>
               )}
