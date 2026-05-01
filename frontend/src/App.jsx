@@ -4577,7 +4577,7 @@ function FeedbackButton({ user, token, currentPage }) {
 
 // ── Billing Wall (Segment 15) ─────────────────────────────────────────────────
 
-const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || "wahaj@acedengroup.com").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
 
 function formatCardNumber(v) {
   return v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
@@ -5017,26 +5017,17 @@ function AuthenticatedApp() {
 }
 
 // ── Router — decides which page to show ──────────────────────────────────────
-const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "wahaj@acedengroup.com")
-  .split(",").map(e => e.trim().toLowerCase());
-
 function AppRouter() {
   const { isAuthenticated, loading, user } = useAuth();
 
-  // Show spinner while auth state is being restored from storage
   if (loading) return <AppLoader />;
-
-  // Not logged in → show auth page
-  if (!isAuthenticated) {
-    return <AuthPage />;
-  }
+  if (!isAuthenticated) return <AuthPage />;
 
   // Super-admin → show admin dashboard, bypass all other pages
   if (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
     return <AdminDashboard />;
   }
 
-  // Logged in → Onboarding → Billing → Dashboard (all handled inside AuthenticatedApp)
   return <AuthenticatedApp />;
 }
 
