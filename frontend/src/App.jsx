@@ -3,6 +3,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";   // ✅ NEW
 import AuthPage from "./pages/AuthPage";                          // ✅ NEW
 import OnboardingPage from "./pages/OnboardingPage";             // ✅ NEW
+import AdminDashboard from "./pages/AdminDashboard";             // ✅ Super-admin
 import { useTasks } from "./hooks/useTasks";
 import KanbanColumn from "./components/KanbanColumn";
 import AddTaskModal from "./components/AddTaskModal";
@@ -5016,8 +5017,11 @@ function AuthenticatedApp() {
 }
 
 // ── Router — decides which page to show ──────────────────────────────────────
+const ADMIN_EMAILS = (import.meta.env.VITE_ADMIN_EMAILS || "wahaj@acedengroup.com")
+  .split(",").map(e => e.trim().toLowerCase());
+
 function AppRouter() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
 
   // Show spinner while auth state is being restored from storage
   if (loading) return <AppLoader />;
@@ -5025,6 +5029,11 @@ function AppRouter() {
   // Not logged in → show auth page
   if (!isAuthenticated) {
     return <AuthPage />;
+  }
+
+  // Super-admin → show admin dashboard, bypass all other pages
+  if (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+    return <AdminDashboard />;
   }
 
   // Logged in → Onboarding → Billing → Dashboard (all handled inside AuthenticatedApp)
