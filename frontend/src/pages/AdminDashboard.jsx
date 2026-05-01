@@ -158,6 +158,9 @@ function HoloCard({ label, value, sub, color = "#00d4ff", icon, trend, delay = 0
   };
 
   const hexToRgb = (hex) => {
+    // Handle rgb(r,g,b) strings passed from the revenue color cycler
+    const rgbMatch = hex.match(/^rgb\((\d+),(\d+),(\d+)\)$/);
+    if (rgbMatch) return `${rgbMatch[1]},${rgbMatch[2]},${rgbMatch[3]}`;
     if (hex === "#00d4ff") return "0,212,255";
     if (hex === "#00ff88") return "0,255,136";
     if (hex === "#ff6b35") return "255,107,53";
@@ -768,6 +771,51 @@ function FeedbackTable() {
   );
 }
 
+// ── REVENUE COLOR CYCLE HOOK ─────────────────────────────────────────────────
+// Slowly cycles through a palette of cyberpunk accent colors for the revenue panel only.
+function useRevenueColor() {
+  const palette = [
+    { hex: "#00ff88", rgb: "0,255,136" },
+    { hex: "#00d4ff", rgb: "0,212,255" },
+    { hex: "#a855f7", rgb: "168,85,247" },
+    { hex: "#ffd700", rgb: "255,215,0" },
+    { hex: "#ff6b35", rgb: "255,107,53" },
+    { hex: "#00ffcc", rgb: "0,255,204" },
+  ];
+  const [t, setT] = useState(0);
+  useEffect(() => {
+    let raf;
+    let start = null;
+    const CYCLE_MS = 6000; // full palette loop every 6 s
+    function tick(now) {
+      if (!start) start = now;
+      // progress 0–1 across the entire palette
+      const progress = ((now - start) % CYCLE_MS) / CYCLE_MS;
+      setT(progress);
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  // Interpolate between two adjacent palette entries
+  const total = palette.length;
+  const scaled = t * total;
+  const idxA = Math.floor(scaled) % total;
+  const idxB = (idxA + 1) % total;
+  const frac = scaled - Math.floor(scaled);
+
+  const lerp = (a, b, f) => Math.round(a + (b - a) * f);
+  const parseRgb = (s) => s.split(",").map(Number);
+  const [r1, g1, b1] = parseRgb(palette[idxA].rgb);
+  const [r2, g2, b2] = parseRgb(palette[idxB].rgb);
+  const r = lerp(r1, r2, frac);
+  const g = lerp(g1, g2, frac);
+  const b = lerp(b1, b2, frac);
+
+  return { hex: `rgb(${r},${g},${b})`, rgb: `${r},${g},${b}` };
+}
+
 // ── MAIN DASHBOARD ────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const [tab, setTab] = useState("overview");
@@ -775,6 +823,7 @@ export default function AdminDashboard() {
   const m = metrics;
   const [time, setTime] = useState(new Date());
   const [bootSeq, setBootSeq] = useState(0);
+  const revColor = useRevenueColor();
   useEffect(() => { const t = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { const t = setInterval(() => setBootSeq(s => s < 100 ? s + 2 : 100), 40); return () => clearInterval(t); }, []);
 
@@ -1277,14 +1326,43 @@ export default function AdminDashboard() {
                 <>
                   <div className="section-heading">Financial Intelligence</div>
 
+                  {/* All four metric cards share the same slowly-cycling color */}
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-                    <HoloCard label="MRR" value={`$${m.revenue.mrr}`} icon="◎" color="#00ff88" sub={`${m.users.paid} active accounts`} delay={0} story="MONTHLY REVENUE STREAM" accentShape="ring" />
-                    <HoloCard label="ARR" value={`$${(m.revenue.arr||0).toLocaleString()}`} icon="↑" color="#00d4ff" sub="Annualized run rate" delay={80} story="12-MONTH PROJECTION" accentShape="hex" />
-                    <HoloCard label="QRR" value={`$${m.revenue.qrr}`} icon="◈" color="#ffd700" sub="This quarter" delay={160} story="QUARTERLY VELOCITY" accentShape="cross" />
-                    <HoloCard label="Per User" value={`$${m.revenue.plan_price}/mo`} icon="✦" color="#a855f7" sub="Plan price" delay={240} story="UNIT ECONOMICS STABLE" accentShape="ring" />
+                    <HoloCard label="MRR"      value={`$${m.revenue.mrr}`}                          icon="◎" color={revColor.hex} sub={`${m.users.paid} active accounts`} delay={0}   story="MONTHLY REVENUE STREAM"   accentShape="ring" />
+                    <HoloCard label="ARR"      value={`$${(m.revenue.arr||0).toLocaleString()}`}    icon="↑" color={revColor.hex} sub="Annualized run rate"               delay={80}  story="12-MONTH PROJECTION"      accentShape="hex"  />
+                    <HoloCard label="QRR"      value={`$${m.revenue.qrr}`}                          icon="◈" color={revColor.hex} sub="This quarter"                      delay={160} story="QUARTERLY VELOCITY"        accentShape="cross"/>
+                    <HoloCard label="Per User" value={`$${m.revenue.plan_price}/mo`}                icon="✦" color={revColor.hex} sub="Plan price"                        delay={240} story="UNIT ECONOMICS STABLE"     accentShape="ring" />
                   </div>
 
-                  <HoloPanel title="Revenue Timeline — 12 Month Arc" accent="#00ff88" style={{ marginBottom: 14 }}>
+                  {/* Revenue timeline panel — border / accents slowly shift color too */}
+                  <div style={{
+                    marginBottom: 14,
+                    background: "linear-gradient(135deg, rgba(0,8,20,0.96) 0%, rgba(0,15,35,0.92) 100%)",
+                    border: `1px solid rgba(${revColor.rgb},0.28)`,
+                    borderRadius: 4,
+                    padding: "20px 22px",
+                    backdropFilter: "blur(20px)",
+                    boxShadow: `0 8px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(${revColor.rgb},0.06), 0 0 40px rgba(${revColor.rgb},0.05), inset 0 0 30px rgba(${revColor.rgb},0.02)`,
+                    position: "relative",
+                    overflow: "hidden",
+                    clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
+                    transition: "box-shadow 0.4s, border-color 0.4s",
+                  }}>
+                    {/* Corner notch */}
+                    <div style={{ position: "absolute", top: 0, right: 10, width: 0, height: 0, borderTop: `10px solid rgba(${revColor.rgb},0.35)`, borderLeft: "10px solid transparent", zIndex: 2 }} />
+                    <div style={{ position: "absolute", bottom: 0, left: 10, width: 0, height: 0, borderBottom: `10px solid rgba(${revColor.rgb},0.35)`, borderRight: "10px solid transparent", zIndex: 2 }} />
+                    {/* Top glow line */}
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${revColor.rgb},0.8), transparent)` }} />
+                    {/* Left accent bar */}
+                    <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, rgba(${revColor.rgb},0.9), rgba(${revColor.rgb},0.15))` }} />
+
+                    {/* Panel title */}
+                    <div style={{ fontSize: 9, color: `rgba(${revColor.rgb},0.75)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 4, height: 4, background: revColor.hex, borderRadius: "50%", boxShadow: `0 0 8px ${revColor.hex}` }} />
+                      Revenue Timeline — 12 Month Arc
+                      <div style={{ flex: 1, height: 1, background: `rgba(${revColor.rgb},0.2)` }} />
+                    </div>
+
                     <HoloBarChart data={m.revenue.monthly_breakdown} />
 
                     <div style={{ marginTop: 24 }}>
@@ -1297,14 +1375,14 @@ export default function AdminDashboard() {
                         <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", padding: "10px 0", borderBottom: "1px solid rgba(0,212,255,0.04)", fontSize: 11 }}>
                           <span style={{ color: "rgba(0,212,255,0.4)", fontFamily: "'Share Tech Mono', monospace" }}>{d.month}</span>
                           <span style={{ color: "rgba(0,212,255,0.3)", fontFamily: "'Share Tech Mono', monospace" }}>{d.new_paid}</span>
-                          <span style={{ color: d.revenue > 0 ? "#00ff88" : "rgba(0,212,255,0.2)", fontWeight: 700, fontFamily: "'Orbitron', monospace", fontSize: 12, textShadow: d.revenue > 0 ? "0 0 8px rgba(0,255,136,0.4)" : "none" }}>${d.revenue?.toFixed(2)}</span>
+                          <span style={{ color: d.revenue > 0 ? revColor.hex : "rgba(0,212,255,0.2)", fontWeight: 700, fontFamily: "'Orbitron', monospace", fontSize: 12, textShadow: d.revenue > 0 ? `0 0 8px rgba(${revColor.rgb},0.5)` : "none" }}>${d.revenue?.toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
-                    <div style={{ marginTop: 16, padding: "10px 14px", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3, fontSize: 9, color: "rgba(0,212,255,0.3)", lineHeight: 1.8, letterSpacing: "0.05em" }}>
+                    <div style={{ marginTop: 16, padding: "10px 14px", background: `rgba(${revColor.rgb},0.03)`, border: `1px solid rgba(${revColor.rgb},0.1)`, borderRadius: 3, fontSize: 9, color: `rgba(${revColor.rgb},0.4)`, lineHeight: 1.8, letterSpacing: "0.05em" }}>
                       ▲ Revenue calculated at ${m.revenue.plan_price}/user/mo. Connect Lemon Squeezy webhook for live payment sync.
                     </div>
-                  </HoloPanel>
+                  </div>
                 </>
               )}
             </div>
