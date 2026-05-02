@@ -31,52 +31,87 @@ function HoloGrid() {
     let t = 0;
     let raf;
 
-    // Scanning lines
-    const scanLines = Array.from({ length: 6 }, (_, i) => ({
-      y: Math.random() * H,
-      speed: 0.4 + Math.random() * 0.6,
-      alpha: 0.04 + Math.random() * 0.06,
-      width: 40 + Math.random() * 80,
+    // Star field
+    const stars = Array.from({ length: 120 }, () => ({
+      x: Math.random() * W, y: Math.random() * H,
+      r: 0.3 + Math.random() * 1.2,
+      alpha: 0.2 + Math.random() * 0.6,
+      twinkle: Math.random() * Math.PI * 2,
+      speed: 0.005 + Math.random() * 0.02,
     }));
 
-    // Floating data nodes
-    const nodes = Array.from({ length: 18 }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      vx: (Math.random() - 0.5) * 0.2, vy: (Math.random() - 0.5) * 0.2,
-      r: 1.5 + Math.random() * 2,
-      hue: Math.random() > 0.5 ? 195 : 280,
-      pulse: Math.random() * Math.PI * 2,
+    // Scan lines
+    const scanLines = Array.from({ length: 5 }, (_, i) => ({
+      y: Math.random() * H,
+      speed: 0.3 + Math.random() * 0.5,
+      alpha: 0.03 + Math.random() * 0.05,
+      width: 60 + Math.random() * 120,
     }));
+
+    // Data nodes — more of them, richer
+    const nodes = Array.from({ length: 28 }, () => ({
+      x: Math.random() * W, y: Math.random() * H,
+      vx: (Math.random() - 0.5) * 0.18, vy: (Math.random() - 0.5) * 0.18,
+      r: 1.2 + Math.random() * 2.5,
+      hue: [195, 160, 280, 45][Math.floor(Math.random() * 4)],
+      pulse: Math.random() * Math.PI * 2,
+      type: Math.random() > 0.7 ? "diamond" : "circle",
+    }));
+
+    // Nebula clouds (static color blobs that shift slightly)
+    const nebulae = [
+      { x: W * 0.15, y: H * 0.25, rx: W * 0.28, ry: H * 0.22, hue: 195, alpha: 0.04 },
+      { x: W * 0.78, y: H * 0.65, rx: W * 0.22, ry: H * 0.28, hue: 280, alpha: 0.035 },
+      { x: W * 0.5,  y: H * 0.1,  rx: W * 0.18, ry: H * 0.15, hue: 160, alpha: 0.025 },
+    ];
 
     function draw() {
       ctx.clearRect(0, 0, W, H);
-      t += 0.006;
+      t += 0.005;
 
-      // Deep space gradient
-      const bg = ctx.createRadialGradient(W * 0.5, H * 0.3, 0, W * 0.5, H * 0.5, W * 0.8);
-      bg.addColorStop(0, "rgba(0,20,40,0.0)");
-      bg.addColorStop(1, "rgba(0,5,15,0.0)");
-      ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+      // Nebula clouds
+      nebulae.forEach(n => {
+        const pulse = Math.sin(t * 0.4 + n.hue) * 0.008;
+        const g = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, Math.max(n.rx, n.ry));
+        g.addColorStop(0, `hsla(${n.hue},100%,55%,${n.alpha + pulse})`);
+        g.addColorStop(0.4, `hsla(${n.hue},80%,45%,${n.alpha * 0.5})`);
+        g.addColorStop(1, `hsla(${n.hue},60%,30%,0)`);
+        ctx.save(); ctx.scale(n.rx / Math.max(n.rx, n.ry), n.ry / Math.max(n.rx, n.ry));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(n.x / (n.rx / Math.max(n.rx, n.ry)), n.y / (n.ry / Math.max(n.rx, n.ry)), Math.max(n.rx, n.ry), 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      });
 
-      // Perspective grid floor
-      const gridAlpha = 0.07;
-      const vanishY = H * 0.55;
-      const gridLines = 24;
-      ctx.strokeStyle = `rgba(0,200,255,${gridAlpha})`;
+      // Stars with twinkle
+      stars.forEach(s => {
+        s.twinkle += s.speed;
+        const a = s.alpha * (0.5 + 0.5 * Math.sin(s.twinkle));
+        ctx.fillStyle = `rgba(180,230,255,${a})`;
+        ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+      });
+
+      // Perspective grid — sharper, more neon
+      const gridAlpha = 0.055;
+      const vanishY = H * 0.52;
+      const gridLines = 30;
       ctx.lineWidth = 0.5;
       for (let i = 0; i <= gridLines; i++) {
         const x = (i / gridLines) * W;
-        const wave = Math.sin(t + i * 0.3) * 2;
+        const wave = Math.sin(t * 0.8 + i * 0.25) * 1.5;
+        const alpha = gridAlpha * (0.4 + 0.6 * Math.abs(Math.sin(t * 0.3 + i * 0.1)));
+        ctx.strokeStyle = `rgba(0,212,255,${alpha})`;
         ctx.beginPath();
         ctx.moveTo(x + wave, vanishY);
-        ctx.lineTo(W * 0.5 + (x - W * 0.5) * 3, H + 50);
+        ctx.lineTo(W * 0.5 + (x - W * 0.5) * 3.2, H + 80);
         ctx.stroke();
       }
-      for (let i = 0; i <= 10; i++) {
-        const progress = i / 10;
-        const y = vanishY + progress * (H - vanishY + 50);
-        const spread = progress * W * 1.5;
-        ctx.globalAlpha = gridAlpha * (0.3 + progress * 0.7);
+      for (let i = 0; i <= 12; i++) {
+        const progress = i / 12;
+        const y = vanishY + progress * (H - vanishY + 80);
+        const spread = progress * W * 1.6;
+        const alpha = gridAlpha * (0.2 + progress * 0.8) * (0.6 + 0.4 * Math.sin(t + i));
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = `rgba(0,212,255,1)`;
         ctx.beginPath();
         ctx.moveTo(W * 0.5 - spread * 0.5, y);
         ctx.lineTo(W * 0.5 + spread * 0.5, y);
@@ -84,42 +119,51 @@ function HoloGrid() {
         ctx.globalAlpha = 1;
       }
 
-      // Horizontal scan lines sweeping down
+      // Horizontal scan sweep lines
       scanLines.forEach(s => {
         s.y += s.speed;
         if (s.y > H + s.width) s.y = -s.width;
         const sg = ctx.createLinearGradient(0, s.y - s.width, 0, s.y + s.width);
-        sg.addColorStop(0, "rgba(0,200,255,0)");
-        sg.addColorStop(0.5, `rgba(0,220,255,${s.alpha})`);
-        sg.addColorStop(1, "rgba(0,200,255,0)");
+        sg.addColorStop(0, "rgba(0,220,255,0)");
+        sg.addColorStop(0.45, `rgba(0,230,255,${s.alpha})`);
+        sg.addColorStop(0.55, `rgba(0,230,255,${s.alpha * 1.4})`);
+        sg.addColorStop(1, "rgba(0,220,255,0)");
         ctx.fillStyle = sg;
         ctx.fillRect(0, s.y - s.width, W, s.width * 2);
       });
 
-      // Floating nodes with connections
+      // Data nodes
       nodes.forEach(n => {
-        n.x += n.vx; n.y += n.vy; n.pulse += 0.02;
+        n.x += n.vx; n.y += n.vy; n.pulse += 0.018;
         if (n.x < 0 || n.x > W) n.vx *= -1;
         if (n.y < 0 || n.y > H) n.vy *= -1;
-        const alpha = 0.4 + Math.sin(n.pulse) * 0.3;
-        const glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 4);
-        glow.addColorStop(0, `hsla(${n.hue},100%,70%,${alpha * 0.8})`);
-        glow.addColorStop(1, `hsla(${n.hue},100%,70%,0)`);
+        const alpha = 0.35 + Math.sin(n.pulse) * 0.28;
+        const glow = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 5);
+        glow.addColorStop(0, `hsla(${n.hue},100%,72%,${alpha * 0.7})`);
+        glow.addColorStop(1, `hsla(${n.hue},100%,72%,0)`);
         ctx.fillStyle = glow;
-        ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 4, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = `hsla(${n.hue},100%,90%,${alpha})`;
-        ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 5, 0, Math.PI * 2); ctx.fill();
+        // Diamond or circle core
+        if (n.type === "diamond") {
+          ctx.fillStyle = `hsla(${n.hue},100%,92%,${alpha})`;
+          ctx.save(); ctx.translate(n.x, n.y); ctx.rotate(Math.PI / 4);
+          ctx.fillRect(-n.r, -n.r, n.r * 2, n.r * 2); ctx.restore();
+        } else {
+          ctx.fillStyle = `hsla(${n.hue},100%,92%,${alpha})`;
+          ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2); ctx.fill();
+        }
       });
 
-      // Connections between nearby nodes
-      ctx.lineWidth = 0.4;
+      // Node connections — more vibrant
+      ctx.lineWidth = 0.5;
       for (let i = 0; i < nodes.length; i++) {
         for (let j = i + 1; j < nodes.length; j++) {
-          const dx = nodes[i].x - nodes[j].x;
-          const dy = nodes[i].y - nodes[j].y;
+          const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 160) {
-            ctx.strokeStyle = `rgba(0,200,255,${(1 - dist / 160) * 0.12})`;
+          if (dist < 180) {
+            const str = (1 - dist / 180) * 0.14;
+            const hue = (nodes[i].hue + nodes[j].hue) / 2;
+            ctx.strokeStyle = `hsla(${hue},100%,65%,${str})`;
             ctx.beginPath();
             ctx.moveTo(nodes[i].x, nodes[i].y);
             ctx.lineTo(nodes[j].x, nodes[j].y);
@@ -127,6 +171,19 @@ function HoloGrid() {
           }
         }
       }
+
+      // Vertical data streams (falling digits illusion)
+      const streams = [W * 0.08, W * 0.22, W * 0.63, W * 0.82, W * 0.92];
+      streams.forEach((sx, si) => {
+        const streamT = (t * 0.6 + si * 1.3) % 1;
+        const streamY = streamT * H * 1.5 - H * 0.25;
+        const streamG = ctx.createLinearGradient(0, streamY - 80, 0, streamY + 80);
+        streamG.addColorStop(0, "rgba(0,255,136,0)");
+        streamG.addColorStop(0.5, `rgba(0,255,136,0.06)`);
+        streamG.addColorStop(1, "rgba(0,255,136,0)");
+        ctx.fillStyle = streamG;
+        ctx.fillRect(sx - 1, streamY - 80, 2, 160);
+      });
 
       raf = requestAnimationFrame(draw);
     }
@@ -145,16 +202,19 @@ function HoloCard({ label, value, sub, color = "#00d4ff", icon, trend, delay = 0
   const [particles, setParticles] = useState([]);
   const ref = useRef(null);
 
+  const [mousePos, setMousePos] = useState({ x: 50, y: 50 });
   const onMove = (e) => {
     const r = ref.current.getBoundingClientRect();
-    const x = ((e.clientX - r.left) / r.width - 0.5) * 22;
-    const y = ((e.clientY - r.top) / r.height - 0.5) * -22;
-    setTilt({ x, y });
+    const x = ((e.clientX - r.left) / r.width - 0.5) * 28;
+    const y = ((e.clientY - r.top) / r.height - 0.5) * -28;
+    const mx = ((e.clientX - r.left) / r.width) * 100;
+    const my = ((e.clientY - r.top) / r.height) * 100;
+    setTilt({ x, y }); setMousePos({ x: mx, y: my });
   };
   const onLeave = () => { setTilt({ x: 0, y: 0 }); setHov(false); };
   const onEnter = () => {
     setHov(true);
-    setParticles(Array.from({ length: 8 }, (_, i) => ({ id: i, x: Math.random() * 100, delay: i * 80 })));
+    setParticles(Array.from({ length: 14 }, (_, i) => ({ id: i, x: Math.random() * 100, delay: i * 60, size: 1 + Math.random() * 2 })));
   };
 
   const hexToRgb = (hex) => {
@@ -179,114 +239,141 @@ function HoloCard({ label, value, sub, color = "#00d4ff", icon, trend, delay = 0
       onMouseLeave={onLeave}
       style={{
         position: "relative",
-        borderRadius: 4,
-        padding: "20px 22px 18px",
+        borderRadius: 6,
+        padding: "22px 24px 20px",
         cursor: "default",
         animationDelay: `${delay}ms`,
-        animation: "holoRise 0.8s cubic-bezier(0.16,1,0.3,1) both",
+        animation: "holoRise 0.9s cubic-bezier(0.16,1,0.3,1) both",
         transformStyle: "preserve-3d",
-        transform: `perspective(900px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg) ${hov ? "translateZ(18px) scale(1.02)" : "translateZ(0)"}`,
-        transition: hov ? "transform 0.06s linear" : "transform 0.6s cubic-bezier(0.16,1,0.3,1)",
-        background: `linear-gradient(135deg, rgba(0,10,25,0.95) 0%, rgba(0,${color === "#00d4ff" ? "25,40" : color === "#00ff88" ? "35,20" : color === "#ff6b35" ? "20,10" : "15,35"},0.9) 100%)`,
-        border: `1px solid rgba(${rgb},${hov ? 0.5 : 0.2})`,
+        transform: `perspective(1000px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg) ${hov ? "translateZ(22px) scale(1.035)" : "translateZ(0)"}`,
+        transition: hov ? "transform 0.05s linear" : "transform 0.7s cubic-bezier(0.16,1,0.3,1)",
+        background: hov
+          ? `radial-gradient(ellipse at ${mousePos.x}% ${mousePos.y}%, rgba(${rgb},0.1) 0%, rgba(0,8,22,0.97) 60%), linear-gradient(145deg, rgba(0,10,26,0.98) 0%, rgba(0,18,38,0.94) 100%)`
+          : `linear-gradient(145deg, rgba(0,8,22,0.98) 0%, rgba(0,14,30,0.94) 50%, rgba(0,8,22,0.96) 100%)`,
+        border: `1px solid rgba(${rgb},${hov ? 0.6 : 0.22})`,
         boxShadow: hov
-          ? `0 0 0 1px rgba(${rgb},0.1), 0 20px 60px rgba(0,0,0,0.8), 0 0 80px rgba(${rgb},0.15), inset 0 0 40px rgba(${rgb},0.03)`
-          : `0 4px 30px rgba(0,0,0,0.7), inset 0 0 20px rgba(${rgb},0.02)`,
-        backdropFilter: "blur(20px)",
+          ? `0 0 0 1px rgba(${rgb},0.08), 0 24px 70px rgba(0,0,0,0.85), 0 0 100px rgba(${rgb},0.18), 0 0 30px rgba(${rgb},0.08), inset 0 0 50px rgba(${rgb},0.04), inset 0 1px 0 rgba(255,255,255,0.08)`
+          : `0 6px 35px rgba(0,0,0,0.75), inset 0 0 25px rgba(${rgb},0.02), inset 0 1px 0 rgba(255,255,255,0.04)`,
+        backdropFilter: "blur(24px)",
         overflow: "hidden",
-        clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))",
+        clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px))",
       }}
     >
+      {/* Animated prismatic top edge */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2,
+        background: hov
+          ? `linear-gradient(90deg, transparent, ${color}, rgba(${rgb},0.3), ${color}, transparent)`
+          : `linear-gradient(90deg, transparent, rgba(${rgb},0.6), rgba(${rgb},0.3), transparent)`,
+        boxShadow: hov ? `0 0 16px rgba(${rgb},0.5)` : "none",
+        transition: "all 0.3s", pointerEvents: "none" }} />
+
+      {/* Glass reflection top half */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "45%", background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
+
       {/* Corner cuts */}
-      <div style={{ position: "absolute", top: 0, right: 14, width: 0, height: 0, borderTop: `14px solid rgba(${rgb},${hov ? 0.5 : 0.2})`, borderLeft: "14px solid transparent", pointerEvents: "none", zIndex: 3 }} />
-      <div style={{ position: "absolute", bottom: 0, left: 14, width: 0, height: 0, borderBottom: `14px solid rgba(${rgb},${hov ? 0.5 : 0.2})`, borderRight: "14px solid transparent", pointerEvents: "none", zIndex: 3 }} />
+      <div style={{ position: "absolute", top: 0, right: 16, width: 0, height: 0, borderTop: `16px solid rgba(${rgb},${hov ? 0.6 : 0.22})`, borderLeft: "16px solid transparent", pointerEvents: "none", zIndex: 3 }} />
+      <div style={{ position: "absolute", bottom: 0, left: 16, width: 0, height: 0, borderBottom: `16px solid rgba(${rgb},${hov ? 0.4 : 0.12})`, borderRight: "16px solid transparent", pointerEvents: "none", zIndex: 3 }} />
 
-      {/* Top scan line */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.8), rgba(${rgb},0.4), transparent)`, pointerEvents: "none" }} />
+      {/* Animated corner brackets — all 4 corners */}
+      <div style={{ position: "absolute", top: 7, left: 7, width: 16, height: 16, borderTop: `2px solid ${color}`, borderLeft: `2px solid ${color}`, opacity: hov ? 1 : 0.5, transition: "opacity 0.3s, width 0.3s, height 0.3s", boxShadow: hov ? `0 0 10px rgba(${rgb},0.4)` : "none" }} />
+      <div style={{ position: "absolute", bottom: 7, right: 7, width: 16, height: 16, borderBottom: `2px solid ${color}`, borderRight: `2px solid ${color}`, opacity: hov ? 1 : 0.5, transition: "opacity 0.3s", boxShadow: hov ? `0 0 10px rgba(${rgb},0.4)` : "none" }} />
+      <div style={{ position: "absolute", top: 7, right: 26, width: 10, height: 10, borderTop: `1px solid rgba(${rgb},0.4)`, borderRight: `1px solid rgba(${rgb},0.4)`, opacity: hov ? 0.8 : 0.2, transition: "opacity 0.3s" }} />
+      <div style={{ position: "absolute", bottom: 7, left: 26, width: 10, height: 10, borderBottom: `1px solid rgba(${rgb},0.4)`, borderLeft: `1px solid rgba(${rgb},0.4)`, opacity: hov ? 0.8 : 0.2, transition: "opacity 0.3s" }} />
 
-      {/* Animated corner bracket TL */}
-      <div style={{ position: "absolute", top: 6, left: 6, width: 14, height: 14, borderTop: `1.5px solid ${color}`, borderLeft: `1.5px solid ${color}`, opacity: hov ? 1 : 0.4, transition: "opacity 0.3s" }} />
-      <div style={{ position: "absolute", bottom: 6, right: 6, width: 14, height: 14, borderBottom: `1.5px solid ${color}`, borderRight: `1.5px solid ${color}`, opacity: hov ? 1 : 0.4, transition: "opacity 0.3s" }} />
+      {/* Left accent bar — thicker, glowing */}
+      <div style={{ position: "absolute", left: 0, top: "15%", bottom: "15%", width: 3,
+        background: `linear-gradient(180deg, transparent, ${color}, rgba(${rgb},0.3), transparent)`,
+        opacity: hov ? 1 : 0.4, transition: "opacity 0.4s, box-shadow 0.4s",
+        boxShadow: hov ? `0 0 18px rgba(${rgb},0.5)` : "none" }} />
 
-      {/* Story accent shape */}
+      {/* Dynamic mouse-follow inner glow */}
+      {hov && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle 80px at ${mousePos.x}% ${mousePos.y}%, rgba(${rgb},0.12), transparent 70%)`, pointerEvents: "none", transition: "background 0.05s" }} />}
+
+      {/* Accent shape — bigger and more dramatic */}
       {accentShape === "ring" && (
-        <div style={{ position: "absolute", top: -20, right: -20, width: 100, height: 100, borderRadius: "50%", border: `1px solid rgba(${rgb},0.12)`, pointerEvents: "none" }} />
+        <>
+          <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", border: `1px solid rgba(${rgb},0.1)`, pointerEvents: "none" }} />
+          <div style={{ position: "absolute", top: -15, right: -15, width: 80, height: 80, borderRadius: "50%", border: `1px solid rgba(${rgb},0.06)`, pointerEvents: "none" }} />
+        </>
       )}
       {accentShape === "hex" && (
-        <div style={{ position: "absolute", bottom: -30, right: -10, fontSize: 80, color: `rgba(${rgb},0.04)`, pointerEvents: "none", lineHeight: 1 }}>⬡</div>
+        <div style={{ position: "absolute", bottom: -25, right: -5, fontSize: 90, color: `rgba(${rgb},0.05)`, pointerEvents: "none", lineHeight: 1 }}>⬡</div>
       )}
       {accentShape === "cross" && (
-        <div style={{ position: "absolute", top: "50%", right: 10, transform: "translateY(-50%)", fontSize: 60, color: `rgba(${rgb},0.05)`, pointerEvents: "none" }}>✚</div>
+        <div style={{ position: "absolute", top: "50%", right: 8, transform: "translateY(-50%)", fontSize: 70, color: `rgba(${rgb},0.05)`, pointerEvents: "none" }}>✚</div>
       )}
 
-      {/* Floating particles on hover */}
+      {/* Floating particles on hover — bigger, varied sizes */}
       {hov && particles.map(p => (
         <div key={p.id} style={{
           position: "absolute", bottom: 0, left: `${p.x}%`,
-          width: 2, height: 2, borderRadius: "50%",
+          width: p.size, height: p.size, borderRadius: "50%",
           background: color,
-          boxShadow: `0 0 6px ${color}`,
-          animation: `particleFloat 1.2s ease-out ${p.delay}ms forwards`,
+          boxShadow: `0 0 ${p.size * 4}px ${color}`,
+          animation: `particleFloat ${1.0 + p.size * 0.2}s ease-out ${p.delay}ms forwards`,
           pointerEvents: "none",
         }} />
       ))}
 
       {/* Icon + label row */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-        <div style={{ fontSize: 9, color: color, letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", opacity: 0.8 }}>
-          {label}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: color, boxShadow: `0 0 10px ${color}`, animation: "pulse-glow 2s infinite" }} />
+          <div style={{ fontSize: 9, color: color, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", opacity: 0.85 }}>
+            {label}
+          </div>
         </div>
         <div style={{
-          width: 30, height: 30,
-          border: `1px solid rgba(${rgb},0.35)`,
+          width: 34, height: 34,
+          border: `1px solid rgba(${rgb},${hov ? 0.55 : 0.3})`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 14, color: color,
+          fontSize: 15, color: color,
           clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-          background: `rgba(${rgb},0.08)`,
+          background: `rgba(${rgb},0.1)`,
+          boxShadow: hov ? `0 0 20px rgba(${rgb},0.3), inset 0 0 10px rgba(${rgb},0.1)` : "none",
+          transition: "all 0.3s",
         }}>{icon}</div>
       </div>
 
-      {/* Main value */}
+      {/* Main value — larger, more dramatic glow */}
       <div style={{
-        fontSize: 32, fontWeight: 700, color: "#fff",
+        fontSize: 36, fontWeight: 800, color: "#fff",
         fontFamily: "'Orbitron', monospace",
-        textShadow: `0 0 20px rgba(${rgb},0.6), 0 0 60px rgba(${rgb},0.2)`,
-        letterSpacing: "-0.02em",
+        textShadow: `0 0 24px rgba(${rgb},0.7), 0 0 70px rgba(${rgb},0.25), 0 2px 4px rgba(0,0,0,0.5)`,
+        letterSpacing: "-0.03em",
         lineHeight: 1,
-        marginBottom: 6,
+        marginBottom: 8,
       }}>{value}</div>
 
       {/* Sub label */}
-      {sub && <div style={{ fontSize: 10, color: `rgba(${rgb},0.55)`, fontFamily: "'Share Tech Mono', monospace", marginBottom: 8 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 10, color: `rgba(${rgb},0.55)`, fontFamily: "'Share Tech Mono', monospace", marginBottom: 10, letterSpacing: "0.05em" }}>{sub}</div>}
 
       {/* Story line */}
       {story && (
-        <div style={{ fontSize: 9, color: "rgba(150,220,255,0.35)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.06em", lineHeight: 1.6, marginBottom: 8 }}>
+        <div style={{ fontSize: 8, color: "rgba(150,220,255,0.3)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", lineHeight: 1.7, marginBottom: 10 }}>
           {story}
         </div>
       )}
 
       {/* Trend badge */}
       {trend !== undefined && (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
           <div style={{
             fontSize: 9, fontWeight: 700,
             color: trend >= 0 ? "#00ff88" : "#ff4466",
-            background: trend >= 0 ? "rgba(0,255,136,0.08)" : "rgba(255,68,102,0.08)",
-            border: `1px solid ${trend >= 0 ? "rgba(0,255,136,0.3)" : "rgba(255,68,102,0.3)"}`,
-            padding: "2px 8px", borderRadius: 2,
+            background: trend >= 0 ? "rgba(0,255,136,0.1)" : "rgba(255,68,102,0.1)",
+            border: `1px solid ${trend >= 0 ? "rgba(0,255,136,0.35)" : "rgba(255,68,102,0.35)"}`,
+            padding: "3px 10px", borderRadius: 2,
             fontFamily: "'Share Tech Mono', monospace",
-            letterSpacing: "0.05em",
+            letterSpacing: "0.06em",
+            boxShadow: trend >= 0 ? "0 0 12px rgba(0,255,136,0.15)" : "0 0 12px rgba(255,68,102,0.15)",
           }}>{trend >= 0 ? "▲" : "▼"} {Math.abs(trend)}%</div>
-          <span style={{ fontSize: 8, color: "rgba(150,200,255,0.25)", fontFamily: "'Share Tech Mono', monospace" }}>30D</span>
+          <span style={{ fontSize: 8, color: "rgba(150,200,255,0.22)", fontFamily: "'Share Tech Mono', monospace" }}>30D</span>
         </div>
       )}
 
       {/* Bottom scan */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.3), transparent)`, pointerEvents: "none" }} />
-
-      {/* Left accent bar */}
-      <div style={{ position: "absolute", left: 0, top: "20%", bottom: "20%", width: 2, background: `linear-gradient(180deg, transparent, ${color}, transparent)`, opacity: hov ? 1 : 0.3, transition: "opacity 0.4s" }} />
+      <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.35), transparent)`, pointerEvents: "none" }} />
     </div>
   );
 }
@@ -616,23 +703,30 @@ function HoloDonut({ segments, total }) {
 // ── LOADER ────────────────────────────────────────────────────────────────────
 function HoloLoader() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "80px 0", gap: 20 }}>
-      <div style={{ position: "relative", width: 70, height: 70 }}>
-        {[0, 1, 2].map(i => (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "100px 0", gap: 24 }}>
+      <div style={{ position: "relative", width: 80, height: 80 }}>
+        {[0, 1, 2, 3].map(i => (
           <div key={i} style={{
-            position: "absolute", inset: i * 10,
+            position: "absolute", inset: i * 9,
             borderRadius: "50%",
             border: "1px solid transparent",
-            borderTop: `1px solid ${["#00d4ff", "#00ff88", "#a855f7"][i]}`,
-            borderRight: `1px solid ${["#00d4ff", "#00ff88", "#a855f7"][i]}44`,
-            animation: `spin ${1 + i * 0.4}s linear infinite ${i % 2 ? "reverse" : ""}`,
-            boxShadow: `0 0 14px ${["rgba(0,212,255,0.4)", "rgba(0,255,136,0.3)", "rgba(168,85,247,0.3)"][i]}`,
+            borderTop: `1.5px solid ${["#00d4ff", "#00ff88", "#a855f7", "#ffd700"][i]}`,
+            borderRight: `1px solid ${["#00d4ff", "#00ff88", "#a855f7", "#ffd700"][i]}22`,
+            animation: `spin ${0.8 + i * 0.35}s linear infinite ${i % 2 ? "reverse" : ""}`,
+            boxShadow: `0 0 ${18 - i * 2}px ${["rgba(0,212,255,0.5)", "rgba(0,255,136,0.4)", "rgba(168,85,247,0.35)", "rgba(255,215,0,0.3)"][i]}`,
           }} />
         ))}
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#00d4ff", animation: "pulse-glow 2s infinite", fontFamily: "'Orbitron', monospace" }}>◈</div>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#00d4ff", animation: "pulse-glow 2s infinite", fontFamily: "'Orbitron', monospace", textShadow: "0 0 20px rgba(0,212,255,0.8)" }}>◈</div>
       </div>
-      <div style={{ color: "rgba(0,212,255,0.4)", fontSize: 9, letterSpacing: "0.3em", fontFamily: "'Share Tech Mono', monospace", textTransform: "uppercase" }}>
-        Initializing Systems…
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+        <div style={{ color: "rgba(0,212,255,0.5)", fontSize: 10, letterSpacing: "0.35em", fontFamily: "'Share Tech Mono', monospace", textTransform: "uppercase", animation: "pulse-glow 2s infinite" }}>
+          Initializing Systems…
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[0,1,2,3,4].map(i => (
+            <div key={i} style={{ width: 3, height: 12, background: "#00d4ff", borderRadius: 2, opacity: 0.3, animation: `pulse-glow 1s ease-in-out ${i * 0.15}s infinite` }} />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -643,27 +737,34 @@ function HoloPanel({ children, style = {}, title, accent = "#00d4ff" }) {
   const rgb = accent === "#00d4ff" ? "0,212,255" : accent === "#00ff88" ? "0,255,136" : accent === "#a855f7" ? "168,85,247" : accent === "#ffd700" ? "255,215,0" : "0,212,255";
   return (
     <div style={{
-      background: `linear-gradient(135deg, rgba(0,8,20,0.96) 0%, rgba(0,15,35,0.92) 100%)`,
-      border: `1px solid rgba(${rgb},0.18)`,
-      borderRadius: 4,
-      padding: "20px 22px",
-      backdropFilter: "blur(20px)",
-      boxShadow: `0 8px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(${rgb},0.05), inset 0 0 30px rgba(${rgb},0.02)`,
+      background: `linear-gradient(145deg, rgba(0,5,16,0.98) 0%, rgba(0,12,28,0.94) 50%, rgba(0,6,18,0.97) 100%)`,
+      border: `1px solid rgba(${rgb},0.2)`,
+      borderRadius: 6,
+      padding: "22px 24px",
+      backdropFilter: "blur(28px)",
+      boxShadow: `0 12px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(${rgb},0.04), inset 0 0 40px rgba(${rgb},0.025), inset 0 1px 0 rgba(255,255,255,0.05)`,
       position: "relative",
       overflow: "hidden",
-      clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
+      clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
       ...style,
     }}>
+      {/* Glass sheen top */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "40%", background: "linear-gradient(180deg, rgba(255,255,255,0.045) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
       {/* Corner notch indicator */}
-      <div style={{ position: "absolute", top: 0, right: 10, width: 0, height: 0, borderTop: `10px solid rgba(${rgb},0.25)`, borderLeft: "10px solid transparent", zIndex: 2 }} />
-      <div style={{ position: "absolute", bottom: 0, left: 10, width: 0, height: 0, borderBottom: `10px solid rgba(${rgb},0.25)`, borderRight: "10px solid transparent", zIndex: 2 }} />
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.6), transparent)` }} />
-      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, rgba(${rgb},0.8), rgba(${rgb},0.1))` }} />
+      <div style={{ position: "absolute", top: 0, right: 12, width: 0, height: 0, borderTop: `12px solid rgba(${rgb},0.3)`, borderLeft: "12px solid transparent", zIndex: 2 }} />
+      <div style={{ position: "absolute", bottom: 0, left: 12, width: 0, height: 0, borderBottom: `12px solid rgba(${rgb},0.2)`, borderRight: "12px solid transparent", zIndex: 2 }} />
+      {/* Top glow edge */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.7), rgba(${rgb},0.4), transparent)`, boxShadow: `0 0 12px rgba(${rgb},0.2)` }} />
+      {/* Left accent bar — thick + glow */}
+      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg, ${accent}, rgba(${rgb},0.15))`, boxShadow: `0 0 16px rgba(${rgb},0.3)` }} />
+      {/* Inner top radial */}
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 0%, rgba(${rgb},0.05) 0%, transparent 60%)`, pointerEvents: "none" }} />
+
       {title && (
-        <div style={{ fontSize: 9, color: `rgba(${rgb},0.7)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 4, height: 4, background: accent, borderRadius: "50%", boxShadow: `0 0 8px ${accent}` }} />
+        <div style={{ fontSize: 9, color: `rgba(${rgb},0.75)`, letterSpacing: "0.25em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 18, display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 6, height: 6, background: accent, borderRadius: "50%", boxShadow: `0 0 12px ${accent}, 0 0 25px rgba(${rgb},0.4)`, animation: "pulse-glow 2s infinite" }} />
           {title}
-          <div style={{ flex: 1, height: 1, background: `rgba(${rgb},0.15)` }} />
+          <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, rgba(${rgb},0.2), transparent)` }} />
         </div>
       )}
       {children}
@@ -673,24 +774,39 @@ function HoloPanel({ children, style = {}, title, accent = "#00d4ff" }) {
 
 // ── NAV TAB ───────────────────────────────────────────────────────────────────
 function NavTab({ label, active, onClick, count, icon, activeColor }) {
+  const [hov, setHov] = useState(false);
   const ac = activeColor || "#00d4ff";
   const acRgb = activeColor ? activeColor.replace("rgb(","").replace(")","") : "0,212,255";
   return (
-    <div onClick={onClick} style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "10px 18px 10px 20px",
-      cursor: "pointer",
-      position: "relative",
-      transition: "all 0.3s",
-      borderLeft: active ? `2px solid ${ac}` : "2px solid transparent",
-      background: active ? `rgba(${acRgb},0.07)` : "transparent",
-      marginBottom: 2,
-    }}>
-      {active && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, transparent, ${ac}, rgba(${acRgb},0.5), transparent)`, boxShadow: `0 0 12px ${ac}`, transition: "background 0.3s, box-shadow 0.3s" }} />}
-      <span style={{ fontSize: 13, color: active ? ac : "rgba(0,212,255,0.3)", transition: "color 0.3s", fontFamily: "'Share Tech Mono', monospace", textShadow: active && activeColor ? `0 0 10px ${ac}` : "none" }}>{icon}</span>
-      <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? "#e0f7ff" : "rgba(150,200,220,0.45)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.08em", flex: 1, transition: "color 0.2s" }}>{label}</span>
+    <div onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "flex", alignItems: "center", gap: 11,
+        padding: "12px 20px 12px 22px",
+        cursor: "pointer",
+        position: "relative",
+        transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)",
+        borderLeft: active ? `3px solid ${ac}` : "3px solid transparent",
+        background: active
+          ? `linear-gradient(90deg, rgba(${acRgb},0.1) 0%, rgba(${acRgb},0.04) 60%, transparent 100%)`
+          : hov ? `rgba(0,212,255,0.04)` : "transparent",
+        marginBottom: 2,
+        boxShadow: active ? `inset 0 0 30px rgba(${acRgb},0.04)` : "none",
+        overflow: "hidden",
+      }}>
+      {/* Active left glow bar */}
+      {active && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg, transparent, ${ac}, rgba(${acRgb},0.6), transparent)`, boxShadow: `0 0 18px ${ac}, 0 0 35px rgba(${acRgb},0.3)`, transition: "background 0.3s, box-shadow 0.3s" }} />}
+      {/* Hover shimmer */}
+      {hov && !active && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(0,212,255,0.03), transparent)", pointerEvents: "none" }} />}
+      {/* Top edge on active */}
+      {active && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, rgba(${acRgb},0.4), transparent)` }} />}
+      {active && <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, rgba(${acRgb},0.2), transparent)` }} />}
+
+      <span style={{ fontSize: 14, color: active ? ac : "rgba(0,212,255,0.3)", transition: "color 0.25s, text-shadow 0.25s", fontFamily: "'Share Tech Mono', monospace", textShadow: active && activeColor ? `0 0 14px ${ac}, 0 0 30px rgba(${acRgb},0.4)` : active ? "0 0 12px rgba(0,212,255,0.5)" : "none" }}>{icon}</span>
+      <span style={{ fontSize: 11, fontWeight: active ? 700 : 400, color: active ? "#e8f8ff" : hov ? "rgba(200,235,255,0.55)" : "rgba(150,200,220,0.4)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", flex: 1, transition: "color 0.2s" }}>{label}</span>
       {count !== undefined && (
-        <span style={{ fontSize: 9, color: active ? ac : "rgba(0,212,255,0.3)", background: active ? `rgba(${acRgb},0.12)` : "rgba(0,212,255,0.04)", border: `1px solid ${active ? `rgba(${acRgb},0.35)` : "rgba(0,212,255,0.1)"}`, padding: "1px 6px", borderRadius: 2, fontFamily: "'Share Tech Mono', monospace", transition: "all 0.3s" }}>{count}</span>
+        <span style={{ fontSize: 9, color: active ? ac : "rgba(0,212,255,0.3)", background: active ? `rgba(${acRgb},0.14)` : "rgba(0,212,255,0.04)", border: `1px solid ${active ? `rgba(${acRgb},0.4)` : "rgba(0,212,255,0.1)"}`, padding: "1px 7px", borderRadius: 2, fontFamily: "'Share Tech Mono', monospace", transition: "all 0.3s", boxShadow: active ? `0 0 10px rgba(${acRgb},0.2)` : "none" }}>{count}</span>
       )}
     </div>
   );
@@ -1436,65 +1552,66 @@ export default function AdminDashboard() {
   const rc = revColor; // shorthand
 
   return (
-    <div style={{ minHeight: "100vh", background: "#000d1a", color: "#e0f7ff", position: "relative", overflow: "hidden" }}>
+    <div style={{ minHeight: "100vh", background: "#000812", color: "#e0f7ff", position: "relative", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #000d1a; }
+        body { background: #000812; }
 
         /* ── SPACE BACKGROUND ── */
         .space-bg {
           position: fixed; inset: 0;
           background:
-            radial-gradient(ellipse 70% 50% at 15% 10%, rgba(0,40,80,0.4) 0%, transparent 60%),
-            radial-gradient(ellipse 50% 40% at 85% 85%, rgba(0,20,50,0.35) 0%, transparent 60%),
-            radial-gradient(ellipse 30% 25% at 60% 35%, rgba(0,50,80,0.15) 0%, transparent 70%),
-            #000d1a;
+            radial-gradient(ellipse 80% 55% at 12% 8%, rgba(0,50,100,0.45) 0%, transparent 55%),
+            radial-gradient(ellipse 55% 45% at 88% 88%, rgba(0,25,60,0.4) 0%, transparent 55%),
+            radial-gradient(ellipse 35% 30% at 62% 38%, rgba(0,60,90,0.18) 0%, transparent 65%),
+            radial-gradient(ellipse 50% 40% at 30% 70%, rgba(20,0,50,0.15) 0%, transparent 60%),
+            #000812;
           pointer-events: none; z-index: 0;
-          transition: background 0.6s;
+          transition: background 0.8s;
         }
 
         /* ── TOP HUD LINE ── */
         .hud-topline {
-          position: fixed; top: 0; left: 0; right: 0; height: 2px;
-          background: linear-gradient(90deg, transparent 0%, #00d4ff 20%, #00ff88 50%, #00d4ff 80%, transparent 100%);
+          position: fixed; top: 0; left: 0; right: 0; height: 3px;
+          background: linear-gradient(90deg, transparent 0%, #00d4ff 15%, #00ff88 35%, #00d4ff 50%, #a855f7 70%, #00d4ff 85%, transparent 100%);
           pointer-events: none; z-index: 50;
-          animation: hudScan 4s ease-in-out infinite alternate;
-          box-shadow: 0 0 20px #00d4ff, 0 0 40px rgba(0,212,255,0.3);
+          animation: hudScan 5s ease-in-out infinite alternate;
+          box-shadow: 0 0 25px #00d4ff, 0 0 50px rgba(0,212,255,0.4), 0 1px 0 rgba(0,212,255,0.2);
           transition: background 0.4s, box-shadow 0.4s;
         }
         @keyframes hudScan {
-          0% { opacity: 0.6; }
-          50% { opacity: 1; }
-          100% { opacity: 0.7; }
+          0% { opacity: 0.55; filter: hue-rotate(0deg); }
+          50% { opacity: 1; filter: hue-rotate(15deg); }
+          100% { opacity: 0.65; filter: hue-rotate(-10deg); }
         }
 
         /* ── VIGNETTE ── */
         .vignette {
           position: fixed; inset: 0; pointer-events: none; z-index: 1;
-          background: radial-gradient(ellipse at center, transparent 50%, rgba(0,5,15,0.6) 100%);
+          background: radial-gradient(ellipse at center, transparent 40%, rgba(0,3,10,0.7) 100%);
         }
 
         /* scanline overlay */
         .scanlines {
           position: fixed; inset: 0; pointer-events: none; z-index: 2;
-          background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,212,255,0.012) 2px, rgba(0,212,255,0.012) 4px);
+          background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,212,255,0.008) 3px, rgba(0,212,255,0.008) 4px);
           transition: background 0.4s;
         }
 
         /* ── ANIMATIONS ── */
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes holoRise {
-          from { opacity: 0; transform: perspective(900px) translateY(40px) translateZ(-30px) rotateX(5deg); }
-          to { opacity: 1; transform: perspective(900px) translateY(0) translateZ(0) rotateX(0); }
+          from { opacity: 0; transform: perspective(1000px) translateY(50px) translateZ(-40px) rotateX(8deg); filter: blur(2px); }
+          to { opacity: 1; transform: perspective(1000px) translateY(0) translateZ(0) rotateX(0); filter: blur(0); }
         }
         @keyframes pulse-glow {
-          0%, 100% { opacity: 0.7; }
-          50% { opacity: 1; filter: brightness(1.4); }
+          0%, 100% { opacity: 0.65; }
+          50% { opacity: 1; filter: brightness(1.5); }
         }
         @keyframes particleFloat {
           0% { transform: translateY(0) scale(1); opacity: 1; }
-          100% { transform: translateY(-60px) scale(0); opacity: 0; }
+          100% { transform: translateY(-80px) scale(0); opacity: 0; }
         }
         @keyframes blink {
           0%, 100% { opacity: 1; } 50% { opacity: 0; }
@@ -1505,13 +1622,26 @@ export default function AdminDashboard() {
           100% { transform: translateY(100vh); }
         }
         @keyframes glitchShift {
-          0%, 95%, 100% { clip-path: none; transform: none; }
-          96% { clip-path: polygon(0 20%, 100% 20%, 100% 40%, 0 40%); transform: translateX(4px); }
-          97% { clip-path: polygon(0 60%, 100% 60%, 100% 80%, 0 80%); transform: translateX(-4px); }
-          98% { clip-path: none; transform: translateX(2px); }
+          0%, 93%, 100% { clip-path: none; transform: none; }
+          94% { clip-path: polygon(0 18%, 100% 18%, 100% 38%, 0 38%); transform: translateX(5px); }
+          95% { clip-path: polygon(0 55%, 100% 55%, 100% 75%, 0 75%); transform: translateX(-5px); }
+          96% { clip-path: polygon(0 8%, 100% 8%, 100% 22%, 0 22%); transform: translateX(3px); }
+          97% { clip-path: none; transform: translateX(2px); }
+          98% { clip-path: none; transform: none; }
+        }
+        @keyframes borderTrace {
+          0% { stroke-dashoffset: 1000; }
+          100% { stroke-dashoffset: 0; }
+        }
+        @keyframes shimmerSlide {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+        @keyframes floatY {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-6px); }
         }
 
-        /* ── LAYOUT ── */
         .dashboard-root {
           font-family: 'Share Tech Mono', monospace;
           display: flex; min-height: 100vh; position: relative; z-index: 3;
@@ -1519,25 +1649,33 @@ export default function AdminDashboard() {
 
         /* ── SIDEBAR ── */
         .sidebar {
-          width: 220px; min-height: 100vh;
-          background: linear-gradient(180deg, rgba(0,5,15,0.98) 0%, rgba(0,8,20,0.96) 100%);
-          border-right: 1px solid rgba(0,212,255,0.15);
+          width: 230px; min-height: 100vh;
+          background: linear-gradient(180deg, rgba(0,4,14,0.99) 0%, rgba(0,7,18,0.98) 50%, rgba(0,4,14,0.99) 100%);
+          border-right: 1px solid rgba(0,212,255,0.18);
+          box-shadow: 4px 0 60px rgba(0,0,0,0.8), 2px 0 0 rgba(0,212,255,0.04);
           display: flex; flex-direction: column;
           position: fixed; top: 0; left: 0; bottom: 0; z-index: 10;
+          backdrop-filter: blur(30px);
+        }
+        .sidebar::before {
+          content: '';
+          position: absolute; top: 0; left: 0; right: 0; height: 2px;
+          background: linear-gradient(90deg, transparent, #00d4ff, #00ff88, #00d4ff, transparent);
+          opacity: 0.6;
         }
         .sidebar::after {
           content: '';
-          position: absolute; top: 10%; right: 0; bottom: 10%;
+          position: absolute; top: 15%; right: 0; bottom: 15%;
           width: 1px;
-          background: linear-gradient(180deg, transparent, #00d4ff, #00ff88, #00d4ff, transparent);
-          opacity: 0.3;
-          animation: pulse-glow 3s ease-in-out infinite;
+          background: linear-gradient(180deg, transparent, rgba(0,212,255,0.5), rgba(0,255,136,0.3), rgba(0,212,255,0.5), transparent);
+          opacity: 0.25;
+          animation: pulse-glow 4s ease-in-out infinite;
         }
 
         /* ── MAIN CONTENT ── */
         .main-content {
-          margin-left: 220px; flex: 1;
-          padding: 0 28px 40px;
+          margin-left: 230px; flex: 1;
+          padding: 0 30px 50px;
           min-height: 100vh;
           position: relative;
         }
@@ -1545,31 +1683,38 @@ export default function AdminDashboard() {
         /* ── TOPBAR ── */
         .topbar {
           display: flex; align-items: center; justify-content: space-between;
-          padding: 20px 0 22px;
+          padding: 22px 0 24px;
           border-bottom: 1px solid rgba(0,212,255,0.1);
-          margin-bottom: 24px;
+          margin-bottom: 26px;
           position: sticky; top: 0; z-index: 5;
-          background: rgba(0,13,26,0.92);
-          backdrop-filter: blur(20px);
+          background: rgba(0,10,22,0.94);
+          backdrop-filter: blur(28px);
+          box-shadow: 0 4px 40px rgba(0,0,0,0.4);
+        }
+        .topbar::before {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+          background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), rgba(0,255,136,0.15), rgba(0,212,255,0.3), transparent);
         }
         .topbar::after {
           content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(0,212,255,0.4), rgba(0,255,136,0.2), transparent);
+          background: linear-gradient(90deg, transparent, rgba(0,212,255,0.5), rgba(0,255,136,0.25), transparent);
         }
 
         /* ── SECTION HEADING ── */
         .section-heading {
-          font-size: 9px; color: rgba(0,212,255,0.4); letter-spacing: 0.28em;
-          text-transform: uppercase; margin-bottom: 14px;
+          font-size: 9px; color: rgba(0,212,255,0.5); letter-spacing: 0.3em;
+          text-transform: uppercase; margin-bottom: 16px;
           font-family: 'Share Tech Mono', monospace;
-          display: flex; align-items: center; gap: 10;
+          display: flex; align-items: center; gap: 12;
+          padding: 6px 0;
         }
         .section-heading::before {
           content: '▶'; font-size: 7px; color: #00d4ff;
+          text-shadow: 0 0 10px rgba(0,212,255,0.8);
         }
         .section-heading::after {
           content: ''; flex: 1; height: 1px;
-          background: linear-gradient(90deg, rgba(0,212,255,0.2), transparent);
+          background: linear-gradient(90deg, rgba(0,212,255,0.25), rgba(0,212,255,0.08), transparent);
         }
 
         /* ── STAT STRIP ── */
@@ -1578,75 +1723,95 @@ export default function AdminDashboard() {
         }
         .stat-item {
           flex: 1; min-width: 110px;
-          background: rgba(0,212,255,0.03);
-          border: 1px solid rgba(0,212,255,0.1);
-          border-radius: 3px; padding: 14px 16px;
+          background: linear-gradient(145deg, rgba(0,5,16,0.96) 0%, rgba(0,10,24,0.92) 100%);
+          border: 1px solid rgba(0,212,255,0.12);
+          border-radius: 5px; padding: 16px 18px;
           position: relative; overflow: hidden;
-          transition: all 0.2s;
-          clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+          transition: all 0.25s cubic-bezier(0.16,1,0.3,1);
+          clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .stat-item::before {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 40%;
+          background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, transparent 100%);
+          pointer-events: none;
+        }
+        .stat-item::after {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+          background: linear-gradient(90deg, transparent, rgba(0,212,255,0.4), transparent);
         }
         .stat-item:hover {
-          border-color: rgba(0,212,255,0.28);
-          background: rgba(0,212,255,0.06);
-          box-shadow: 0 0 20px rgba(0,212,255,0.08);
+          border-color: rgba(0,212,255,0.32);
+          background: linear-gradient(145deg, rgba(0,8,22,0.98) 0%, rgba(0,15,32,0.95) 100%);
+          box-shadow: 0 0 30px rgba(0,212,255,0.1), inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 30px rgba(0,0,0,0.6);
+          transform: translateY(-3px);
         }
         .stat-label {
-          font-size: 8px; color: rgba(0,212,255,0.35); text-transform: uppercase;
-          letter-spacing: 0.15em; margin-bottom: 8px; font-family: 'Share Tech Mono', monospace;
+          font-size: 8px; color: rgba(0,212,255,0.38); text-transform: uppercase;
+          letter-spacing: 0.18em; margin-bottom: 10px; font-family: 'Share Tech Mono', monospace;
         }
         .stat-val {
-          font-size: 18px; font-weight: 700; font-family: 'Orbitron', monospace; letter-spacing: -0.02em;
+          font-size: 20px; font-weight: 800; font-family: 'Orbitron', monospace; letter-spacing: -0.03em;
         }
 
         /* ── TABLE ROWS ── */
-        .holo-row { transition: background 0.15s; }
-        .holo-row:hover { background: rgba(0,212,255,0.04); }
-        .holo-row td { border-bottom: 1px solid rgba(0,212,255,0.05); }
+        .holo-row { transition: background 0.18s, box-shadow 0.18s; }
+        .holo-row:hover { background: rgba(0,212,255,0.05); box-shadow: inset 0 0 20px rgba(0,212,255,0.03); }
+        .holo-row td { border-bottom: 1px solid rgba(0,212,255,0.06); }
 
         /* ── INPUTS ── */
         .holo-input {
-          background: rgba(0,8,20,0.9);
-          border: 1px solid rgba(0,212,255,0.2); border-radius: 3px;
-          color: #e0f7ff; font-size: 11px; padding: 9px 12px;
+          background: rgba(0,5,16,0.95);
+          border: 1px solid rgba(0,212,255,0.22); border-radius: 4px;
+          color: #e0f7ff; font-size: 11px; padding: 10px 14px;
           font-family: 'Share Tech Mono', monospace; outline: none;
-          transition: all 0.2s; backdrop-filter: blur(10px);
+          transition: all 0.25s; backdrop-filter: blur(16px);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 2px 10px rgba(0,0,0,0.4);
         }
         .holo-input:focus {
-          border-color: rgba(0,212,255,0.5);
-          box-shadow: 0 0 0 3px rgba(0,212,255,0.08), 0 0 20px rgba(0,212,255,0.1);
+          border-color: rgba(0,212,255,0.55);
+          box-shadow: 0 0 0 3px rgba(0,212,255,0.1), 0 0 25px rgba(0,212,255,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
         }
-        .holo-input option { background: #000d1a; }
+        .holo-input option { background: #000812; }
 
         /* ── FEEDBACK CARD ── */
         .holo-feedback {
-          background: rgba(0,8,20,0.9);
-          border: 1px solid rgba(0,212,255,0.12);
-          border-radius: 3px; padding: 18px;
-          transition: all 0.25s; position: relative; overflow: hidden;
-          clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+          background: linear-gradient(145deg, rgba(0,5,16,0.97) 0%, rgba(0,10,24,0.93) 100%);
+          border: 1px solid rgba(0,212,255,0.14);
+          border-radius: 5px; padding: 20px;
+          transition: all 0.28s cubic-bezier(0.16,1,0.3,1); position: relative; overflow: hidden;
+          clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 4px 25px rgba(0,0,0,0.5);
         }
         .holo-feedback::before {
-          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-          background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent);
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+          background: linear-gradient(90deg, transparent, rgba(0,212,255,0.5), transparent);
+        }
+        .holo-feedback::after {
+          content: ''; position: absolute; top: 0; left: 0; right: 0; height: "40%";
+          background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+          pointer-events: none;
         }
         .holo-feedback:hover {
-          border-color: rgba(0,212,255,0.25);
-          transform: translateY(-1px);
-          box-shadow: 0 8px 30px rgba(0,0,0,0.5), 0 0 20px rgba(0,212,255,0.06);
+          border-color: rgba(0,212,255,0.3);
+          transform: translateY(-2px) translateX(1px);
+          box-shadow: 0 12px 50px rgba(0,0,0,0.65), 0 0 30px rgba(0,212,255,0.08), inset 0 1px 0 rgba(255,255,255,0.06);
         }
 
         /* ── REFETCH BTN ── */
         .refetch-btn {
-          background: rgba(0,212,255,0.06);
-          border: 1px solid rgba(0,212,255,0.25); color: #00d4ff;
-          border-radius: 3px; padding: 7px 14px; font-size: 9px;
+          background: rgba(0,212,255,0.07);
+          border: 1px solid rgba(0,212,255,0.28); color: #00d4ff;
+          border-radius: 4px; padding: 8px 16px; font-size: 9px;
           cursor: pointer; font-family: 'Share Tech Mono', monospace;
-          letter-spacing: 0.1em; transition: all 0.2s; text-transform: uppercase;
-          clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
+          letter-spacing: 0.14em; transition: all 0.22s; text-transform: uppercase;
+          clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
         }
         .refetch-btn:hover {
-          background: rgba(0,212,255,0.12);
-          box-shadow: 0 0 20px rgba(0,212,255,0.2);
+          background: rgba(0,212,255,0.14);
+          box-shadow: 0 0 25px rgba(0,212,255,0.22), inset 0 1px 0 rgba(255,255,255,0.08);
+          border-color: rgba(0,212,255,0.5);
         }
 
         /* scrollbar */
@@ -1679,25 +1844,33 @@ export default function AdminDashboard() {
       <div className="dashboard-root">
         {/* ── SIDEBAR ── */}
         <aside className="sidebar" style={isRev ? {
-          borderRight: `1px solid rgba(${rc.rgb},0.25)`,
-          boxShadow: `4px 0 40px rgba(${rc.rgb},0.06)`,
+          borderRight: `1px solid rgba(${rc.rgb},0.28)`,
+          boxShadow: `4px 0 50px rgba(${rc.rgb},0.08), 4px 0 0 rgba(${rc.rgb},0.03)`,
         } : {}}>
           {/* Logo block */}
-          <div style={{ padding: "24px 18px 18px", borderBottom: "1px solid rgba(0,212,255,0.08)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-              <div style={{
-                width: 40, height: 40,
-                border: "1px solid rgba(0,212,255,0.4)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 18, color: "#00d4ff",
-                background: "rgba(0,212,255,0.06)",
-                clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-                animation: "pulse-glow 3s ease-in-out infinite",
-                boxShadow: "0 0 20px rgba(0,212,255,0.2)",
-              }}>Ω</div>
+          <div style={{ padding: "26px 20px 20px", borderBottom: "1px solid rgba(0,212,255,0.08)", position: "relative", overflow: "hidden" }}>
+            {/* Logo area ambient glow */}
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "radial-gradient(ellipse at 50% 0%, rgba(0,212,255,0.08) 0%, transparent 70%)", pointerEvents: "none" }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <div style={{
+                  width: 46, height: 46,
+                  border: "1px solid rgba(0,212,255,0.5)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 20, color: "#00d4ff",
+                  background: "radial-gradient(circle, rgba(0,212,255,0.15) 0%, rgba(0,212,255,0.05) 100%)",
+                  clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                  animation: "pulse-glow 3s ease-in-out infinite",
+                  boxShadow: "0 0 30px rgba(0,212,255,0.3), 0 0 60px rgba(0,212,255,0.1), inset 0 0 15px rgba(0,212,255,0.1)",
+                }}>Ω</div>
+                {/* Orbiting dot */}
+                <div style={{ position: "absolute", inset: -4, animation: "rotateSlow 4s linear infinite", pointerEvents: "none" }}>
+                  <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#00ff88", boxShadow: "0 0 8px #00ff88", position: "absolute", top: 2, left: "50%", transform: "translateX(-50%)" }} />
+                </div>
+              </div>
               <div>
-                <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 13, fontWeight: 700, color: "#e0f7ff", letterSpacing: "0.05em", animation: "glitchShift 8s infinite" }}>ArcaneOS</div>
-                <div style={{ fontSize: 7, color: "rgba(0,212,255,0.4)", letterSpacing: "0.22em", textTransform: "uppercase", marginTop: 2 }}>Admin Console v2.0</div>
+                <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 14, fontWeight: 800, color: "#e8f8ff", letterSpacing: "0.06em", animation: "glitchShift 8s infinite", textShadow: "0 0 20px rgba(0,212,255,0.4)" }}>ArcaneOS</div>
+                <div style={{ fontSize: 7, color: "rgba(0,212,255,0.45)", letterSpacing: "0.25em", textTransform: "uppercase", marginTop: 3 }}>Admin Console v2.0</div>
               </div>
             </div>
 
@@ -1714,11 +1887,12 @@ export default function AdminDashboard() {
           </div>
 
           {/* Clock */}
-          <div style={{ margin: "12px 14px", background: "rgba(0,212,255,0.03)", border: "1px solid rgba(0,212,255,0.08)", borderRadius: 3, padding: "10px 14px" }}>
-            <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 20, fontWeight: 700, color: "#00d4ff", letterSpacing: "0.06em", textShadow: "0 0 20px rgba(0,212,255,0.5)" }}>
+          <div style={{ margin: "14px 16px", background: "linear-gradient(145deg, rgba(0,212,255,0.04) 0%, rgba(0,5,16,0.8) 100%)", border: "1px solid rgba(0,212,255,0.1)", borderRadius: 5, padding: "12px 16px", position: "relative", overflow: "hidden", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(0,212,255,0.4), transparent)" }} />
+            <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 22, fontWeight: 700, color: "#00d4ff", letterSpacing: "0.08em", textShadow: "0 0 25px rgba(0,212,255,0.6), 0 0 50px rgba(0,212,255,0.2)" }}>
               {timeStr}
             </div>
-            <div style={{ fontSize: 8, color: "rgba(0,212,255,0.35)", marginTop: 3, letterSpacing: "0.1em" }}>{dateStr.toUpperCase()}</div>
+            <div style={{ fontSize: 8, color: "rgba(0,212,255,0.38)", marginTop: 4, letterSpacing: "0.12em" }}>{dateStr.toUpperCase()}</div>
           </div>
 
           {/* Nav */}
@@ -1794,14 +1968,14 @@ export default function AdminDashboard() {
             borderBottom: `1px solid rgba(${rc.rgb},0.18)`,
             boxShadow: `0 1px 0 rgba(${rc.rgb},0.1), 0 4px 30px rgba(${rc.rgb},0.05)`,
           } : {}}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ color: isRev ? rc.hex : "#00d4ff", fontSize: 14, fontFamily: "'Share Tech Mono', monospace", textShadow: isRev ? `0 0 14px ${rc.hex}` : "none", transition: "color 0.4s, text-shadow 0.4s" }}>{TABS.find(t => t.id === tab)?.icon}</span>
-                <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.08em", lineHeight: 1, textShadow: isRev ? `0 0 30px rgba(${rc.rgb},0.7), 0 0 60px rgba(${rc.rgb},0.3)` : "0 0 30px rgba(0,212,255,0.4)", transition: "text-shadow 0.4s" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ color: isRev ? rc.hex : "#00d4ff", fontSize: 16, fontFamily: "'Share Tech Mono', monospace", textShadow: isRev ? `0 0 18px ${rc.hex}` : "0 0 12px rgba(0,212,255,0.7)", transition: "color 0.4s, text-shadow 0.4s" }}>{TABS.find(t => t.id === tab)?.icon}</span>
+                <h1 style={{ fontFamily: "'Orbitron', monospace", fontSize: 26, fontWeight: 900, color: "#fff", letterSpacing: "0.1em", lineHeight: 1, textShadow: isRev ? `0 0 40px rgba(${rc.rgb},0.8), 0 0 80px rgba(${rc.rgb},0.35)` : "0 0 40px rgba(0,212,255,0.5), 0 0 80px rgba(0,212,255,0.2)", transition: "text-shadow 0.4s" }}>
                   {TABS.find(t => t.id === tab)?.label}
                 </h1>
               </div>
-              <div style={{ fontSize: 8, color: isRev ? `rgba(${rc.rgb},0.4)` : "rgba(0,212,255,0.3)", letterSpacing: "0.18em", transition: "color 0.4s" }}>ARCANEOS · INTELLIGENCE LAYER · CLASSIFIED</div>
+              <div style={{ fontSize: 8, color: isRev ? `rgba(${rc.rgb},0.45)` : "rgba(0,212,255,0.32)", letterSpacing: "0.22em", transition: "color 0.4s", paddingLeft: 28 }}>ARCANEOS · INTELLIGENCE LAYER · CLASSIFIED</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               {error && <span style={{ fontSize: 9, color: "#ff3366", fontFamily: "'Share Tech Mono', monospace" }}>⚠ ERR: {error}</span>}
@@ -1811,14 +1985,15 @@ export default function AdminDashboard() {
                 background: `rgba(${rc.rgb},0.07)`,
               } : {}}>↺ REFRESH</button>
               <div style={{
-                width: 34, height: 34,
-                background: isRev ? `rgba(${rc.rgb},0.12)` : "rgba(0,212,255,0.1)",
-                border: `1px solid ${isRev ? `rgba(${rc.rgb},0.45)` : "rgba(0,212,255,0.35)"}`,
+                width: 38, height: 38,
+                background: isRev ? `radial-gradient(circle, rgba(${rc.rgb},0.2) 0%, rgba(${rc.rgb},0.08) 100%)` : "radial-gradient(circle, rgba(0,212,255,0.15) 0%, rgba(0,212,255,0.06) 100%)",
+                border: `1px solid ${isRev ? `rgba(${rc.rgb},0.55)` : "rgba(0,212,255,0.45)"}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 13, color: isRev ? rc.hex : "#00d4ff", fontFamily: "'Orbitron', monospace",
+                fontSize: 14, color: isRev ? rc.hex : "#00d4ff", fontFamily: "'Orbitron', monospace",
                 clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
-                boxShadow: isRev ? `0 0 20px rgba(${rc.rgb},0.3)` : "0 0 20px rgba(0,212,255,0.2)",
+                boxShadow: isRev ? `0 0 28px rgba(${rc.rgb},0.4), inset 0 0 12px rgba(${rc.rgb},0.1)` : "0 0 28px rgba(0,212,255,0.3), inset 0 0 12px rgba(0,212,255,0.08)",
                 transition: "all 0.4s",
+                animation: "pulse-glow 4s ease-in-out infinite",
               }}>W</div>
             </div>
           </div>
