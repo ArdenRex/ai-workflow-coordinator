@@ -10,7 +10,6 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 from datetime import datetime, timezone
 
 import httpx
@@ -19,6 +18,7 @@ from fastapi import status as http_status
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
+from app.config import get_settings
 from app.database import get_db
 from app.models import User
 
@@ -26,20 +26,22 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
-# ── Lemon Squeezy config ──────────────────────────────────────────────────────
-LS_API_KEY      = os.getenv("LEMONSQUEEZY_API_KEY", "")
-LS_STORE_ID     = os.getenv("LEMONSQUEEZY_STORE_ID", "")
-LS_VARIANT_ID   = os.getenv("LEMONSQUEEZY_VARIANT_ID", "")   # $20/month plan variant
-LS_WEBHOOK_SECRET = os.getenv("LEMONSQUEEZY_WEBHOOK_SECRET", "")
-FRONTEND_URL    = os.getenv("FRONTEND_URL", "").rstrip("/")
-
 LS_API_BASE = "https://api.lemonsqueezy.com/v1"
 
-LS_HEADERS = {
-    "Authorization": f"Bearer {LS_API_KEY}",
-    "Accept":        "application/vnd.api+json",
-    "Content-Type":  "application/vnd.api+json",
-}
+
+def _ls_headers() -> dict:
+    """Build Lemon Squeezy auth headers from current settings."""
+    settings = get_settings()
+    return {
+        "Authorization": f"Bearer {settings.lemonsqueezy_api_key}",
+        "Accept":        "application/vnd.api+json",
+        "Content-Type":  "application/vnd.api+json",
+    }
+
+
+def _ls_configured() -> bool:
+    s = get_settings()
+    return bool(s.lemonsqueezy_api_key and s.lemonsqueezy_store_id and s.lemonsqueezy_variant_id)
 
 
 # ── Checkout ──────────────────────────────────────────────────────────────────
@@ -54,11 +56,14 @@ def create_checkout(
 ) -> dict:
     """
     Creates a Lemon Squeezy hosted checkout URL.
-    The user is redirected here to enter their card details.
-    After payment, LS redirects back to the dashboard.
+    The user is redirected to LS to enter their real card details.
+    After payment LS redirects back to the dashboard.
     """
-    if not all([LS_API_KEY, LS_STORE_ID, LS_VARIANT_ID]):
-        # Test mode — simulate webhook by updating user directly in DB
+    settings = get_settings()
+    frontend_url = settings.frontend_url.rstrip("/")
+
+    if not _ls_configured():
+        # Test / dev mode — mark user active immediately so you can test the flow
         logger.warning("Lemon Squeezy not configured — simulating subscription in test mode")
         try:
             current_user.subscription_status = "active"
@@ -71,7 +76,7 @@ def create_checkout(
             db.rollback()
             logger.warning("Test mode DB update failed: %s", exc)
         return {
-            "checkout_url": f"{FRONTEND_URL}?billing=success",
+            "checkout_url": f"{frontend_url}?billing=success",
             "test_mode": True,
         }
 
@@ -81,8 +86,8 @@ def create_checkout(
                 "type": "checkouts",
                 "attributes": {
                     "checkout_data": {
-                        "email":        current_user.email,
-                        "name":         current_user.name,
+                        "email":  current_user.email,
+                        "name":   current_user.name,
                         "custom": {
                             "user_id": str(current_user.id),
                         },
@@ -91,16 +96,19 @@ def create_checkout(
                         "embed": False,
                     },
                     "product_options": {
-                        "redirect_url":          f"{FRONTEND_URL}?billing=success",
-                        "receipt_thank_you_note": "Welcome to AI Workflow Coordinator! Your 7-day trial has ended and your subscription is now active.",
+                        "redirect_url": f"{frontend_url}?billing=success",
+                        "receipt_thank_you_note": (
+                            "Welcome to AI Workflow Coordinator! "
+                            "Your 7-day free trial is now active."
+                        ),
                     },
                 },
                 "relationships": {
                     "store": {
-                        "data": {"type": "stores", "id": str(LS_STORE_ID)},
+                        "data": {"type": "stores", "id": str(settings.lemonsqueezy_store_id)},
                     },
                     "variant": {
-                        "data": {"type": "variants", "id": str(LS_VARIANT_ID)},
+                        "data": {"type": "variants", "id": str(settings.lemonsqueezy_variant_id)},
                     },
                 },
             }
@@ -108,7 +116,7 @@ def create_checkout(
 
         response = httpx.post(
             f"{LS_API_BASE}/checkouts",
-            headers=LS_HEADERS,
+            headers=_ls_headers(),
             json=payload,
             timeout=15,
         )
@@ -122,8 +130,7 @@ def create_checkout(
 
         data = response.json()
         checkout_url = data["data"]["attributes"]["url"]
-        logger.info("Checkout created for user_id=%d", current_user.id)
-
+        logger.info("Checkout URL created for user_id=%d", current_user.id)
         return {"checkout_url": checkout_url, "test_mode": False}
 
     except HTTPException:
@@ -145,28 +152,36 @@ def create_checkout(
 def get_portal(
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    """Returns the URL where the user can manage their subscription."""
+    """Returns the URL where the user can manage / cancel their subscription."""
+    settings = get_settings()
+    frontend_url = settings.frontend_url.rstrip("/")
+
     if not current_user.ls_customer_id:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND,
             detail="No billing account found. Please complete checkout first.",
         )
 
-    if not LS_API_KEY:
-        return {"portal_url": f"{FRONTEND_URL}?billing=portal_test"}
+    if not settings.lemonsqueezy_api_key:
+        return {"portal_url": f"{frontend_url}?billing=portal_test"}
 
     try:
         response = httpx.get(
             f"{LS_API_BASE}/customers/{current_user.ls_customer_id}",
-            headers=LS_HEADERS,
+            headers=_ls_headers(),
             timeout=10,
         )
         data = response.json()
-        portal_url = data.get("data", {}).get("attributes", {}).get("urls", {}).get("customer_portal")
-        return {"portal_url": portal_url or FRONTEND_URL}
+        portal_url = (
+            data.get("data", {})
+                .get("attributes", {})
+                .get("urls", {})
+                .get("customer_portal")
+        )
+        return {"portal_url": portal_url or frontend_url}
     except Exception as exc:
         logger.warning("Portal URL fetch failed: %s", exc)
-        return {"portal_url": FRONTEND_URL}
+        return {"portal_url": frontend_url}
 
 
 # ── Webhook ───────────────────────────────────────────────────────────────────
@@ -183,23 +198,26 @@ async def lemon_squeezy_webhook(
 ) -> dict:
     """
     Handles these LS events:
-      subscription_created   → status = active, store customer/subscription IDs
-      subscription_updated   → update status
-      subscription_cancelled → status = cancelled
-      subscription_expired   → status = cancelled
+      subscription_created        → status = active / trialing
+      subscription_updated        → sync status
+      subscription_resumed        → status = active
+      subscription_cancelled      → status = cancelled
+      subscription_expired        → status = cancelled
       subscription_payment_failed → status = past_due
+      subscription_payment_success → status = active
     """
+    settings = get_settings()
     body = await request.body()
 
-    # Verify webhook signature
-    if LS_WEBHOOK_SECRET:
+    # ── Verify HMAC-SHA256 signature ──────────────────────────────────────────
+    if settings.lemonsqueezy_webhook_secret:
         expected = hmac.new(
-            LS_WEBHOOK_SECRET.encode(),
+            settings.lemonsqueezy_webhook_secret.encode(),
             body,
             hashlib.sha256,
         ).hexdigest()
         if not hmac.compare_digest(expected, x_signature):
-            logger.warning("LS webhook signature mismatch")
+            logger.warning("LS webhook signature mismatch — possible spoofed request")
             raise HTTPException(
                 status_code=http_status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid webhook signature.",
@@ -208,21 +226,24 @@ async def lemon_squeezy_webhook(
     try:
         event = json.loads(body)
     except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+        raise HTTPException(status_code=400, detail="Invalid JSON payload.")
 
     event_name = event.get("meta", {}).get("event_name", "")
     data       = event.get("data", {})
     attributes = data.get("attributes", {})
     custom     = event.get("meta", {}).get("custom_data", {})
 
-    user_id         = custom.get("user_id")
-    ls_customer_id  = str(attributes.get("customer_id", ""))
-    ls_sub_id       = str(data.get("id", ""))
-    ls_status       = attributes.get("status", "")
+    user_id        = custom.get("user_id")
+    ls_customer_id = str(attributes.get("customer_id", ""))
+    ls_sub_id      = str(data.get("id", ""))
+    ls_status      = attributes.get("status", "")
 
-    logger.info("LS webhook: event=%s user_id=%s status=%s", event_name, user_id, ls_status)
+    logger.info(
+        "LS webhook received | event=%s user_id=%s ls_status=%s",
+        event_name, user_id, ls_status,
+    )
 
-    # Map LS status to our status
+    # LS status → our DB status
     STATUS_MAP = {
         "active":    "active",
         "on_trial":  "trialing",
@@ -234,16 +255,16 @@ async def lemon_squeezy_webhook(
     }
 
     if not user_id:
-        logger.warning("LS webhook missing user_id in custom_data")
+        logger.warning("LS webhook missing user_id in custom_data — skipping")
         return {"received": True}
 
     try:
         user = db.query(User).filter(User.id == int(user_id)).first()
         if not user:
-            logger.warning("LS webhook: user_id=%s not found", user_id)
+            logger.warning("LS webhook: user_id=%s not found in DB", user_id)
             return {"received": True}
 
-        # Don't touch exempt accounts
+        # Exempt accounts (e.g. your own admin) are never touched by billing
         if user.subscription_status == "exempt":
             return {"received": True}
 
@@ -263,12 +284,12 @@ async def lemon_squeezy_webhook(
 
         db.commit()
         logger.info(
-            "User id=%d subscription updated to %s via LS webhook",
-            user.id, user.subscription_status,
+            "User id=%d subscription → %s (event: %s)",
+            user.id, user.subscription_status, event_name,
         )
 
     except Exception as exc:
         db.rollback()
-        logger.exception("LS webhook DB error: %s", exc)
+        logger.exception("LS webhook DB error for user_id=%s: %s", user_id, exc)
 
     return {"received": True}
