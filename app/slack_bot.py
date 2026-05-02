@@ -6,26 +6,23 @@ Slack bot integration using the Bolt for Python SDK.
 Flow:
   1. Slack posts an Events API payload to POST /slack/events
   2. SlackRequestHandler (ASGI) forwards it to the Bolt App
-  3. @app.event("app_mention") fires when the bot is @mentioned
-  4. Bot supports two formats:
-       A. Structured:   @bot create task [@assignee] <title>
-       B. Natural lang: @bot Hey Alina, finish the sales report today. It's urgent.
-  5. Message is sent to Groq AI to extract task, assignee, deadline, priority
-  6. Task is saved to PostgreSQL
-  7. Bot replies in the same thread confirming task creation
+  3. Bot listens to ALL messages in channels (not just @mentions)
+  4. Every message is evaluated by AI — if it looks like a task, it's created
+  5. Assignee is auto-detected from the message
+  6. Assignee receives a DM telling them who assigned the task and the sender's role
+  7. Task is saved to PostgreSQL with correct workspace_id
 
-Segment 5 — Viral Onboarding:
-  - After task creation, if the assignee has a Slack ID but no account,
-    the bot DMs them an invite link to claim the task and sign up.
-  - After every 3rd task created by a user, the bot DMs them a prompt
-    to invite teammates into the workspace.
+Supported formats (no @mention needed):
+  - "Ali make the sales report today"
+  - "Hey Sarah, finish the report by Friday — it's urgent"
+  - "@bot create task [@assignee] <title>"  ← still works too
 
 Required Slack OAuth scopes (Bot Token):
   channels:history   -- read public channel messages
   chat:write         -- post replies
   app_mentions:read  -- receive @mention events
   users:read         -- resolve user display names
-  im:write           -- open DM channels for invite messages
+  im:write           -- open DM channels for notifications
 """
 
 import asyncio
@@ -33,6 +30,7 @@ import concurrent.futures
 import logging
 import os
 import re
+import secrets as _secrets
 
 from slack_bolt import App
 from slack_bolt.adapter.fastapi import SlackRequestHandler
@@ -40,7 +38,7 @@ from slack_bolt.adapter.fastapi import SlackRequestHandler
 from app.ai_extractor import extract_task_from_message
 from app.config import get_settings
 from app.database import SessionLocal
-from app.models import Priority, Task, TaskStatus
+from app.models import Priority, Task, TaskStatus, UserRole
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -61,7 +59,14 @@ PRIORITY_EMOJI: dict[str, str] = {
     Priority.low.value:      ":large_green_circle:",
 }
 
-# Frontend base URL — used to build invite/claim links
+# Role display labels for DM notifications
+ROLE_LABELS: dict[str, str] = {
+    UserRole.architect.value: "Manager",
+    UserRole.navigator.value: "Team Lead",
+    UserRole.operator.value:  "Team Member",
+    UserRole.solo.value:      "Independent",
+}
+
 FRONTEND_URL = os.getenv("FRONTEND_URL", "").rstrip("/")
 
 # ── Regex patterns ─────────────────────────────────────────────────────────────
@@ -73,6 +78,12 @@ _CMD_RE = re.compile(
 )
 _MENTION_RE     = re.compile(r"<@[A-Z0-9]+>\s*", re.IGNORECASE)
 _NL_ASSIGNEE_RE = re.compile(r"<@(?P<uid>[A-Z0-9]+)>", re.IGNORECASE)
+
+# Subtypes to always ignore
+_IGNORE_SUBTYPES = {
+    "bot_message", "message_deleted", "message_changed",
+    "channel_join", "channel_leave", "file_share",
+}
 
 
 def _resolve_slack_user(client, user_id: str) -> str:
@@ -102,10 +113,7 @@ def _task_exists(db, channel_id: str, message_ts: str) -> bool:
 def _run_async(coro):
     """
     Safely run an async coroutine from a sync Bolt handler.
-
-    FastAPI already runs an event loop, so asyncio.run() would fail.
-    Instead we spin up a fresh event loop in a separate thread via
-    concurrent.futures, which is completely isolated from FastAPI's loop.
+    FastAPI already runs an event loop, so we use a thread with its own loop.
     """
     def _in_thread():
         loop = asyncio.new_event_loop()
@@ -120,57 +128,94 @@ def _run_async(coro):
         return future.result(timeout=30)
 
 
-# ── Segment 5: Viral onboarding helpers ──────────────────────────────────────
+def _get_workspace_id(db, sender_slack_id: str) -> int | None:
+    """
+    Resolve workspace_id for the message sender.
+    Falls back to the first workspace in the DB if sender isn't linked.
+    This ensures ALL Slack-created tasks are visible on the dashboard.
+    """
+    from app import crud as _crud
+    from app.models import Workspace
+
+    if sender_slack_id:
+        sender_user = _crud.get_user_by_slack_id(db, sender_slack_id)
+        if sender_user and sender_user.workspace_id:
+            return sender_user.workspace_id
+
+    # Fallback: assign to the first available workspace
+    first_workspace = db.query(Workspace).first()
+    return first_workspace.id if first_workspace else None
+
+
+def _get_sender_info(db, sender_slack_id: str) -> tuple[str | None, str | None]:
+    """
+    Return (sender_name, sender_role_label) from the DB.
+    Used in the assignee DM notification.
+    """
+    from app import crud as _crud
+
+    if not sender_slack_id:
+        return None, None
+
+    sender_user = _crud.get_user_by_slack_id(db, sender_slack_id)
+    if sender_user:
+        role_val   = sender_user.role.value if hasattr(sender_user.role, "value") else sender_user.role
+        role_label = ROLE_LABELS.get(role_val, "Team Member")
+        return sender_user.name, role_label
+
+    return None, None
+
 
 def _send_dm(client, slack_user_id: str, text: str) -> bool:
     """Open a DM and send text to a Slack user. Returns True on success."""
     try:
-        convo = client.conversations_open(users=[slack_user_id])
+        convo      = client.conversations_open(users=[slack_user_id])
         dm_channel = convo["channel"]["id"]
         client.chat_postMessage(channel=dm_channel, text=text)
-        logger.info("Onboarding DM sent to slack_user_id=%s", slack_user_id)
+        logger.info("DM sent to slack_user_id=%s", slack_user_id)
         return True
     except Exception as exc:
         logger.warning("Failed to DM slack_user_id=%s: %s", slack_user_id, exc)
         return False
 
 
-def _maybe_send_assignee_invite(
+def _notify_assignee(
     client,
     db,
-    slack_user_id: str,
+    assignee_slack_id: str,
     assignee_name: str,
-    task_id: int,
     task_title: str,
-    workspace_invite_code: str | None,
+    task_id: int,
+    sender_slack_id: str,
+    sender_name_slack: str,
+    workspace_id: int | None,
 ) -> None:
     """
-    Segment 5A — Assignee invite DM.
-
-    If the assignee has a Slack ID but no account in our system,
-    DM them a claim link so they can sign up and see their task.
-    If they already have an account, skip silently.
+    DM the assignee telling them:
+    - What task was assigned to them
+    - Who assigned it and their role (e.g. "Wahaj (Manager)")
+    - Link to view/claim the task on the dashboard
     """
-    from app import crud as _crud
+    db_sender_name, db_sender_role = _get_sender_info(db, sender_slack_id)
 
-    existing_user = _crud.get_user_by_slack_id(db, slack_user_id)
-    if existing_user:
-        # Already registered — no invite needed
-        return
+    sender_display = db_sender_name or sender_name_slack or "Someone"
+    role_display   = f" ({db_sender_role})" if db_sender_role else ""
+    claim_url      = f"{FRONTEND_URL}/claim?task={task_id}" if FRONTEND_URL else ""
 
-    # Build the claim URL: frontend handles signup + auto-join via invite code
-    claim_url = f"{FRONTEND_URL}/claim?task={task_id}"
-    if workspace_invite_code:
-        claim_url += f"&invite={workspace_invite_code}"
+    msg_lines = [
+        f"📋 *New task assigned to you!*",
+        f"",
+        f"*Task:* {task_title}",
+        f"*Assigned by:* {sender_display}{role_display}",
+    ]
+    if claim_url:
+        msg_lines += [
+            f"",
+            f"👉 View & manage it here: {claim_url}",
+            f"_Sign in with your work email to access your full task list._",
+        ]
 
-    msg = (
-        f"👋 Hey *{assignee_name}*! You've been assigned a task:\n\n"
-        f"📋 *{task_title}*\n\n"
-        f"Click below to claim it and see your full task list:\n"
-        f"👉 {claim_url}\n\n"
-        f"_You'll be signed up automatically — no password needed if you use Slack login._"
-    )
-    _send_dm(client, slack_user_id, msg)
+    _send_dm(client, assignee_slack_id, "\n".join(msg_lines))
 
 
 def _maybe_send_invite_teammate_prompt(
@@ -179,26 +224,16 @@ def _maybe_send_invite_teammate_prompt(
     creator_slack_id: str,
     workspace_invite_code: str | None,
 ) -> None:
-    """
-    Segment 5B — Teammate invite prompt.
-
-    After a user creates their 3rd, 6th, 9th... task (every 3rd),
-    DM them a prompt to invite teammates into the workspace.
-    This creates the viral growth loop without being spammy.
-    """
+    """Every 3rd task created, DM the creator to invite teammates."""
     if not creator_slack_id or not workspace_invite_code:
         return
 
-    # Count tasks created by this Slack user
     task_count = (
         db.query(Task)
         .filter(Task.assignee_id == creator_slack_id)
         .count()
     )
 
-    # Also count tasks where creator is the sender (using assignee_id as proxy
-    # for now — in a future segment, a creator_slack_id column can be added)
-    # Trigger at every 3rd task milestone
     if task_count > 0 and task_count % 3 == 0:
         invite_url = f"{FRONTEND_URL}/join?invite={workspace_invite_code}"
         msg = (
@@ -219,65 +254,59 @@ def _get_workspace_invite_code(db, workspace_id: int | None) -> str | None:
     return workspace.invite_code if workspace else None
 
 
-# ── Main event handler ────────────────────────────────────────────────────────
+# ── Core task processing (shared by mention + message handlers) ───────────────
 
-@bolt_app.event("app_mention")
-def handle_mention(event, say, client):
+def _process_message(event, say, client, require_mention: bool = False):
     """
-    Handles two message formats:
+    Evaluate a Slack message and create a task if the AI detects one.
 
-    1. Structured command (Option A):
-         @bot create task [@assignee] <title>
-
-    2. Natural language fallback (Option B):
-         @bot Hey Alina, finish the sales report today. It's urgent.
-
-    In both cases the message is sent to Groq AI to extract:
-      - task title  (clean, actionable description)
-      - assignee    (person mentioned in the message)
-      - deadline    (e.g. "today", "Friday", "June 30")
-      - priority    (low / medium / high / critical — inferred from urgency words)
-
-    Segment 5 additions:
-      - If assignee is not yet registered, sends them a claim/signup DM
-      - Every 3rd task, prompts the creator to invite teammates
+    require_mention=True  → used for @mention handler; will reply with errors/help
+    require_mention=False → used for message handler; stays silent if not a task
     """
     channel_id = event.get("channel", "")
     message_ts = event.get("ts", "")
     text       = event.get("text", "")
     thread_ts  = event.get("thread_ts") or message_ts
-    sender_id  = event.get("user", "")  # Slack user ID of the person who sent the message
+    sender_id  = event.get("user", "")
+    subtype    = event.get("subtype", "")
+
+    # Skip system/bot events
+    if subtype in _IGNORE_SUBTYPES:
+        return
+    if event.get("bot_id"):
+        return
+    if not text or not text.strip():
+        return
 
     # Optional channel restriction
     if settings.slack_channel_id and channel_id != settings.slack_channel_id:
-        logger.info("Ignoring message from channel %s (not allowed)", channel_id)
         return
 
-    # ── Step 1: Parse the raw message ─────────────────────────────────────────
+    # ── Parse message ─────────────────────────────────────────────────────────
     match = _CMD_RE.search(text)
 
     if match:
-        # Option A: structured command
         raw_title           = match.group("title").strip()
         slack_mention       = match.group("mention")
         slack_assignee_name = (
             _resolve_slack_user(client, slack_mention) if slack_mention else None
         )
         ai_input = raw_title
-        mode = "command"
+        mode     = "command"
     else:
-        # Option B: natural language
         body = _MENTION_RE.sub("", text).strip()
         if not body:
-            say(
-                text=(
-                    "Hi! I can create tasks two ways:\n"
-                    "• *Structured:* `@bot create task [@assignee] <title>`\n"
-                    "• *Natural language:* `@bot Hey Alina, finish the sales report today — it's urgent`"
-                ),
-                thread_ts=thread_ts,
-                channel=channel_id,
-            )
+            if require_mention:
+                say(
+                    text=(
+                        "Hi! I can create tasks two ways:\n"
+                        "• *Structured:* `@bot create task [@assignee] <title>`\n"
+                        "• *Natural language:* `@bot Hey Alina, finish the sales report today — it's urgent`\n\n"
+                        "Or just send any message like _'Ali make the sales report today'_ and I'll pick it up automatically!"
+                    ),
+                    thread_ts=thread_ts,
+                    channel=channel_id,
+                )
             return
 
         assignee_match = _NL_ASSIGNEE_RE.search(body)
@@ -292,50 +321,50 @@ def handle_mention(event, say, client):
 
         mode = "natural"
 
-    logger.info("Extracting task via AI | mode=%s | input=%r", mode, ai_input[:100])
+    logger.info("Evaluating for task | mode=%s | input=%r", mode, ai_input[:100])
 
-    # ── Step 2: AI extraction via Groq ────────────────────────────────────────
+    # ── AI extraction ─────────────────────────────────────────────────────────
     try:
         extracted = _run_async(extract_task_from_message(ai_input))
     except Exception as exc:
         logger.error("AI extraction failed: %s", exc, exc_info=True)
-        say(
-            text="⚠️ I couldn't extract a task from that message. Please try rephrasing.",
-            thread_ts=thread_ts,
-            channel=channel_id,
-        )
+        if require_mention:
+            say(
+                text="⚠️ I couldn't extract a task from that message. Please try rephrasing.",
+                thread_ts=thread_ts,
+                channel=channel_id,
+            )
         return
 
-    # ── Step 3: Resolve final assignee ────────────────────────────────────────
-    # Slack @mention takes priority over AI-extracted name
+    # No task detected — skip silently for auto-detection
+    if not extracted or not extracted.task or not extracted.task.strip():
+        logger.info("No task detected in message — skipping")
+        return
+
+    # For auto-detection (non-mention), skip low-confidence extractions
+    if not require_mention:
+        confidence = getattr(extracted, "confidence", 1.0) or 1.0
+        if confidence < 0.6:
+            logger.info("Low confidence %.2f — skipping auto-detection", confidence)
+            return
+
+    # ── Resolve assignee ──────────────────────────────────────────────────────
     final_assignee    = slack_assignee_name or extracted.assignee or None
     final_assignee_id = slack_mention if slack_assignee_name else None
 
     logger.info(
-        "Extracted | task=%r | assignee=%r | deadline=%r | priority=%s | mode=%s",
+        "Task confirmed | task=%r | assignee=%r | deadline=%r | priority=%s | mode=%s",
         extracted.task, final_assignee, extracted.deadline, extracted.priority, mode,
     )
 
-    # ── Step 4: Save to database ───────────────────────────────────────────────
+    # ── Save to DB ────────────────────────────────────────────────────────────
     db = SessionLocal()
     try:
         if _task_exists(db, channel_id, message_ts):
-            logger.info("Duplicate Slack event ts=%s — skipping", message_ts)
+            logger.info("Duplicate event ts=%s — skipping", message_ts)
             return
 
-        # Resolve sender's workspace so we can build invite links
-        from app import crud as _crud
-        sender_user = _crud.get_user_by_slack_id(db, sender_id) if sender_id else None
-
-        # Fallback: if sender not found by Slack ID, find the first available workspace
-        # This ensures Slack-created tasks are always visible in the dashboard
-        if sender_user:
-            workspace_id = sender_user.workspace_id
-        else:
-            from app.models import Workspace
-            first_workspace = db.query(Workspace).first()
-            workspace_id = first_workspace.id if first_workspace else None
-
+        workspace_id = _get_workspace_id(db, sender_id)
         invite_code  = _get_workspace_invite_code(db, workspace_id)
 
         new_task = Task(
@@ -350,13 +379,14 @@ def handle_mention(event, say, client):
             slack_message_ts = message_ts,
             status           = TaskStatus.to_do,
             workspace_id     = workspace_id,
+            share_token      = _secrets.token_urlsafe(12),
         )
         db.add(new_task)
         db.commit()
         db.refresh(new_task)
 
-        # ── Step 5: Build confirmation reply ──────────────────────────────────
-        priority_val = (
+        # ── Post confirmation in channel ──────────────────────────────────────
+        priority_val  = (
             new_task.priority.value
             if hasattr(new_task.priority, "value")
             else new_task.priority
@@ -375,35 +405,37 @@ def handle_mention(event, say, client):
 
         say(text="\n".join(lines), thread_ts=thread_ts, channel=channel_id)
         logger.info(
-            "Created task id=%s title=%r assignee=%r priority=%s deadline=%r mode=%s",
+            "Created task id=%s title=%r assignee=%r priority=%s deadline=%r mode=%s workspace_id=%s",
             new_task.id, extracted.task, final_assignee,
-            extracted.priority, extracted.deadline, mode,
+            extracted.priority, extracted.deadline, mode, workspace_id,
         )
 
-        # ── Segment 5A: Send assignee invite DM if they're not registered ─────
+        # ── DM the assignee with full context ─────────────────────────────────
         if final_assignee_id:
             try:
-                _maybe_send_assignee_invite(
-                    client=client,
-                    db=db,
-                    slack_user_id=final_assignee_id,
-                    assignee_name=final_assignee or final_assignee_id,
-                    task_id=new_task.id,
-                    task_title=extracted.task,
-                    workspace_invite_code=invite_code,
+                sender_name_slack = _resolve_slack_user(client, sender_id) if sender_id else "Someone"
+                _notify_assignee(
+                    client            = client,
+                    db                = db,
+                    assignee_slack_id = final_assignee_id,
+                    assignee_name     = final_assignee or final_assignee_id,
+                    task_title        = extracted.task,
+                    task_id           = new_task.id,
+                    sender_slack_id   = sender_id,
+                    sender_name_slack = sender_name_slack,
+                    workspace_id      = workspace_id,
                 )
             except Exception as exc:
-                # Onboarding DM failure must never block task creation
-                logger.warning("Assignee invite DM failed (non-fatal): %s", exc)
+                logger.warning("Assignee DM failed (non-fatal): %s", exc)
 
-        # ── Segment 5B: Prompt sender to invite teammates every 3rd task ──────
+        # ── Prompt sender to invite teammates every 3rd task ──────────────────
         if sender_id:
             try:
                 _maybe_send_invite_teammate_prompt(
-                    client=client,
-                    db=db,
-                    creator_slack_id=sender_id,
-                    workspace_invite_code=invite_code,
+                    client               = client,
+                    db                   = db,
+                    creator_slack_id     = sender_id,
+                    workspace_invite_code= invite_code,
                 )
             except Exception as exc:
                 logger.warning("Teammate invite prompt failed (non-fatal): %s", exc)
@@ -411,16 +443,51 @@ def handle_mention(event, say, client):
     except Exception as exc:
         db.rollback()
         logger.error("Failed to save task: %s", exc, exc_info=True)
-        say(
-            text=f"⚠️ Sorry, I couldn't save that task. Please try again. (Error: {exc})",
-            thread_ts=thread_ts,
-            channel=channel_id,
-        )
+        if require_mention:
+            say(
+                text=f"⚠️ Sorry, I couldn't save that task. Please try again. (Error: {exc})",
+                thread_ts=thread_ts,
+                channel=channel_id,
+            )
     finally:
         db.close()
 
 
+# ── Slack event handlers ──────────────────────────────────────────────────────
+
+@bolt_app.event("app_mention")
+def handle_mention(event, say, client):
+    """
+    Handles @mentions of the bot.
+    Always processes and replies (even on errors or no-task messages).
+    """
+    _process_message(event, say, client, require_mention=True)
+
+
 @bolt_app.event("message")
-def handle_message_events(body, logger):
-    """Silently acknowledge message events we don't need to process."""
-    pass
+def handle_all_messages(event, say, client):
+    """
+    Listens to ALL channel messages — no @mention needed.
+    AI decides whether the message contains a task.
+    Bot stays silent if it's not a task (no spam).
+
+    Examples that auto-create tasks:
+      "Ali make the sales report today"
+      "Hey Sarah, finish the deck by Friday — urgent"
+      "John please review the contracts this week"
+    """
+    # Skip bot messages
+    if event.get("bot_id") or event.get("subtype") in _IGNORE_SUBTYPES:
+        return
+
+    # Skip if it's an @mention — the app_mention handler covers that
+    text = event.get("text", "")
+    try:
+        bot_info    = bolt_app.client.auth_test()
+        bot_user_id = bot_info.get("user_id", "")
+        if bot_user_id and f"<@{bot_user_id}>" in text:
+            return
+    except Exception:
+        pass
+
+    _process_message(event, say, client, require_mention=False)
