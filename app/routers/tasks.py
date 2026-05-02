@@ -78,8 +78,8 @@ def _build_role_scoped_tasks(
 
     if not workspace_id:
         if role == UserRole.architect:
-            # Architect with no workspace — show ALL tasks (including Slack-created
-            # tasks that have no workspace_id or owner_id)
+            # Architect with no workspace — show ALL tasks including
+            # Slack-created tasks that have no workspace_id or owner_id
             from sqlalchemy import select, func
             from app.models import Task as TaskModel
             stmt = select(TaskModel)
