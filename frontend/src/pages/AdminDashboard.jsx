@@ -1745,9 +1745,20 @@ export default function AdminDashboard() {
             {/* Sign Out */}
             <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid rgba(255,51,102,0.1)" }}>
               <button
-                onClick={() => {
+                onClick={async () => {
+                  // Clear all auth tokens
                   localStorage.removeItem("access_token");
-                  window.location.href = "/";
+                  localStorage.removeItem("refresh_token");
+                  localStorage.removeItem("token");
+                  sessionStorage.clear();
+                  // Try /login first; if it doesn't exist, reload current page
+                  // so the parent router can re-evaluate auth state
+                  try {
+                    const res = await fetch("/login", { method: "HEAD" });
+                    window.location.replace(res.ok ? "/login" : "/");
+                  } catch {
+                    window.location.replace("/");
+                  }
                 }}
                 style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 10,
