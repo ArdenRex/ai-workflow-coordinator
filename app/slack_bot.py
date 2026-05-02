@@ -326,7 +326,16 @@ def handle_mention(event, say, client):
         # Resolve sender's workspace so we can build invite links
         from app import crud as _crud
         sender_user = _crud.get_user_by_slack_id(db, sender_id) if sender_id else None
-        workspace_id = sender_user.workspace_id if sender_user else None
+
+        # Fallback: if sender not found by Slack ID, find the first available workspace
+        # This ensures Slack-created tasks are always visible in the dashboard
+        if sender_user:
+            workspace_id = sender_user.workspace_id
+        else:
+            from app.models import Workspace
+            first_workspace = db.query(Workspace).first()
+            workspace_id = first_workspace.id if first_workspace else None
+
         invite_code  = _get_workspace_invite_code(db, workspace_id)
 
         new_task = Task(
