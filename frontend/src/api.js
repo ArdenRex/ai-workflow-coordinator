@@ -4,14 +4,11 @@
 const BASE = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
 
 // ── Token helper ──────────────────────────────────────────────────────────────
-// Reads the JWT from wherever AuthContext stored it (localStorage or sessionStorage)
-
 function getToken() {
   return localStorage.getItem("access_token") || sessionStorage.getItem("access_token") || null;
 }
 
 // ── Shared request helper ─────────────────────────────────────────────────────
-
 async function request(path, options = {}) {
   const url = `${BASE}${path}`;
   const token = getToken();
@@ -46,7 +43,6 @@ async function request(path, options = {}) {
   }
 
   if (res.status === 204) return null;
-
   return res.json();
 }
 
@@ -128,4 +124,32 @@ export async function processMessage(message, source = "manual") {
 export async function fetchTask(taskId) {
   if (!taskId || taskId <= 0) throw new Error("taskId must be a positive integer.");
   return request(`/tasks/${taskId}`);
+}
+
+// ── Billing API ───────────────────────────────────────────────────────────────
+
+/**
+ * Creates a Lemon Squeezy hosted checkout session.
+ * Returns { checkout_url, test_mode }.
+ * Redirect the user to checkout_url immediately.
+ */
+export async function createCheckout() {
+  return request("/billing/checkout", { method: "POST" });
+}
+
+/**
+ * Fetches the current user's billing status from the backend.
+ * Returns { status, show_wall, days_left, trial_ends_at, card_on_file }.
+ */
+export async function fetchBillingStatus() {
+  return request("/auth/billing-status");
+}
+
+/**
+ * Gets the Lemon Squeezy customer portal URL so the user can
+ * manage / cancel their subscription.
+ * Returns { portal_url }.
+ */
+export async function fetchCustomerPortal() {
+  return request("/billing/portal");
 }
