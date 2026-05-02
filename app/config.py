@@ -52,24 +52,43 @@ class Settings(BaseSettings):
         description="Secret key for signing/encryption (required).",
     )
 
-    # ── NEW: JWT settings ─────────────────────────────────────────────────────
-    # Used to sign access tokens (login sessions)
+    # ── JWT settings ──────────────────────────────────────────────────────────
     jwt_algorithm: str = Field(
         default="HS256",
         description="JWT signing algorithm.",
     )
-    # Short-lived access token — 30 minutes
     jwt_access_token_expire_minutes: int = Field(
         default=30,
         description="Access token expiry in minutes.",
     )
-    # Long-lived token for Remember Me — 30 days
     jwt_refresh_token_expire_days: int = Field(
         default=30,
         description="Refresh token expiry in days (used for Remember Me).",
     )
 
-    # ── Validators (all unchanged) ────────────────────────────────────────────
+    # ── Lemon Squeezy Billing (Segment 15) ───────────────────────────────────
+    lemonsqueezy_api_key: str = Field(
+        default="",
+        description="Lemon Squeezy API key. Get one at https://app.lemonsqueezy.com/settings/api",
+    )
+    lemonsqueezy_store_id: str = Field(
+        default="362748",
+        description="Lemon Squeezy Store ID.",
+    )
+    lemonsqueezy_variant_id: str = Field(
+        default="1601865",
+        description="Lemon Squeezy Variant ID for the $20/month subscription.",
+    )
+    lemonsqueezy_webhook_secret: str = Field(
+        default="acedengroup_webhook_secret_2024",
+        description="Lemon Squeezy webhook signing secret.",
+    )
+    frontend_url: str = Field(
+        default="",
+        description="Frontend URL — used for checkout redirect and webhook return URL.",
+    )
+
+    # ── Validators ────────────────────────────────────────────────────────────
     @field_validator("database_url", mode="before")
     @classmethod
     def _validate_database_url(cls, v: str) -> str:
@@ -138,9 +157,10 @@ def _safe_db_host(url: str) -> str:
 def get_settings() -> Settings:
     settings = Settings()
     logger.info(
-        "Config loaded | env=%s | db_host=%s | slack_channel=%s",
+        "Config loaded | env=%s | db_host=%s | slack_channel=%s | ls_store=%s",
         settings.app_env,
         _safe_db_host(settings.database_url),
         settings.slack_channel_id or "(all channels)",
+        settings.lemonsqueezy_store_id or "(not configured)",
     )
     return settings
