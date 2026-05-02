@@ -358,75 +358,206 @@ function HoloSparkline({ values, color = "#00d4ff", height = 60 }) {
 
 // ── 3D HOLOGRAPHIC BAR CHART ─────────────────────────────────────────────────
 function HoloBarChart({ data, activeColor }) {
-  const [hov, setHov] = useState(null);
-  if (!data || !data.length) return null;
-  const max = Math.max(...data.map(d => d.revenue), 1);
-  const base = activeColor || "#00d4ff";
-  const colors = [base, base, base, base, base];
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !data?.length) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width = canvas.offsetWidth * 2;
+    const H = canvas.height = 200 * 2;
+    canvas.style.height = "200px";
+    const base = activeColor || "#00d4ff";
+    const [r0,g0,b0] = base.replace(/rgba?\(|\)/g,"").split(",").map(s => parseInt(s.trim())) || [0,212,255];
+    const max = Math.max(...data.map(d => d.revenue), 1);
+    let hovIdx = null;
+    let t = 0;
+    let raf;
 
-  return (
-    <div style={{ position: "relative" }}>
-      {/* Y-axis labels */}
-      <div style={{ position: "absolute", left: 0, top: 0, bottom: 28, display: "flex", flexDirection: "column", justifyContent: "space-between", pointerEvents: "none" }}>
-        {[1, 0.75, 0.5, 0.25, 0].map(v => (
-          <div key={v} style={{ fontSize: 8, color: "rgba(0,212,255,0.3)", fontFamily: "'Share Tech Mono', monospace", textAlign: "right", width: 35 }}>
-            ${Math.round(max * v)}
-          </div>
-        ))}
-      </div>
+    // Isometric projection parameters
+    const ISO_ANGLE = Math.PI / 6; // 30deg
+    const cosA = Math.cos(ISO_ANGLE), sinA = Math.sin(ISO_ANGLE);
+    const barW = (W * 0.72) / data.length;
+    const barGap = barW * 0.22;
+    const startX = W * 0.14;
+    const groundY = H * 0.82;
+    const maxBarH = H * 0.55;
+    const topDepth = barW * 0.35; // depth of the isometric top face
 
-      <div style={{ marginLeft: 42, overflow: "hidden" }}>
-        {/* Grid lines */}
-        <div style={{ position: "relative" }}>
-          {[0.25, 0.5, 0.75, 1].map(v => (
-            <div key={v} style={{ position: "absolute", left: 0, right: 0, top: `${(1 - v) * 100}%`, height: 1, background: "rgba(0,212,255,0.06)" }} />
-          ))}
+    function isoProject(x, y, z) {
+      // Simple isometric: shift x right for depth (z), shift y up for height
+      return { px: x + z * cosA * 0.6, py: y - z * sinA * 0.6 };
+    }
 
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 160, padding: "4px 0 0" }}>
-            {data.map((d, i) => {
-              const isH = hov === i;
-              const barH = Math.max(3, (d.revenue / max) * 140);
-              const col = colors[i % colors.length];
-              return (
-                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2, cursor: "pointer", position: "relative" }}
-                  onMouseEnter={() => setHov(i)} onMouseLeave={() => setHov(null)}>
-                  {isH && d.revenue > 0 && (
-                    <div style={{
-                      position: "absolute", bottom: barH + 6, left: "50%", transform: "translateX(-50%)",
-                      background: "rgba(0,10,25,0.98)", border: "1px solid rgba(0,212,255,0.4)",
-                      borderRadius: 3, padding: "4px 8px", whiteSpace: "nowrap", zIndex: 10,
-                      fontSize: 9, color: "#00d4ff", fontFamily: "'Share Tech Mono', monospace",
-                    }}>
-                      ${d.revenue.toFixed(0)} · {d.new_paid} users
-                    </div>
-                  )}
+    function drawBar3D(x, barH, barW2, col, isHov, month, revenue, idx) {
+      const pulse = isHov ? 1.08 + Math.sin(t * 4) * 0.04 : 1;
+      const aH = barH * pulse;
+      const depth = topDepth;
+      const bx = x + barGap / 2;
 
-                  {/* 3D bar — front face */}
-                  <div style={{
-                    width: "100%", height: barH,
-                    background: `linear-gradient(180deg, ${col}dd 0%, ${col}66 100%)`,
-                    boxShadow: isH ? `0 0 20px ${col}55, inset 0 0 10px rgba(255,255,255,0.1)` : `inset 0 0 6px rgba(255,255,255,0.05)`,
-                    transition: "all 0.2s",
-                    position: "relative",
-                    clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)",
-                  }}>
-                    {/* Shine stripe */}
-                    <div style={{ position: "absolute", top: 0, left: "20%", width: "20%", bottom: 0, background: `linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.03))`, pointerEvents: "none" }} />
-                    {/* Top face (3D effect) */}
-                    <div style={{ position: "absolute", top: -5, left: 0, right: 0, height: 5, background: `${col}`, opacity: 0.5, transform: "skewX(-45deg) scaleY(0.6)", transformOrigin: "bottom" }} />
-                  </div>
+      // Front face
+      const frontGrad = ctx.createLinearGradient(bx, groundY - aH, bx, groundY);
+      frontGrad.addColorStop(0, `rgba(${r0},${g0},${b0},${isHov ? 1.0 : 0.85})`);
+      frontGrad.addColorStop(0.4, `rgba(${Math.round(r0*0.7)},${Math.round(g0*0.7)},${Math.round(b0*0.7)},0.8)`);
+      frontGrad.addColorStop(1, `rgba(${Math.round(r0*0.3)},${Math.round(g0*0.3)},${Math.round(b0*0.3)},0.6)`);
+      ctx.fillStyle = frontGrad;
+      ctx.shadowColor = col; ctx.shadowBlur = isHov ? 24 : 8;
+      ctx.beginPath();
+      ctx.moveTo(bx, groundY);
+      ctx.lineTo(bx + barW2 - barGap, groundY);
+      ctx.lineTo(bx + barW2 - barGap, groundY - aH);
+      ctx.lineTo(bx, groundY - aH);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
 
-                  <div style={{ fontSize: 7, color: "rgba(0,212,255,0.35)", fontFamily: "'Share Tech Mono', monospace", textAlign: "center", marginTop: 4, lineHeight: 1.2, transform: "rotate(-35deg)", transformOrigin: "center" }}>
-                    {d.month?.slice(0, 3)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+      // Front face shine stripe
+      const shineGrad = ctx.createLinearGradient(bx, groundY - aH, bx + (barW2-barGap)*0.35, groundY);
+      shineGrad.addColorStop(0, "rgba(255,255,255,0.22)");
+      shineGrad.addColorStop(1, "rgba(255,255,255,0.03)");
+      ctx.fillStyle = shineGrad;
+      ctx.beginPath();
+      ctx.moveTo(bx, groundY);
+      ctx.lineTo(bx + (barW2-barGap)*0.35, groundY);
+      ctx.lineTo(bx + (barW2-barGap)*0.35, groundY - aH);
+      ctx.lineTo(bx, groundY - aH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Right side face (darker — gives 3D depth)
+      const sideGrad = ctx.createLinearGradient(bx + barW2 - barGap, groundY - aH, bx + barW2 - barGap + depth, groundY - aH + depth * sinA / cosA);
+      sideGrad.addColorStop(0, `rgba(${Math.round(r0*0.4)},${Math.round(g0*0.4)},${Math.round(b0*0.4)},0.85)`);
+      sideGrad.addColorStop(1, `rgba(${Math.round(r0*0.2)},${Math.round(g0*0.2)},${Math.round(b0*0.2)},0.5)`);
+      ctx.fillStyle = sideGrad;
+      ctx.beginPath();
+      ctx.moveTo(bx + barW2 - barGap, groundY);
+      ctx.lineTo(bx + barW2 - barGap + depth, groundY - depth * sinA / cosA);
+      ctx.lineTo(bx + barW2 - barGap + depth, groundY - aH - depth * sinA / cosA);
+      ctx.lineTo(bx + barW2 - barGap, groundY - aH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Top face (brightest — facing the light)
+      const topGrad = ctx.createLinearGradient(bx, groundY - aH, bx + barW2 - barGap + depth, groundY - aH - depth * sinA / cosA);
+      topGrad.addColorStop(0, `rgba(${Math.min(r0+60,255)},${Math.min(g0+60,255)},${Math.min(b0+60,255)},${isHov ? 1.0 : 0.95})`);
+      topGrad.addColorStop(1, `rgba(${r0},${g0},${b0},0.8)`);
+      ctx.fillStyle = topGrad;
+      ctx.shadowColor = col; ctx.shadowBlur = isHov ? 30 : 14;
+      ctx.beginPath();
+      ctx.moveTo(bx, groundY - aH);
+      ctx.lineTo(bx + barW2 - barGap, groundY - aH);
+      ctx.lineTo(bx + barW2 - barGap + depth, groundY - aH - depth * sinA / cosA);
+      ctx.lineTo(bx + depth, groundY - aH - depth * sinA / cosA);
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Top face specular highlight
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.beginPath();
+      ctx.moveTo(bx + 2, groundY - aH);
+      ctx.lineTo(bx + (barW2-barGap)*0.5, groundY - aH);
+      ctx.lineTo(bx + (barW2-barGap)*0.5 + depth*0.5, groundY - aH - depth*0.5*sinA/cosA);
+      ctx.lineTo(bx + depth*0.5, groundY - aH - depth*0.5*sinA/cosA);
+      ctx.closePath();
+      ctx.fill();
+
+      // Ground shadow
+      ctx.fillStyle = `rgba(0,0,0,0.25)`;
+      ctx.beginPath();
+      ctx.ellipse(bx + (barW2-barGap)/2, groundY + 4, (barW2-barGap)*0.5, 6, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      // Month label
+      ctx.save();
+      ctx.translate(bx + (barW2-barGap)/2, groundY + 20);
+      ctx.rotate(-Math.PI / 5);
+      ctx.fillStyle = isHov ? col : `rgba(${r0},${g0},${b0},0.4)`;
+      ctx.font = `${isHov ? "bold " : ""}${H * 0.028}px 'Share Tech Mono', monospace`;
+      ctx.textAlign = "center";
+      ctx.fillText(data[idx].month?.slice(0, 3) || "", 0, 0);
+      ctx.restore();
+
+      // Value tooltip on hover
+      if (isHov && revenue > 0) {
+        const ttW = 160, ttH = 40, ttX = Math.min(bx - 10, W - ttW - 10), ttY = groundY - aH - 60;
+        ctx.fillStyle = "rgba(0,8,20,0.98)";
+        ctx.strokeStyle = `rgba(${r0},${g0},${b0},0.7)`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(ttX, ttY, ttW, ttH, 4);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = col;
+        ctx.font = `bold ${H * 0.038}px 'Orbitron', monospace`;
+        ctx.textAlign = "left";
+        ctx.shadowColor = col; ctx.shadowBlur = 10;
+        ctx.fillText(`$${revenue.toFixed(0)}`, ttX + 10, ttY + 16);
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = `rgba(${r0},${g0},${b0},0.5)`;
+        ctx.font = `${H * 0.027}px 'Share Tech Mono', monospace`;
+        ctx.fillText(`${data[idx].new_paid || 0} paid users`, ttX + 10, ttY + 32);
+      }
+    }
+
+    function draw() {
+      t += 0.02;
+      ctx.clearRect(0, 0, W, H);
+
+      // Y-axis grid lines (perspective-ish)
+      for (let v = 0; v <= 4; v++) {
+        const y = groundY - (v / 4) * maxBarH;
+        ctx.strokeStyle = `rgba(${r0},${g0},${b0},0.07)`;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 8]);
+        ctx.beginPath(); ctx.moveTo(startX, y); ctx.lineTo(W - W*0.06, y); ctx.stroke();
+        ctx.setLineDash([]);
+        if (v > 0) {
+          ctx.fillStyle = `rgba(${r0},${g0},${b0},0.3)`;
+          ctx.font = `${H * 0.028}px 'Share Tech Mono', monospace`;
+          ctx.textAlign = "right";
+          ctx.fillText(`$${Math.round(max * v / 4)}`, startX - 6, y + 4);
+        }
+      }
+
+      // Ground line
+      ctx.strokeStyle = `rgba(${r0},${g0},${b0},0.2)`;
+      ctx.lineWidth = 1.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(startX, groundY); ctx.lineTo(W - W*0.06, groundY); ctx.stroke();
+
+      // Draw bars back to front
+      data.forEach((d, i) => {
+        const barH = Math.max(4, (d.revenue / max) * maxBarH);
+        const x = startX + i * barW;
+        drawBar3D(x, barH, barW, base, hovIdx === i, d.month, d.revenue, i);
+      });
+
+      raf = requestAnimationFrame(draw);
+    }
+    draw();
+
+    const onMouseMove = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left) * (W / rect.width);
+      const my = (e.clientY - rect.top) * (H / rect.height);
+      let found = null;
+      data.forEach((d, i) => {
+        const x = startX + i * barW + barW * 0.1;
+        const barH = Math.max(4, (d.revenue / max) * maxBarH);
+        if (mx >= x && mx <= x + barW * 0.78 && my >= groundY - barH && my <= groundY) found = i;
+      });
+      hovIdx = found;
+    };
+    canvas.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("mouseleave", () => { hovIdx = null; });
+
+    const onResize = () => {
+      canvas.width = canvas.offsetWidth * 2;
+      canvas.height = 200 * 2;
+    };
+    window.addEventListener("resize", onResize);
+    return () => { cancelAnimationFrame(raf); canvas.removeEventListener("mousemove", onMouseMove); window.removeEventListener("resize", onResize); };
+  }, [data, activeColor]);
+
+  return <canvas ref={canvasRef} style={{ display: "block", width: "100%", cursor: "crosshair" }} />;
 }
 
 // ── CIRCULAR RADAR / DONUT ────────────────────────────────────────────────────
@@ -774,7 +905,7 @@ function FeedbackTable() {
   );
 }
 
-// ── JARVIS ARC REACTOR ────────────────────────────────────────────────────────
+// ── TRUE 3D ARC REACTOR — sphere with specular lighting, depth rings, lens flare ─
 function ArcReactor({ color = "#00d4ff", rgb = "0,212,255", value = "$0", label = "MRR", size = 200 }) {
   const canvasRef = useRef(null);
   const [angle, setAngle] = useState(0);
@@ -788,107 +919,151 @@ function ArcReactor({ color = "#00d4ff", rgb = "0,212,255", value = "$0", label 
     canvas.width = canvas.height = S;
     canvas.style.width = canvas.style.height = `${size}px`;
     const cx = S / 2, cy = S / 2;
+    const [r0,g0,b0] = rgb.split(",").map(Number);
+
+    function drawSphere3D(x, y, radius) {
+      // Shadow beneath sphere
+      const shadowG = ctx.createRadialGradient(x + radius*0.1, y + radius*0.85, 0, x, y + radius*0.7, radius*0.8);
+      shadowG.addColorStop(0, `rgba(0,0,0,0.5)`);
+      shadowG.addColorStop(1, `rgba(0,0,0,0)`);
+      ctx.fillStyle = shadowG;
+      ctx.beginPath(); ctx.ellipse(x, y + radius*0.85, radius*0.7, radius*0.2, 0, 0, Math.PI*2); ctx.fill();
+
+      // Main sphere body — deep to mid tone
+      const bodyG = ctx.createRadialGradient(x - radius*0.3, y - radius*0.25, radius*0.05, x, y, radius);
+      bodyG.addColorStop(0, `rgba(${Math.min(r0+80,255)},${Math.min(g0+80,255)},${Math.min(b0+80,255)},0.9)`);
+      bodyG.addColorStop(0.35, `rgba(${r0},${g0},${b0},0.55)`);
+      bodyG.addColorStop(0.7, `rgba(${Math.round(r0*0.3)},${Math.round(g0*0.3)},${Math.round(b0*0.3)},0.35)`);
+      bodyG.addColorStop(1, `rgba(0,0,0,0.6)`);
+      ctx.fillStyle = bodyG;
+      ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2); ctx.fill();
+
+      // Primary specular highlight — top-left white hot spot
+      const spec1 = ctx.createRadialGradient(x - radius*0.32, y - radius*0.30, 0, x - radius*0.2, y - radius*0.2, radius*0.42);
+      spec1.addColorStop(0, `rgba(255,255,255,0.95)`);
+      spec1.addColorStop(0.25, `rgba(255,255,255,0.45)`);
+      spec1.addColorStop(0.6, `rgba(${r0},${g0},${b0},0.15)`);
+      spec1.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
+      ctx.fillStyle = spec1;
+      ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2); ctx.fill();
+
+      // Secondary rim light — bottom-right edge
+      const spec2 = ctx.createRadialGradient(x + radius*0.55, y + radius*0.55, 0, x + radius*0.4, y + radius*0.4, radius*0.55);
+      spec2.addColorStop(0, `rgba(${r0},${g0},${b0},0.5)`);
+      spec2.addColorStop(0.4, `rgba(${r0},${g0},${b0},0.15)`);
+      spec2.addColorStop(1, `rgba(${r0},${g0},${b0},0)`);
+      ctx.fillStyle = spec2;
+      ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI*2); ctx.fill();
+
+      // Fresnel rim glow around edge
+      ctx.save();
+      ctx.shadowColor = color; ctx.shadowBlur = radius * 0.6;
+      ctx.strokeStyle = `rgba(${rgb},0.7)`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(x, y, radius - 1, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPerspectiveRing(x, y, rx, ry, rotX, lineW, alpha, dash, phase) {
+      // Draw an ellipse (perspective-foreshortened ring) with rotation
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(phase);
+      ctx.scale(1, ry / rx);
+      ctx.beginPath();
+      ctx.arc(0, 0, rx, 0, Math.PI * 2);
+      if (dash.length) ctx.setLineDash(dash); else ctx.setLineDash([]);
+      ctx.strokeStyle = `rgba(${rgb},${alpha})`;
+      ctx.lineWidth = lineW / (ry / rx);
+      ctx.shadowColor = color; ctx.shadowBlur = 10;
+      ctx.stroke();
+      ctx.restore();
+    }
 
     function draw() {
       t += 0.012;
       ctx.clearRect(0, 0, S, S);
 
-      // Outer deep glow
-      const outerGlow = ctx.createRadialGradient(cx, cy, S * 0.28, cx, cy, S * 0.5);
-      outerGlow.addColorStop(0, `rgba(${rgb},0.04)`);
-      outerGlow.addColorStop(1, `rgba(${rgb},0)`);
-      ctx.fillStyle = outerGlow;
-      ctx.fillRect(0, 0, S, S);
+      // Ambient outer glow halo
+      const halo = ctx.createRadialGradient(cx, cy, S*0.22, cx, cy, S*0.5);
+      halo.addColorStop(0, `rgba(${rgb},0.08)`);
+      halo.addColorStop(0.5, `rgba(${rgb},0.03)`);
+      halo.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = halo; ctx.fillRect(0, 0, S, S);
 
-      const rings = [
-        { r: S * 0.46, w: 1.0, alpha: 0.08, dash: [4, 12], rot: t * 0.3 },
-        { r: S * 0.42, w: 0.8, alpha: 0.12, dash: [8, 6],  rot: -t * 0.5 },
-        { r: S * 0.38, w: 1.5, alpha: 0.18, dash: [2, 8],  rot: t * 0.7 },
-        { r: S * 0.34, w: 1.0, alpha: 0.10, dash: [12, 4], rot: -t * 0.4 },
-        { r: S * 0.30, w: 2.0, alpha: 0.25, dash: [],      rot: 0 },
-        { r: S * 0.24, w: 1.0, alpha: 0.20, dash: [6, 4],  rot: t * 1.2 },
-        { r: S * 0.18, w: 3.0, alpha: 0.40, dash: [],      rot: 0 },
-        { r: S * 0.10, w: 1.5, alpha: 0.30, dash: [3, 6],  rot: -t * 2.0 },
+      // 3D Perspective rings — foreshortened ellipses at different tilt angles
+      const rings3D = [
+        { rx: S*0.44, ryRatio: 0.18, w: 0.8, a: 0.09, dash: [5,14], speed: 0.25 },
+        { rx: S*0.40, ryRatio: 0.28, w: 1.0, a: 0.13, dash: [10,8], speed: -0.4 },
+        { rx: S*0.36, ryRatio: 0.42, w: 1.5, a: 0.20, dash: [3,9], speed: 0.6 },
+        { rx: S*0.31, ryRatio: 0.60, w: 2.0, a: 0.28, dash: [], speed: -0.3 },
+        { rx: S*0.25, ryRatio: 0.75, w: 1.2, a: 0.22, dash: [6,5], speed: 1.0 },
+        { rx: S*0.18, ryRatio: 0.88, w: 3.5, a: 0.45, dash: [], speed: 0.8 },
+        { rx: S*0.11, ryRatio: 0.95, w: 1.5, a: 0.35, dash: [3,6], speed: -1.8 },
       ];
-
-      rings.forEach(ring => {
-        ctx.save();
-        ctx.translate(cx, cy);
-        ctx.rotate(ring.rot);
-        ctx.translate(-cx, -cy);
-        ctx.beginPath();
-        ctx.arc(cx, cy, ring.r, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(${rgb},${ring.alpha})`;
-        ctx.lineWidth = ring.w;
-        if (ring.dash.length) ctx.setLineDash(ring.dash);
-        else ctx.setLineDash([]);
-        ctx.shadowColor = color;
-        ctx.shadowBlur = ring.r > S * 0.25 ? 6 : 18;
-        ctx.stroke();
-        ctx.restore();
+      rings3D.forEach(ring => {
+        drawPerspectiveRing(cx, cy, ring.rx, ring.rx * ring.ryRatio, 0, ring.w, ring.a, ring.dash, t * ring.speed);
       });
 
-      // Spinning arc segment — the "reactor charge"
+      // Spinning bright arc on the main ring
       ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(t * 1.5);
-      ctx.translate(-cx, -cy);
-      const arc1 = ctx.createConicalGradient ? null : null;
+      ctx.translate(cx, cy); ctx.rotate(t * 1.4); ctx.scale(1, 0.6); // foreshorten
       ctx.beginPath();
-      ctx.arc(cx, cy, S * 0.30, -0.2, Math.PI * 1.2);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.setLineDash([]);
-      ctx.globalAlpha = 0.6 + Math.sin(t * 3) * 0.2;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 24;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.restore();
+      ctx.arc(0, 0, S * 0.31, -0.3, Math.PI * 1.15);
+      ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.setLineDash([]);
+      ctx.globalAlpha = 0.7 + Math.sin(t * 2.5) * 0.2;
+      ctx.shadowColor = color; ctx.shadowBlur = 28;
+      ctx.stroke(); ctx.globalAlpha = 1; ctx.restore();
 
-      // Counter-spinning arc
+      // Counter arc
       ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(-t * 0.8);
-      ctx.translate(-cx, -cy);
+      ctx.translate(cx, cy); ctx.rotate(-t * 0.9); ctx.scale(1, 0.75);
       ctx.beginPath();
-      ctx.arc(cx, cy, S * 0.24, 0.5, Math.PI * 1.8);
-      ctx.strokeStyle = `rgba(${rgb},0.5)`;
-      ctx.lineWidth = 2;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 16;
-      ctx.stroke();
-      ctx.restore();
+      ctx.arc(0, 0, S * 0.25, 0.4, Math.PI * 1.9);
+      ctx.strokeStyle = `rgba(${rgb},0.55)`; ctx.lineWidth = 2;
+      ctx.shadowColor = color; ctx.shadowBlur = 16; ctx.setLineDash([]);
+      ctx.stroke(); ctx.restore();
 
-      // Radial spokes
-      const spokeCount = 6;
+      // Draw the 3D sphere in the center
+      drawSphere3D(cx, cy, S * 0.155);
+
+      // Radial energy spokes (3D depth illusion — shorter = behind, longer = front)
+      const spokeCount = 8;
       for (let i = 0; i < spokeCount; i++) {
-        const a = (i / spokeCount) * Math.PI * 2 + t * 0.4;
-        const pulse = 0.15 + Math.sin(t * 2 + i) * 0.08;
+        const a = (i / spokeCount) * Math.PI * 2 + t * 0.5;
+        const depth = (Math.sin(a - t * 0.5) + 1) * 0.5; // 0=back, 1=front
+        const innerR = S * (0.16 + depth * 0.01);
+        const outerR = S * (0.22 + depth * 0.04);
+        const pulse = 0.1 + depth * 0.2 + Math.sin(t * 2 + i) * 0.06;
         ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(a) * S * 0.12, cy + Math.sin(a) * S * 0.12);
-        ctx.lineTo(cx + Math.cos(a) * S * 0.26, cy + Math.sin(a) * S * 0.26);
+        ctx.moveTo(cx + Math.cos(a) * innerR, cy + Math.sin(a) * innerR * 0.6);
+        ctx.lineTo(cx + Math.cos(a) * outerR, cy + Math.sin(a) * outerR * 0.6);
         ctx.strokeStyle = `rgba(${rgb},${pulse})`;
-        ctx.lineWidth = 1;
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 8;
+        ctx.lineWidth = 1 + depth;
+        ctx.shadowColor = color; ctx.shadowBlur = 8 + depth * 12;
         ctx.stroke();
       }
 
-      // Center core — bright pulsing orb
-      const coreR = S * 0.08;
-      const corePulse = 0.7 + Math.sin(t * 4) * 0.15;
-      const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
-      coreGrad.addColorStop(0, `rgba(255,255,255,${corePulse})`);
-      coreGrad.addColorStop(0.4, `rgba(${rgb},${corePulse * 0.9})`);
-      coreGrad.addColorStop(1, `rgba(${rgb},0)`);
-      ctx.fillStyle = coreGrad;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 40;
-      ctx.beginPath();
-      ctx.arc(cx, cy, coreR, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      // Lens flare — top-right bright point
+      const flareX = cx + S * 0.15, flareY = cy - S * 0.18;
+      const flarePulse = 0.4 + Math.sin(t * 1.7) * 0.25;
+      const flareG = ctx.createRadialGradient(flareX, flareY, 0, flareX, flareY, S * 0.08);
+      flareG.addColorStop(0, `rgba(255,255,255,${flarePulse})`);
+      flareG.addColorStop(0.3, `rgba(${rgb},${flarePulse * 0.4})`);
+      flareG.addColorStop(1, `rgba(${rgb},0)`);
+      ctx.fillStyle = flareG;
+      ctx.beginPath(); ctx.arc(flareX, flareY, S * 0.08, 0, Math.PI * 2); ctx.fill();
+      // Flare streaks
+      ctx.save();
+      ctx.globalAlpha = flarePulse * 0.5;
+      [0, Math.PI*0.5, Math.PI, Math.PI*1.5, Math.PI*0.25, Math.PI*0.75].forEach(angle => {
+        ctx.beginPath();
+        ctx.moveTo(flareX, flareY);
+        ctx.lineTo(flareX + Math.cos(angle) * S * 0.06, flareY + Math.sin(angle) * S * 0.06);
+        ctx.strokeStyle = `rgba(255,255,255,0.8)`;
+        ctx.lineWidth = 0.5; ctx.stroke();
+      });
+      ctx.restore();
 
       raf = requestAnimationFrame(draw);
     }
@@ -1008,34 +1183,60 @@ function RevenueWaveform({ data, color = "#00d4ff", rgb = "0,212,255" }) {
   return <canvas ref={canvasRef} style={{ display: "block", width: "100%" }} />;
 }
 
-// ── JARVIS METRIC STRIP — horizontal KPI strip ─────────────────────────────
+// ── JARVIS METRIC STRIP — 3D glass morphism KPI strip ─────────────────────────
 function JarvisMetricStrip({ metrics, rgb, color }) {
+  const [hovered, setHovered] = useState(null);
   return (
-    <div style={{ display: "flex", gap: 1, marginBottom: 14 }}>
+    <div style={{ display: "flex", gap: 3, marginBottom: 14 }}>
       {metrics.map((m, i) => (
-        <div key={i} style={{
-          flex: 1,
-          padding: "14px 16px",
-          background: i === 0
-            ? `linear-gradient(135deg, rgba(${rgb},0.12) 0%, rgba(${rgb},0.04) 100%)`
-            : "rgba(0,8,20,0.7)",
-          border: `1px solid rgba(${rgb},${i === 0 ? 0.35 : 0.12})`,
-          borderRadius: 3,
-          position: "relative",
-          overflow: "hidden",
-          clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
-        }}>
-          {i === 0 && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, ${color}, transparent)` }} />}
-          <div style={{ fontSize: 7, color: `rgba(${rgb},0.45)`, letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 6 }}>{m.label}</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: i === 0 ? "#fff" : color, fontFamily: "'Orbitron', monospace", textShadow: `0 0 14px rgba(${rgb},${i === 0 ? 0.8 : 0.5})`, letterSpacing: "-0.01em" }}>{m.value}</div>
-          {m.sub && <div style={{ fontSize: 8, color: `rgba(${rgb},0.3)`, fontFamily: "'Share Tech Mono', monospace", marginTop: 4 }}>{m.sub}</div>}
+        <div key={i}
+          onMouseEnter={() => setHovered(i)}
+          onMouseLeave={() => setHovered(null)}
+          style={{
+            flex: 1,
+            padding: "16px 18px",
+            background: i === 0
+              ? `linear-gradient(145deg, rgba(${rgb},0.18) 0%, rgba(${rgb},0.06) 50%, rgba(${rgb},0.12) 100%)`
+              : hovered === i
+                ? `linear-gradient(145deg, rgba(${rgb},0.1) 0%, rgba(0,4,12,0.8) 100%)`
+                : "rgba(0,5,14,0.75)",
+            border: `1px solid rgba(${rgb},${i === 0 ? 0.45 : hovered === i ? 0.3 : 0.12})`,
+            borderRadius: 4,
+            position: "relative",
+            overflow: "hidden",
+            clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+            transform: hovered === i ? "translateY(-3px) scale(1.02)" : "translateY(0)",
+            transition: "all 0.25s cubic-bezier(0.16,1,0.3,1)",
+            boxShadow: i === 0
+              ? `0 8px 40px rgba(${rgb},0.15), inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 30px rgba(${rgb},0.04)`
+              : hovered === i
+                ? `0 12px 40px rgba(${rgb},0.12), inset 0 1px 0 rgba(255,255,255,0.04)`
+                : `0 4px 20px rgba(0,0,0,0.4), inset 0 1px 0 rgba(${rgb},0.03)`,
+            backdropFilter: "blur(16px)",
+            cursor: "default",
+          }}>
+          {/* Top glass reflection streak */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "40%", background: `linear-gradient(180deg, rgba(255,255,255,${i === 0 ? 0.06 : 0.03}) 0%, rgba(255,255,255,0) 100%)`, pointerEvents: "none", borderRadius: "4px 4px 0 0" }} />
+          {/* Top scan line */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: i === 0 ? `linear-gradient(90deg, ${color}, rgba(${rgb},0.4), transparent)` : `linear-gradient(90deg, transparent, rgba(${rgb},0.3), transparent)` }} />
+          {/* Left depth bar */}
+          {i === 0 && <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, ${color}, rgba(${rgb},0.2))`, boxShadow: `0 0 12px ${color}` }} />}
+          {/* Corner cut accent */}
+          <div style={{ position: "absolute", top: 0, right: 8, width: 0, height: 0, borderTop: `8px solid rgba(${rgb},${i === 0 ? 0.5 : 0.2})`, borderLeft: "8px solid transparent" }} />
+          {/* Label */}
+          <div style={{ fontSize: 7, color: `rgba(${rgb},${i === 0 ? 0.6 : 0.4})`, letterSpacing: "0.2em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 8 }}>{m.label}</div>
+          {/* Value */}
+          <div style={{ fontSize: 20, fontWeight: 800, color: i === 0 ? "#fff" : color, fontFamily: "'Orbitron', monospace", textShadow: `0 0 20px rgba(${rgb},${i === 0 ? 0.9 : 0.6}), 0 0 60px rgba(${rgb},0.2)`, letterSpacing: "-0.02em", lineHeight: 1 }}>{m.value}</div>
+          {m.sub && <div style={{ fontSize: 8, color: `rgba(${rgb},0.3)`, fontFamily: "'Share Tech Mono', monospace", marginTop: 6, letterSpacing: "0.05em" }}>{m.sub}</div>}
+          {/* Bottom shimmer */}
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: `rgba(${rgb},0.06)` }} />
         </div>
       ))}
     </div>
   );
 }
 
-// ── JARVIS INTELLIGENCE PANEL — right sidebar of the revenue page ─────────────
+// ── REVENUE INTEL PANEL — 3D glass right sidebar ─────────────────────────────
 function RevenueIntelPanel({ data, rgb, color }) {
   const [tick, setTick] = useState(0);
   useEffect(() => {
@@ -1069,84 +1270,93 @@ function RevenueIntelPanel({ data, rgb, color }) {
     conf: [92, 84, 71][i],
   }));
 
+  const glassPanel = {
+    background: `linear-gradient(145deg, rgba(0,6,18,0.92) 0%, rgba(0,12,28,0.85) 40%, rgba(0,6,18,0.88) 100%)`,
+    border: `1px solid rgba(${rgb},0.2)`,
+    borderRadius: 4,
+    padding: "16px 18px",
+    clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
+    position: "relative",
+    overflow: "hidden",
+    backdropFilter: "blur(20px)",
+    boxShadow: `0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 40px rgba(${rgb},0.02)`,
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {/* System signals */}
-      <div style={{
-        background: "rgba(0,5,15,0.9)",
-        border: `1px solid rgba(${rgb},0.18)`,
-        borderRadius: 3, padding: "16px 18px",
-        clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
-        position: "relative", overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.6), transparent)` }} />
-        <div style={{ fontSize: 8, color: `rgba(${rgb},0.5)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 4, height: 4, background: "#00ff88", borderRadius: "50%", animation: "pulse-glow 1.5s infinite", boxShadow: "0 0 8px #00ff88" }} />
-          System Intelligence
+      <div style={glassPanel}>
+        {/* Glass reflection */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "35%", background: "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.7), transparent)` }} />
+        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, ${color}, rgba(${rgb},0.1))`, boxShadow: `0 0 10px rgba(${rgb},0.3)` }} />
+        <div style={{ position: "absolute", top: 0, right: 10, width: 0, height: 0, borderTop: `10px solid rgba(${rgb},0.35)`, borderLeft: "10px solid transparent" }} />
+        {/* Subtle inner glow */}
+        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 0%, rgba(${rgb},0.05) 0%, transparent 70%)`, pointerEvents: "none" }} />
+
+        <div style={{ fontSize: 8, color: `rgba(${rgb},0.6)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 14, display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
+          <div style={{ width: 5, height: 5, background: "#00ff88", borderRadius: "50%", animation: "pulse-glow 1.5s infinite", boxShadow: "0 0 10px #00ff88" }} />
+          System Intel
         </div>
         {signals.map((s, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: "5px 0", borderBottom: i < signals.length - 1 ? `1px solid rgba(${rgb},0.06)` : "none" }}>
-            <span style={{ fontSize: 9, color: `rgba(${rgb},0.4)`, fontFamily: "'Share Tech Mono', monospace" }}>{s.label}</span>
+          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: i < signals.length - 1 ? 10 : 0, padding: "6px 8px", borderBottom: i < signals.length - 1 ? `1px solid rgba(${rgb},0.06)` : "none", borderRadius: 2, background: "rgba(0,0,0,0.1)", position: "relative" }}>
+            <span style={{ fontSize: 8, color: `rgba(${rgb},0.45)`, fontFamily: "'Share Tech Mono', monospace" }}>{s.label}</span>
             <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <div style={{ width: 3, height: 3, borderRadius: "50%", background: s.col, boxShadow: `0 0 6px ${s.col}`, animation: "pulse-glow 2s infinite" }} />
-              <span style={{ fontSize: 8, color: s.col, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.08em" }}>{s.status}</span>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: s.col, boxShadow: `0 0 8px ${s.col}`, animation: "pulse-glow 2s infinite" }} />
+              <span style={{ fontSize: 8, color: s.col, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.08em", fontWeight: 700 }}>{s.status}</span>
             </div>
           </div>
         ))}
       </div>
 
       {/* Revenue projections */}
-      <div style={{
-        background: "rgba(0,5,15,0.9)",
-        border: `1px solid rgba(${rgb},0.18)`,
-        borderRadius: 3, padding: "16px 18px",
-        clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
-        position: "relative", overflow: "hidden",
-      }}>
+      <div style={glassPanel}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "35%", background: "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rgb},0.6), transparent)` }} />
-        <div style={{ fontSize: 8, color: `rgba(${rgb},0.5)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, rgba(${rgb},0.8), transparent)` }} />
+        <div style={{ position: "absolute", top: 0, right: 10, width: 0, height: 0, borderTop: `10px solid rgba(${rgb},0.3)`, borderLeft: "10px solid transparent" }} />
+
+        <div style={{ fontSize: 8, color: `rgba(${rgb},0.55)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 14, display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ width: 4, height: 4, background: color, borderRadius: "50%", boxShadow: `0 0 8px ${color}` }} />
-          Revenue Projection
+          Projection
         </div>
         {projections.map((p, i) => (
-          <div key={i} style={{ marginBottom: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+          <div key={i} style={{ marginBottom: i < projections.length - 1 ? 12 : 0 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
               <span style={{ fontSize: 8, color: `rgba(${rgb},0.4)`, fontFamily: "'Share Tech Mono', monospace" }}>{p.label}</span>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 8, color: `rgba(${rgb},0.25)`, fontFamily: "'Share Tech Mono', monospace" }}>{p.conf}% CONF</span>
-                <span style={{ fontSize: 13, color: "#fff", fontWeight: 700, fontFamily: "'Orbitron', monospace", textShadow: `0 0 10px rgba(${rgb},0.6)` }}>{p.value}</span>
+                <span style={{ fontSize: 7, color: `rgba(${rgb},0.25)`, fontFamily: "'Share Tech Mono', monospace" }}>{p.conf}%</span>
+                <span style={{ fontSize: 14, color: "#fff", fontWeight: 700, fontFamily: "'Orbitron', monospace", textShadow: `0 0 12px rgba(${rgb},0.7)` }}>{p.value}</span>
               </div>
             </div>
-            <div style={{ height: 2, background: `rgba(${rgb},0.08)`, borderRadius: 1 }}>
-              <div style={{ height: "100%", width: `${p.conf}%`, background: `linear-gradient(90deg, rgba(${rgb},0.4), ${color})`, borderRadius: 1, boxShadow: `0 0 6px rgba(${rgb},0.3)`, transition: "width 1.2s cubic-bezier(0.4,0,0.2,1)" }} />
+            <div style={{ height: 3, background: `rgba(${rgb},0.06)`, borderRadius: 2, position: "relative", overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${p.conf}%`, background: `linear-gradient(90deg, rgba(${rgb},0.3), ${color})`, borderRadius: 2, boxShadow: `0 0 8px rgba(${rgb},0.4)`, transition: "width 1.4s cubic-bezier(0.4,0,0.2,1)", position: "relative" }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "50%", background: "rgba(255,255,255,0.2)", borderRadius: "2px 2px 0 0" }} />
+              </div>
             </div>
           </div>
         ))}
         <div style={{ marginTop: 12, paddingTop: 10, borderTop: `1px solid rgba(${rgb},0.08)`, fontSize: 8, color: `rgba(${rgb},0.25)`, fontFamily: "'Share Tech Mono', monospace", lineHeight: 1.7 }}>
-          ◈ Model: linear regression · 3-month horizon · based on {breakdown.length} data points
+          ◈ Linear regression · {breakdown.length} pts
         </div>
       </div>
 
       {/* Cumulative totals */}
-      <div style={{
-        background: `linear-gradient(135deg, rgba(${rgb},0.07) 0%, rgba(${rgb},0.02) 100%)`,
-        border: `1px solid rgba(${rgb},0.2)`,
-        borderRadius: 3, padding: "16px 18px",
-        clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
-        position: "relative",
-      }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, ${color}, transparent)` }} />
-        <div style={{ fontSize: 8, color: `rgba(${rgb},0.5)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 12 }}>Cumulative</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div style={{ ...glassPanel, background: `linear-gradient(145deg, rgba(${rgb},0.08) 0%, rgba(0,6,18,0.88) 50%, rgba(${rgb},0.04) 100%)`, border: `1px solid rgba(${rgb},0.25)` }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, ${color}, rgba(${rgb},0.3), transparent)` }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "35%", background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
+        <div style={{ fontSize: 8, color: `rgba(${rgb},0.55)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 12 }}>Cumulative</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {[
             { label: "Total Revenue", value: `$${totalRev.toFixed(0)}` },
-            { label: "Total Paid Users", value: totalUsers },
+            { label: "Paid Users", value: totalUsers },
             { label: "Plan Price", value: `$${data.plan_price}/mo` },
             { label: "Avg MRR", value: `$${avgMonthly.toFixed(0)}` },
           ].map((item, i) => (
-            <div key={i}>
-              <div style={{ fontSize: 7, color: `rgba(${rgb},0.35)`, letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 3 }}>{item.label}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: color, fontFamily: "'Orbitron', monospace", textShadow: `0 0 10px rgba(${rgb},0.4)` }}>{item.value}</div>
+            <div key={i} style={{ padding: "8px 10px", background: "rgba(0,0,0,0.2)", borderRadius: 3, border: `1px solid rgba(${rgb},0.1)`, position: "relative", overflow: "hidden" }}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `rgba(${rgb},0.15)` }} />
+              <div style={{ fontSize: 7, color: `rgba(${rgb},0.35)`, letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 4 }}>{item.label}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: color, fontFamily: "'Orbitron', monospace", textShadow: `0 0 12px rgba(${rgb},0.5)` }}>{item.value}</div>
             </div>
           ))}
         </div>
@@ -1794,27 +2004,34 @@ export default function AdminDashboard() {
                         color={rc.hex} rgb={rc.rgb}
                         value={`$${m.revenue.mrr}`}
                         label="MRR"
-                        size={210}
+                        size={240}
                       />
-                      {/* Sub-data beneath reactor */}
+                      {/* Sub-data beneath reactor — deep 3D glass */}
                       <div style={{
-                        width: 210,
-                        background: "rgba(0,5,15,0.85)",
-                        border: `1px solid rgba(${rc.rgb},0.18)`,
-                        borderRadius: 3, padding: "12px 14px",
+                        width: 240,
+                        background: `linear-gradient(145deg, rgba(0,6,18,0.94) 0%, rgba(0,12,30,0.88) 50%, rgba(0,6,18,0.92) 100%)`,
+                        border: `1px solid rgba(${rc.rgb},0.25)`,
+                        borderRadius: 4, padding: "14px 16px",
                         clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+                        boxShadow: `0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 30px rgba(${rc.rgb},0.03)`,
+                        backdropFilter: "blur(20px)",
+                        position: "relative", overflow: "hidden",
                       }}>
-                        <div style={{ position: "relative" }}>
-                          <div style={{ position: "absolute", top: -12, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rc.rgb},0.5), transparent)` }} />
-                        </div>
+                        {/* Glass top reflection */}
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "45%", background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
+                        <div style={{ position: "absolute", top: -1, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rc.rgb},0.6), transparent)` }} />
+                        <div style={{ position: "absolute", top: 0, right: 8, width: 0, height: 0, borderTop: `8px solid rgba(${rc.rgb},0.35)`, borderLeft: "8px solid transparent" }} />
+                        {/* Subtle inner radial glow */}
+                        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 0%, rgba(${rc.rgb},0.06) 0%, transparent 70%)`, pointerEvents: "none" }} />
                         {[
                           { l: "PAID USERS",  v: m.users.paid },
                           { l: "TRIALING",    v: m.users.trialing },
                           { l: "PLAN",        v: `$${m.revenue.plan_price}/mo` },
-                        ].map(({ l, v }) => (
-                          <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                            <span style={{ fontSize: 7, color: `rgba(${rc.rgb},0.35)`, letterSpacing: "0.18em", fontFamily: "'Share Tech Mono', monospace" }}>{l}</span>
-                            <span style={{ fontSize: 12, fontWeight: 700, color: rc.hex, fontFamily: "'Orbitron', monospace", textShadow: `0 0 8px rgba(${rc.rgb},0.5)` }}>{v}</span>
+                        ].map(({ l, v }, idx) => (
+                          <div key={l} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: idx < 2 ? 10 : 0, padding: "7px 10px", background: "rgba(0,0,0,0.15)", borderRadius: 3, border: `1px solid rgba(${rc.rgb},0.07)`, position: "relative" }}>
+                            <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `rgba(${rc.rgb},0.3)`, borderRadius: "3px 0 0 3px" }} />
+                            <span style={{ fontSize: 7, color: `rgba(${rc.rgb},0.4)`, letterSpacing: "0.18em", fontFamily: "'Share Tech Mono', monospace" }}>{l}</span>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: rc.hex, fontFamily: "'Orbitron', monospace", textShadow: `0 0 10px rgba(${rc.rgb},0.6)` }}>{v}</span>
                           </div>
                         ))}
                       </div>
@@ -1823,23 +2040,28 @@ export default function AdminDashboard() {
                     {/* CENTER — Waveform + timeline table */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
 
-                      {/* Waveform panel */}
+                      {/* Waveform panel — deep 3D glass */}
                       <div style={{
-                        background: "linear-gradient(135deg, rgba(0,8,20,0.97) 0%, rgba(0,14,32,0.93) 100%)",
-                        border: `1px solid rgba(${rc.rgb},0.25)`,
-                        borderRadius: 3, padding: "18px 20px",
+                        background: `linear-gradient(145deg, rgba(0,6,18,0.96) 0%, rgba(0,14,32,0.9) 40%, rgba(0,8,22,0.94) 100%)`,
+                        border: `1px solid rgba(${rc.rgb},0.28)`,
+                        borderRadius: 4, padding: "18px 20px",
                         clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
                         position: "relative", overflow: "hidden",
-                        boxShadow: `0 0 40px rgba(${rc.rgb},0.05), inset 0 0 30px rgba(${rc.rgb},0.02)`,
+                        boxShadow: `0 16px 60px rgba(0,0,0,0.6), 0 0 60px rgba(${rc.rgb},0.06), inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 40px rgba(${rc.rgb},0.03)`,
+                        backdropFilter: "blur(20px)",
                       }}>
-                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rc.rgb},0.7), transparent)` }} />
-                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, ${rc.hex}, rgba(${rc.rgb},0.1))` }} />
-                        <div style={{ position: "absolute", top: 0, right: 10, width: 0, height: 0, borderTop: `10px solid rgba(${rc.rgb},0.3)`, borderLeft: "10px solid transparent" }} />
-                        <div style={{ fontSize: 8, color: `rgba(${rc.rgb},0.6)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-                          <div style={{ width: 4, height: 4, background: rc.hex, borderRadius: "50%", boxShadow: `0 0 8px ${rc.hex}` }} />
+                        {/* Glass reflection */}
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "30%", background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
+                        {/* Inner top glow */}
+                        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 0%, rgba(${rc.rgb},0.07) 0%, transparent 60%)`, pointerEvents: "none" }} />
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rc.rgb},0.8), rgba(${rc.rgb},0.4), transparent)` }} />
+                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, ${rc.hex}, rgba(${rc.rgb},0.1))`, boxShadow: `0 0 14px rgba(${rc.rgb},0.4)` }} />
+                        <div style={{ position: "absolute", top: 0, right: 10, width: 0, height: 0, borderTop: `10px solid rgba(${rc.rgb},0.4)`, borderLeft: "10px solid transparent" }} />
+                        <div style={{ fontSize: 8, color: `rgba(${rc.rgb},0.65)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 14, display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
+                          <div style={{ width: 5, height: 5, background: rc.hex, borderRadius: "50%", boxShadow: `0 0 10px ${rc.hex}` }} />
                           Revenue Signal — 12 Month Arc
                           <div style={{ flex: 1, height: 1, background: `rgba(${rc.rgb},0.15)` }} />
-                          <span style={{ color: `rgba(${rc.rgb},0.3)` }}>WAVEFORM</span>
+                          <span style={{ color: `rgba(${rc.rgb},0.35)` }}>WAVEFORM</span>
                         </div>
                         <RevenueWaveform data={m.revenue.monthly_breakdown} color={rc.hex} rgb={rc.rgb} />
                         {/* Month labels */}
@@ -1850,35 +2072,46 @@ export default function AdminDashboard() {
                         </div>
                       </div>
 
-                      {/* Bar chart panel */}
+                      {/* Bar chart panel — 3D glass */}
                       <div style={{
-                        background: "linear-gradient(135deg, rgba(0,8,20,0.97) 0%, rgba(0,14,32,0.93) 100%)",
-                        border: `1px solid rgba(${rc.rgb},0.2)`,
-                        borderRadius: 3, padding: "18px 20px",
+                        background: `linear-gradient(145deg, rgba(0,6,18,0.96) 0%, rgba(0,12,28,0.9) 40%, rgba(0,6,18,0.94) 100%)`,
+                        border: `1px solid rgba(${rc.rgb},0.25)`,
+                        borderRadius: 4, padding: "18px 20px",
                         clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
                         position: "relative", overflow: "hidden",
+                        boxShadow: `0 16px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 40px rgba(${rc.rgb},0.025)`,
+                        backdropFilter: "blur(20px)",
                       }}>
-                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rc.rgb},0.5), transparent)` }} />
-                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, rgba(${rc.rgb},0.7), transparent)` }} />
-                        <div style={{ fontSize: 8, color: `rgba(${rc.rgb},0.55)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
-                          <div style={{ width: 4, height: 4, background: rc.hex, borderRadius: "50%", boxShadow: `0 0 6px ${rc.hex}` }} />
-                          Monthly Revenue Bars
-                          <div style={{ flex: 1, height: 1, background: `rgba(${rc.rgb},0.1)` }} />
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "28%", background: "linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
+                        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% 0%, rgba(${rc.rgb},0.06) 0%, transparent 60%)`, pointerEvents: "none" }} />
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rc.rgb},0.6), transparent)` }} />
+                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, rgba(${rc.rgb},0.8), transparent)`, boxShadow: `0 0 12px rgba(${rc.rgb},0.3)` }} />
+                        <div style={{ position: "absolute", top: 0, right: 10, width: 0, height: 0, borderTop: `10px solid rgba(${rc.rgb},0.35)`, borderLeft: "10px solid transparent" }} />
+                        <div style={{ fontSize: 8, color: `rgba(${rc.rgb},0.6)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 14, display: "flex", alignItems: "center", gap: 8, position: "relative" }}>
+                          <div style={{ width: 5, height: 5, background: rc.hex, borderRadius: "50%", boxShadow: `0 0 10px ${rc.hex}` }} />
+                          3D Revenue Bars
+                          <div style={{ flex: 1, height: 1, background: `rgba(${rc.rgb},0.12)` }} />
+                          <span style={{ color: `rgba(${rc.rgb},0.25)`, fontSize: 7 }}>ISOMETRIC</span>
                         </div>
                         <HoloBarChart data={m.revenue.monthly_breakdown} activeColor={rc.hex} />
                       </div>
 
-                      {/* Data table */}
+                      {/* Data table — 3D glass */}
                       <div style={{
-                        background: "rgba(0,5,14,0.92)",
-                        border: `1px solid rgba(${rc.rgb},0.15)`,
-                        borderRadius: 3, padding: "16px 18px",
+                        background: `linear-gradient(145deg, rgba(0,5,14,0.95) 0%, rgba(0,10,24,0.88) 100%)`,
+                        border: `1px solid rgba(${rc.rgb},0.18)`,
+                        borderRadius: 4, padding: "16px 18px",
                         clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))",
                         position: "relative",
+                        boxShadow: `0 12px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)`,
+                        backdropFilter: "blur(16px)",
                       }}>
-                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rc.rgb},0.4), transparent)` }} />
-                        <div style={{ fontSize: 8, color: `rgba(${rc.rgb},0.45)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                          <div style={{ width: 4, height: 4, background: rc.hex, borderRadius: "50%", boxShadow: `0 0 6px ${rc.hex}` }} />
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "25%", background: "linear-gradient(180deg, rgba(255,255,255,0.035) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${rc.rgb},0.5), transparent)` }} />
+                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, rgba(${rc.rgb},0.5), transparent)` }} />
+                        <div style={{ position: "absolute", top: 0, right: 10, width: 0, height: 0, borderTop: `10px solid rgba(${rc.rgb},0.25)`, borderLeft: "10px solid transparent" }} />
+                        <div style={{ fontSize: 8, color: `rgba(${rc.rgb},0.5)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 12, display: "flex", alignItems: "center", gap: 6, position: "relative" }}>
+                          <div style={{ width: 4, height: 4, background: rc.hex, borderRadius: "50%", boxShadow: `0 0 8px ${rc.hex}` }} />
                           Transaction Log
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", padding: "4px 0 8px", borderBottom: `1px solid rgba(${rc.rgb},0.08)` }}>
