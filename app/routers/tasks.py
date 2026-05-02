@@ -77,16 +77,34 @@ def _build_role_scoped_tasks(
     workspace_id = current_user.workspace_id
 
     if not workspace_id:
-        # User is not part of any workspace — return only their own tasks
-        return crud.list_tasks(
-            db,
-            status=status,
-            assignee=assignee,
-            priority=priority,
-            skip=skip,
-            limit=limit,
-            owner_id=current_user.id,
-        )
+        if role == UserRole.architect:
+            # Architect with no workspace — show ALL tasks (including Slack-created
+            # tasks that have no workspace_id or owner_id)
+            from sqlalchemy import select, func
+            from app.models import Task as TaskModel
+            stmt = select(TaskModel)
+            if status is not None:
+                stmt = stmt.where(TaskModel.status == status)
+            if assignee is not None:
+                stmt = stmt.where(TaskModel.assignee.ilike(f"%{assignee}%"))
+            if priority is not None:
+                stmt = stmt.where(TaskModel.priority == priority)
+            count_stmt = select(func.count()).select_from(stmt.subquery())
+            total = db.scalar(count_stmt) or 0
+            stmt = stmt.order_by(TaskModel.created_at.desc()).offset(skip).limit(limit)
+            tasks = list(db.scalars(stmt).all())
+            return total, tasks
+        else:
+            # Non-architect with no workspace — return only their own tasks
+            return crud.list_tasks(
+                db,
+                status=status,
+                assignee=assignee,
+                priority=priority,
+                skip=skip,
+                limit=limit,
+                owner_id=current_user.id,
+            )
 
     if role == UserRole.architect:
         # Sees all workspace tasks
