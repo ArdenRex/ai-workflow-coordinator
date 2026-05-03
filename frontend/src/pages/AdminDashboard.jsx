@@ -1,6 +1,492 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useContext } from "react";
 
 const API = process.env.REACT_APP_API_URL || "https://ai-workflow-coordinator-api-production.up.railway.app";
+
+// ── THEME CONTEXT ─────────────────────────────────────────────────────────────
+const ThemeCtx = React.createContext({ dark: true });
+function useTheme() { return React.useContext(ThemeCtx); }
+
+// Light-mode CSS variable overrides injected as a class on <html>
+const LIGHT_OVERRIDES = `
+  .arcane-light {
+    --bg-deep: #f0f4f8;
+    --bg-mid:  #e2eaf3;
+    --glass:   rgba(230,238,250,0.92);
+    --border:  rgba(0,160,220,0.28);
+    --cyan:    #0088cc;
+    --green:   #009966;
+    --purple:  #7730bb;
+    --gold:    #b87a00;
+    --red:     #cc2244;
+  }
+  .arcane-light body { background: #f0f4f8; }
+  .arcane-light .space-bg {
+    background:
+      radial-gradient(ellipse 100% 70% at 8% 5%,   rgba(0,120,220,0.18) 0%, transparent 55%),
+      radial-gradient(ellipse 70% 60% at 92% 92%,  rgba(0,80,180,0.14) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 55% 32%,  rgba(0,140,200,0.10) 0%, transparent 65%),
+      #e8f2fa !important;
+  }
+  .arcane-light .aurora { opacity: 0.35; filter: saturate(0.7) brightness(1.4); }
+  .arcane-light .grain  { opacity: 0.008; }
+  .arcane-light .vignette { opacity: 0.15; }
+  .arcane-light .scanlines { opacity: 0.4; background:
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,120,200,0.018) 2px, rgba(0,120,200,0.018) 3px) !important; }
+  .arcane-light .sidebar {
+    background: linear-gradient(180deg, rgba(220,235,250,0.97) 0%, rgba(208,228,248,0.95) 100%) !important;
+    border-right: 1px solid rgba(0,120,200,0.25) !important;
+  }
+  .arcane-light .main-content { color: #0a1a2e; }
+  .arcane-light .topbar {
+    background: linear-gradient(180deg, rgba(235,244,255,0.99) 0%, rgba(220,235,250,0.97) 100%) !important;
+    border-bottom: 1px solid rgba(0,120,200,0.2) !important;
+  }
+  .arcane-light ::-webkit-scrollbar-track { background: rgba(220,235,250,0.9); }
+  .arcane-light ::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #0088cc, #009966); }
+  .arcane-light .holo-panel {
+    background: rgba(220,238,255,0.88) !important;
+    border-color: rgba(0,120,200,0.22) !important;
+  }
+  .arcane-light .stat-item {
+    background: linear-gradient(160deg, rgba(225,240,255,0.99) 0%, rgba(210,232,252,0.96) 100%) !important;
+    border-color: rgba(0,120,200,0.2) !important;
+  }
+  .arcane-light .holo-table-row:hover { background: rgba(0,120,200,0.06) !important; }
+  .arcane-light .holo-feedback { background: rgba(220,238,255,0.9) !important; border-color: rgba(0,120,200,0.22) !important; }
+`;
+
+// ── ACTIVITY FEED DATA ────────────────────────────────────────────────────────
+const ACTIVITY_ICONS = { signup: "⬡", upgrade: "◎", cancel: "✕", task: "✦", feedback: "◆", login: "→" };
+const ACTIVITY_COLORS = { signup: "#00ff9d", upgrade: "#ffd060", cancel: "#ff2d55", task: "#00e5ff", feedback: "#bf5fff", login: "#00e5ff" };
+function makeActivity(id) {
+  const types = ["signup", "upgrade", "cancel", "task", "feedback", "login"];
+  const t = types[Math.floor(Math.random() * types.length)];
+  const names = ["nova_x", "cipher_7", "arc_user", "ghost_91", "data_77", "echo_k", "syn_44", "prism_2", "byte_z", "flux_9"];
+  const name = names[Math.floor(Math.random() * names.length)];
+  const msgs = {
+    signup: `${name} joined the network`, upgrade: `${name} upgraded to Pro`,
+    cancel: `${name} terminated subscription`, task: `${name} created 3 new tasks`,
+    feedback: `${name} submitted a transmission`, login: `${name} accessed terminal`,
+  };
+  return { id, type: t, msg: msgs[t], ts: Date.now(), fresh: true };
+}
+
+// ── REAL-TIME ACTIVITY FEED ───────────────────────────────────────────────────
+function ActivityFeed({ m }) {
+  const [events, setEvents] = useState(() => Array.from({ length: 7 }, (_, i) => ({ ...makeActivity(i), fresh: false, ts: Date.now() - i * 14000 })));
+  const idRef = useRef(100);
+  const { dark } = useTheme();
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const ev = makeActivity(idRef.current++);
+      setEvents(prev => [ev, ...prev.slice(0, 14)]);
+      // After 1s remove 'fresh' glow
+      setTimeout(() => setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, fresh: false } : e)), 1200);
+    }, 3800 + Math.random() * 2400);
+    return () => clearInterval(interval);
+  }, []);
+
+  const timeAgo = (ts) => {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 5)  return "just now";
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    return `${Math.floor(m / 60)}h ago`;
+  };
+
+  const cyan = dark ? "0,229,255" : "0,120,200";
+  const panelBg = dark
+    ? "linear-gradient(160deg, rgba(0,4,18,0.98) 0%, rgba(0,10,28,0.95) 100%)"
+    : "linear-gradient(160deg, rgba(220,238,255,0.97) 0%, rgba(200,228,252,0.94) 100%)";
+  const textPrimary = dark ? "rgba(180,230,255,0.85)" : "rgba(10,40,80,0.85)";
+  const textDim = dark ? "rgba(0,229,255,0.3)" : "rgba(0,100,180,0.45)";
+
+  return (
+    <div style={{
+      background: panelBg,
+      border: `1px solid rgba(${cyan},0.2)`,
+      borderRadius: 8, overflow: "hidden",
+      clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)",
+      boxShadow: dark
+        ? `0 12px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 40px rgba(${cyan},0.02)`
+        : `0 8px 30px rgba(0,80,180,0.1), inset 0 1px 0 rgba(255,255,255,0.6)`,
+      transition: "all 0.5s",
+    }}>
+      {/* Header */}
+      <div style={{
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "14px 18px 12px",
+        borderBottom: `1px solid rgba(${cyan},0.1)`,
+        background: dark ? `rgba(${cyan},0.03)` : `rgba(${cyan},0.06)`,
+        position: "relative",
+      }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${cyan},0.6), rgba(0,255,157,0.3), transparent)` }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 10px #00ff9d", animation: "pulse-glow 1.2s ease-in-out infinite" }} />
+          <span style={{ fontSize: 9, color: `rgba(${cyan},0.8)`, letterSpacing: "0.28em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", fontWeight: 700 }}>Live Activity Feed</span>
+        </div>
+        <div style={{ fontSize: 7, color: `rgba(${cyan},0.35)`, letterSpacing: "0.12em", fontFamily: "'Share Tech Mono', monospace" }}>
+          {events.length} EVENTS · AUTO-REFRESH
+        </div>
+      </div>
+
+      {/* Event stream */}
+      <div style={{ maxHeight: 320, overflowY: "auto", padding: "8px 0" }}>
+        {events.map((ev, i) => {
+          const col = ACTIVITY_COLORS[ev.type];
+          const icon = ACTIVITY_ICONS[ev.type];
+          return (
+            <div key={ev.id} style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "9px 18px",
+              borderLeft: ev.fresh ? `3px solid ${col}` : "3px solid transparent",
+              background: ev.fresh
+                ? dark ? `rgba(${col.replace("#","").match(/.{2}/g).map(h=>parseInt(h,16)).join(",")},0.08)` : `rgba(0,120,200,0.06)`
+                : i % 2 === 0 ? (dark ? "rgba(0,229,255,0.012)" : "rgba(0,120,200,0.025)") : "transparent",
+              transition: "all 0.6s cubic-bezier(0.16,1,0.3,1)",
+              animation: i === 0 && ev.fresh ? "activitySlide 0.4s cubic-bezier(0.16,1,0.3,1) both" : "none",
+              position: "relative",
+              overflow: "hidden",
+            }}>
+              {ev.fresh && <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, rgba(${col.replace("#","").match(/.{2}/g)?.map(h=>parseInt(h,16)).join(",") || "0,229,255"},0.04), transparent)`, pointerEvents: "none" }} />}
+              {/* Type icon bubble */}
+              <div style={{
+                width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                background: dark ? `rgba(${col.replace("#","").match(/.{2}/g)?.map(h=>parseInt(h,16)).join(",") || "0,229,255"},0.1)` : `rgba(0,120,200,0.1)`,
+                border: `1px solid ${ev.fresh ? col : `rgba(${col.replace("#","").match(/.{2}/g)?.map(h=>parseInt(h,16)).join(",") || "0,229,255"},0.3)`}`,
+                boxShadow: ev.fresh ? `0 0 12px ${col}44` : "none",
+                transition: "all 0.5s",
+                fontSize: 11, color: ev.fresh ? col : (dark ? `rgba(${col.replace("#","").match(/.{2}/g)?.map(h=>parseInt(h,16)).join(",") || "0,229,255"},0.6)` : `rgba(0,100,160,0.7)`),
+              }}>{icon}</div>
+              {/* Message */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: ev.fresh ? textPrimary : (dark ? "rgba(150,210,255,0.6)" : "rgba(10,40,80,0.65)"), fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {ev.msg}
+                </div>
+                <div style={{ fontSize: 7, color: textDim, marginTop: 2, letterSpacing: "0.1em" }}>{ev.type.toUpperCase()}</div>
+              </div>
+              {/* Time */}
+              <div style={{ fontSize: 8, color: textDim, fontFamily: "'Share Tech Mono', monospace", flexShrink: 0 }}>{timeAgo(ev.ts)}</div>
+              {/* Fresh pulse */}
+              {ev.fresh && <div style={{ width: 5, height: 5, borderRadius: "50%", background: col, boxShadow: `0 0 8px ${col}`, animation: "pulse-glow 0.8s ease-in-out 3", flexShrink: 0 }} />}
+            </div>
+          );
+        })}
+      </div>
+      {/* Footer strip */}
+      <div style={{ padding: "8px 18px", borderTop: `1px solid rgba(${cyan},0.08)`, display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {Object.entries(ACTIVITY_COLORS).map(([type, col]) => {
+          const count = events.filter(e => e.type === type).length;
+          return (
+            <div key={type} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 7, fontFamily: "'Share Tech Mono', monospace" }}>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: col }} />
+              <span style={{ color: dark ? `rgba(180,230,255,0.35)` : "rgba(0,80,160,0.5)", letterSpacing: "0.08em" }}>{type.toUpperCase()}</span>
+              <span style={{ color: col, fontWeight: 700 }}>{count}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── DATA EXPORT MODAL ─────────────────────────────────────────────────────────
+function ExportModal({ open, onClose, m }) {
+  const [phase, setPhase] = useState("idle"); // idle | selecting | exporting | done
+  const [progress, setProgress] = useState(0);
+  const [selectedSets, setSelectedSets] = useState({ users: true, revenue: true, tasks: false, feedback: false });
+  const [exportFormat, setExportFormat] = useState("JSON");
+  const { dark } = useTheme();
+
+  const cyan = dark ? "0,229,255" : "0,120,200";
+  const cyanHex = dark ? "#00e5ff" : "#0088cc";
+  const green = dark ? "#00ff9d" : "#009966";
+
+  useEffect(() => {
+    if (!open) { setPhase("idle"); setProgress(0); }
+    if (open) setPhase("selecting");
+  }, [open]);
+
+  const startExport = () => {
+    setPhase("exporting");
+    setProgress(0);
+    let p = 0;
+    const steps = [0, 12, 28, 41, 57, 72, 85, 94, 100];
+    let i = 0;
+    const tick = setInterval(() => {
+      i++;
+      if (i >= steps.length) { clearInterval(tick); setProgress(100); setTimeout(() => setPhase("done"), 400); return; }
+      setProgress(steps[i]);
+    }, 220 + Math.random() * 180);
+  };
+
+  if (!open) return null;
+
+  const dataSets = [
+    { key: "users", label: "User Registry", icon: "⬡", count: m?.users?.total, color: "#00e5ff", desc: "All user records, roles, subscription status" },
+    { key: "revenue", label: "Revenue Ledger", icon: "◎", count: m?.revenue?.monthly_breakdown?.length, color: "#00ff9d", desc: "MRR, ARR, monthly breakdown, plan data" },
+    { key: "tasks", label: "Task Manifest", icon: "✦", count: m?.tasks?.created_today, color: "#ffd060", desc: "Task creation, completion rates, by workspace" },
+    { key: "feedback", label: "Transmission Log", icon: "◆", count: null, color: "#bf5fff", desc: "All feedback, bugs, feature requests" },
+  ];
+  const formats = ["JSON", "CSV", "XLSX", "PDF"];
+  const selectedCount = Object.values(selectedSets).filter(Boolean).length;
+
+  const overlayStyle = {
+    position: "fixed", inset: 0, zIndex: 1000,
+    background: dark ? "rgba(0,2,12,0.88)" : "rgba(10,30,60,0.6)",
+    backdropFilter: "blur(12px) saturate(1.3)",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    animation: "fadeIn 0.2s ease both",
+  };
+
+  const panelStyle = {
+    width: 520, borderRadius: 10,
+    background: dark
+      ? "linear-gradient(160deg, rgba(0,5,20,0.99) 0%, rgba(0,12,32,0.97) 60%, rgba(0,5,18,0.99) 100%)"
+      : "linear-gradient(160deg, rgba(225,240,255,0.99) 0%, rgba(205,228,252,0.97) 100%)",
+    border: `1px solid rgba(${cyan},0.35)`,
+    boxShadow: dark
+      ? `0 0 0 1px rgba(${cyan},0.06), 0 40px 120px rgba(0,0,0,0.9), 0 0 80px rgba(${cyan},0.1), inset 0 1px 0 rgba(255,255,255,0.08)`
+      : `0 0 0 1px rgba(${cyan},0.1), 0 24px 60px rgba(0,80,180,0.2), inset 0 1px 0 rgba(255,255,255,0.7)`,
+    clipPath: "polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px))",
+    overflow: "hidden",
+    animation: "exportRise 0.45s cubic-bezier(0.16,1,0.3,1) both",
+    position: "relative",
+  };
+
+  return (
+    <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget && phase !== "exporting") onClose(); }}>
+      <div style={panelStyle}>
+        {/* Prismatic top edge */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${cyanHex}, ${green}, rgba(191,95,255,0.8), ${cyanHex}, transparent)`, boxShadow: `0 0 20px rgba(${cyan},0.5)` }} />
+        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, ${cyanHex}, rgba(${cyan},0.3), transparent)` }} />
+        <div style={{ position: "absolute", top: 0, right: 24, width: 0, height: 0, borderTop: `24px solid rgba(${cyan},0.4)`, borderLeft: "24px solid transparent" }} />
+
+        {/* Header */}
+        <div style={{ padding: "22px 26px 18px", borderBottom: `1px solid rgba(${cyan},0.1)`, position: "relative" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center",
+                background: `radial-gradient(circle, rgba(${cyan},0.2) 0%, rgba(${cyan},0.05) 100%)`,
+                border: `1px solid rgba(${cyan},0.4)`,
+                clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                fontSize: 16, color: cyanHex, boxShadow: `0 0 20px rgba(${cyan},0.3)` }}>⇣</div>
+              <div>
+                <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 16, fontWeight: 800, color: dark ? "#fff" : "#0a1a2e", letterSpacing: "0.1em", textShadow: dark ? `0 0 20px rgba(${cyan},0.5)` : "none" }}>DATA EXPORT</div>
+                <div style={{ fontSize: 7, color: `rgba(${cyan},0.5)`, letterSpacing: "0.25em", marginTop: 3, fontFamily: "'Share Tech Mono', monospace" }}>INTELLIGENCE EXTRACTION PROTOCOL</div>
+              </div>
+            </div>
+            {phase !== "exporting" && (
+              <button onClick={onClose} style={{ background: "transparent", border: `1px solid rgba(${cyan},0.2)`, color: `rgba(${cyan},0.5)`, width: 28, height: 28, borderRadius: 4, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = `rgba(${cyan},0.5)`; e.currentTarget.style.color = cyanHex; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = `rgba(${cyan},0.2)`; e.currentTarget.style.color = `rgba(${cyan},0.5)`; }}>✕</button>
+            )}
+          </div>
+        </div>
+
+        <div style={{ padding: "20px 26px 24px" }}>
+          {phase === "selecting" && (
+            <>
+              {/* Dataset selection */}
+              <div style={{ fontSize: 8, color: `rgba(${cyan},0.5)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 3, height: 3, background: cyanHex, borderRadius: "50%" }} />
+                Select Data Sets
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
+                {dataSets.map(ds => {
+                  const sel = selectedSets[ds.key];
+                  const rgb = ds.color.replace("#","").match(/.{2}/g)?.map(h=>parseInt(h,16)).join(",") || "0,229,255";
+                  return (
+                    <button key={ds.key} onClick={() => setSelectedSets(p => ({ ...p, [ds.key]: !p[ds.key] }))} style={{
+                      background: sel ? (dark ? `rgba(${rgb},0.1)` : `rgba(${rgb},0.08)`) : (dark ? "rgba(0,229,255,0.02)" : "rgba(0,100,180,0.03)"),
+                      border: `1px solid ${sel ? ds.color : `rgba(${cyan},0.15)`}`,
+                      borderRadius: 6, padding: "12px 14px",
+                      cursor: "pointer", text: "left", textAlign: "left",
+                      boxShadow: sel ? `0 0 20px rgba(${rgb},0.12), inset 0 1px 0 rgba(255,255,255,${dark?0.05:0.4})` : "none",
+                      transition: "all 0.25s", position: "relative", overflow: "hidden",
+                      clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+                    }}>
+                      {sel && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, ${ds.color}, transparent)` }} />}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                        <span style={{ fontSize: 14, color: sel ? ds.color : `rgba(${cyan},0.3)`, transition: "color 0.2s" }}>{ds.icon}</span>
+                        <span style={{ fontSize: 9, fontFamily: "'Orbitron', monospace", color: sel ? (dark ? "#fff" : "#0a1a2e") : `rgba(${cyan},0.4)`, letterSpacing: "0.06em", fontWeight: 700, transition: "color 0.2s" }}>{ds.label}</span>
+                        <div style={{ marginLeft: "auto", width: 14, height: 14, borderRadius: 3, border: `1px solid ${sel ? ds.color : `rgba(${cyan},0.2)`}`, background: sel ? ds.color : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: sel ? (dark ? "#000" : "#fff") : "transparent", transition: "all 0.2s" }}>✓</div>
+                      </div>
+                      <div style={{ fontSize: 7, color: `rgba(${cyan},0.3)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.05em", lineHeight: 1.5 }}>{ds.desc}</div>
+                      {ds.count != null && <div style={{ marginTop: 5, fontSize: 8, color: sel ? ds.color : `rgba(${cyan},0.25)`, fontFamily: "'Orbitron', monospace", fontWeight: 700, transition: "color 0.2s" }}>{ds.count} records</div>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Format selector */}
+              <div style={{ fontSize: 8, color: `rgba(${cyan},0.5)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 3, height: 3, background: cyanHex, borderRadius: "50%" }} />
+                Output Format
+              </div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 22 }}>
+                {formats.map(f => (
+                  <button key={f} onClick={() => setExportFormat(f)} style={{
+                    padding: "7px 16px", fontSize: 9, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
+                    background: exportFormat === f ? `rgba(${cyan},0.12)` : "transparent",
+                    border: `1px solid ${exportFormat === f ? `rgba(${cyan},0.55)` : `rgba(${cyan},0.15)`}`,
+                    color: exportFormat === f ? cyanHex : `rgba(${cyan},0.4)`,
+                    borderRadius: 4, cursor: "pointer",
+                    boxShadow: exportFormat === f ? `0 0 16px rgba(${cyan},0.15), inset 0 1px 0 rgba(255,255,255,0.08)` : "none",
+                    transition: "all 0.2s",
+                    clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                  }}>{f}</button>
+                ))}
+              </div>
+
+              {/* Export button */}
+              <button onClick={startExport} disabled={selectedCount === 0} style={{
+                width: "100%", padding: "14px 20px",
+                background: selectedCount > 0
+                  ? `linear-gradient(135deg, rgba(${cyan},0.15) 0%, rgba(${cyan},0.08) 100%)`
+                  : "rgba(0,229,255,0.03)",
+                border: `1px solid ${selectedCount > 0 ? `rgba(${cyan},0.5)` : `rgba(${cyan},0.1)`}`,
+                borderRadius: 6, cursor: selectedCount > 0 ? "pointer" : "not-allowed",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
+                transition: "all 0.3s",
+                clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))",
+                position: "relative", overflow: "hidden",
+                boxShadow: selectedCount > 0 ? `0 0 30px rgba(${cyan},0.12), inset 0 1px 0 rgba(255,255,255,0.08)` : "none",
+              }}
+                onMouseEnter={e => { if(selectedCount > 0){ e.currentTarget.style.background = `linear-gradient(135deg, rgba(${cyan},0.22) 0%, rgba(${cyan},0.12) 100%)`; e.currentTarget.style.boxShadow = `0 0 50px rgba(${cyan},0.2), inset 0 1px 0 rgba(255,255,255,0.1)`; }}}
+                onMouseLeave={e => { e.currentTarget.style.background = selectedCount > 0 ? `linear-gradient(135deg, rgba(${cyan},0.15) 0%, rgba(${cyan},0.08) 100%)` : "rgba(0,229,255,0.03)"; e.currentTarget.style.boxShadow = selectedCount > 0 ? `0 0 30px rgba(${cyan},0.12), inset 0 1px 0 rgba(255,255,255,0.08)` : "none"; }}
+              >
+                <div style={{ position: "absolute", inset: 0, left: "-100%", background: `linear-gradient(90deg, transparent, rgba(${cyan},0.08), transparent)`, animation: selectedCount > 0 ? "shimmerSlide 3s ease-in-out infinite" : "none" }} />
+                <span style={{ fontSize: 18, color: selectedCount > 0 ? cyanHex : `rgba(${cyan},0.2)`, transition: "color 0.3s" }}>⇣</span>
+                <div>
+                  <div style={{ fontSize: 10, fontFamily: "'Orbitron', monospace", color: selectedCount > 0 ? (dark ? "#fff" : "#0a1a2e") : `rgba(${cyan},0.25)`, letterSpacing: "0.12em", fontWeight: 700, transition: "color 0.3s" }}>
+                    INITIATE EXPORT
+                  </div>
+                  <div style={{ fontSize: 7, color: `rgba(${cyan},0.35)`, fontFamily: "'Share Tech Mono', monospace", marginTop: 2 }}>
+                    {selectedCount > 0 ? `${selectedCount} dataset${selectedCount > 1 ? "s" : ""} · ${exportFormat} format` : "Select at least one dataset"}
+                  </div>
+                </div>
+              </button>
+            </>
+          )}
+
+          {phase === "exporting" && (
+            <div style={{ textAlign: "center", padding: "10px 0 6px" }}>
+              <div style={{ fontSize: 10, color: `rgba(${cyan},0.6)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 28 }}>
+                EXTRACTING INTELLIGENCE PAYLOAD...
+              </div>
+              {/* Animated ring progress */}
+              <div style={{ position: "relative", width: 120, height: 120, margin: "0 auto 24px" }}>
+                <svg width="120" height="120" viewBox="0 0 120 120" style={{ transform: "rotate(-90deg)" }}>
+                  <circle cx="60" cy="60" r="52" fill="none" stroke={`rgba(${cyan},0.08)`} strokeWidth="4" />
+                  <circle cx="60" cy="60" r="52" fill="none" stroke={cyanHex} strokeWidth="3"
+                    strokeDasharray={`${2 * Math.PI * 52}`}
+                    strokeDashoffset={`${2 * Math.PI * 52 * (1 - progress / 100)}`}
+                    strokeLinecap="round"
+                    style={{ transition: "stroke-dashoffset 0.3s ease", filter: `drop-shadow(0 0 8px ${cyanHex})` }} />
+                  <circle cx="60" cy="60" r="44" fill="none" stroke={dark ? `rgba(0,255,157,0.15)` : "rgba(0,150,100,0.15)"} strokeWidth="1" strokeDasharray="4 8" style={{ animation: "rotateSlow 4s linear infinite", transformOrigin: "60px 60px" }} />
+                </svg>
+                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                  <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 24, fontWeight: 800, color: dark ? "#fff" : "#0a1a2e", textShadow: dark ? `0 0 20px rgba(${cyan},0.7)` : "none" }}>{progress}</div>
+                  <div style={{ fontSize: 7, color: `rgba(${cyan},0.4)`, letterSpacing: "0.12em", fontFamily: "'Share Tech Mono', monospace" }}>%</div>
+                </div>
+              </div>
+              {/* Data stream bars */}
+              <div style={{ display: "flex", gap: 3, justifyContent: "center", marginBottom: 16 }}>
+                {Array.from({ length: 18 }).map((_, i) => (
+                  <div key={i} style={{ width: 3, borderRadius: 1, background: i / 18 < progress / 100 ? cyanHex : `rgba(${cyan},0.1)`, height: 6 + Math.sin(i * 0.8) * 10, transition: "background 0.3s", boxShadow: i / 18 < progress / 100 ? `0 0 6px rgba(${cyan},0.5)` : "none" }} />
+                ))}
+              </div>
+              <div style={{ fontSize: 8, color: `rgba(${cyan},0.35)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>
+                {progress < 30 ? "INITIALIZING DATA STREAMS..." : progress < 60 ? "COMPILING RECORDS..." : progress < 85 ? "ENCODING PAYLOAD..." : progress < 100 ? "FINALIZING PACKAGE..." : "COMPLETE"}
+              </div>
+            </div>
+          )}
+
+          {phase === "done" && (
+            <div style={{ textAlign: "center", padding: "10px 0 6px", animation: "holoRise 0.5s cubic-bezier(0.16,1,0.3,1) both" }}>
+              <div style={{ position: "relative", width: 80, height: 80, margin: "0 auto 20px" }}>
+                <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "radial-gradient(circle, rgba(0,255,157,0.2) 0%, transparent 70%)", animation: "pulseRing 1.5s ease-in-out infinite" }} />
+                <div style={{ position: "absolute", inset: 0, borderRadius: "50%", border: "2px solid #00ff9d", boxShadow: "0 0 30px rgba(0,255,157,0.4)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>✓</div>
+              </div>
+              <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 18, fontWeight: 800, color: "#00ff9d", letterSpacing: "0.1em", textShadow: "0 0 30px rgba(0,255,157,0.6)", marginBottom: 8 }}>EXPORTED</div>
+              <div style={{ fontSize: 9, color: `rgba(${cyan},0.45)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", marginBottom: 22 }}>
+                {selectedCount} DATASET{selectedCount > 1 ? "S" : ""} · {exportFormat} · TRANSMISSION COMPLETE
+              </div>
+              <button onClick={onClose} style={{
+                padding: "10px 30px", fontFamily: "'Share Tech Mono', monospace",
+                fontSize: 9, letterSpacing: "0.18em", color: cyanHex,
+                background: `rgba(${cyan},0.08)`, border: `1px solid rgba(${cyan},0.35)`,
+                borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
+                clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+              }}
+                onMouseEnter={e => { e.currentTarget.style.background = `rgba(${cyan},0.15)`; }}
+                onMouseLeave={e => { e.currentTarget.style.background = `rgba(${cyan},0.08)`; }}
+              >CLOSE TERMINAL</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── THEME TOGGLE BUTTON ────────────────────────────────────────────────────────
+function ThemeToggle({ dark, onToggle }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      onClick={onToggle}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      title={dark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+      style={{
+        position: "relative", display: "flex", alignItems: "center", gap: 8,
+        padding: "7px 14px",
+        background: hov
+          ? (dark ? "rgba(0,229,255,0.1)" : "rgba(0,100,180,0.1)")
+          : (dark ? "rgba(0,229,255,0.04)" : "rgba(0,100,180,0.05)"),
+        border: `1px solid ${hov ? (dark ? "rgba(0,229,255,0.45)" : "rgba(0,100,180,0.4)") : (dark ? "rgba(0,229,255,0.2)" : "rgba(0,100,180,0.22)")}`,
+        borderRadius: 5, cursor: "pointer",
+        clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+        boxShadow: hov ? `0 0 20px rgba(0,229,255,0.14)` : "none",
+        transition: "all 0.28s cubic-bezier(0.16,1,0.3,1)",
+        overflow: "hidden",
+      }}
+    >
+      {/* Sliding track */}
+      <div style={{
+        width: 32, height: 16, borderRadius: 10, position: "relative",
+        background: dark ? "rgba(0,229,255,0.12)" : "rgba(0,100,180,0.15)",
+        border: `1px solid ${dark ? "rgba(0,229,255,0.3)" : "rgba(0,100,180,0.35)"}`,
+        transition: "all 0.35s",
+        flexShrink: 0,
+      }}>
+        {/* Knob */}
+        <div style={{
+          position: "absolute", top: 1.5, left: dark ? 1.5 : 16,
+          width: 11, height: 11, borderRadius: "50%",
+          background: dark ? "#00e5ff" : "#0088cc",
+          boxShadow: dark ? "0 0 8px #00e5ff, 0 0 16px rgba(0,229,255,0.4)" : "0 0 8px #0088cc",
+          transition: "left 0.35s cubic-bezier(0.16,1,0.3,1), background 0.35s",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 6,
+        }}>
+          <span style={{ color: dark ? "#003344" : "#fff", fontSize: 7 }}>{dark ? "☾" : "☀"}</span>
+        </div>
+      </div>
+      <span style={{
+        fontSize: 8, letterSpacing: "0.14em",
+        color: dark ? "rgba(0,229,255,0.55)" : "rgba(0,100,180,0.65)",
+        fontFamily: "'Share Tech Mono', monospace",
+        transition: "color 0.3s",
+      }}>{dark ? "DARK" : "LITE"}</span>
+    </button>
+  );
+}
 
 function useAdminFetch(path) {
   const [data, setData] = useState(null);
@@ -1444,19 +1930,66 @@ function RoleChip({ role }) {
   );
 }
 
-function UsersTable({ showToast }) {
+function UsersTable({ showToast, onUserClick }) {
   const { data, loading, refetch } = useAdminFetch("/admin/users?limit=100");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
   const [hovRow, setHovRow] = useState(null);
   const [sortCol, setSortCol] = useState("idx");
   const [sortDir, setSortDir] = useState(1);
+  // Multi-select state
+  const [selected, setSelected] = useState(new Set());
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const { dark } = useTheme();
+  const cyan = dark ? "0,229,255" : "0,120,200";
+  const cyanHex = dark ? "#00e5ff" : "#0088cc";
 
   const handleToggleActive = async (id, cur, name) => {
     const token = localStorage.getItem("access_token");
     await fetch(`${API}/admin/users/${id}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ is_active: !cur }) });
     refetch();
     showToast?.(!cur ? `${name || "User"} activated` : `${name || "User"} deactivated`, !cur ? "success" : "warning");
+  };
+
+  const handleBulkActivate = async (activate) => {
+    if (selected.size === 0) return;
+    setBulkLoading(true);
+    const token = localStorage.getItem("access_token");
+    const ids = [...selected];
+    await Promise.all(ids.map(id => fetch(`${API}/admin/users/${id}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ is_active: activate }) })));
+    setSelected(new Set());
+    refetch();
+    showToast?.(`${ids.length} agent${ids.length > 1 ? "s" : ""} ${activate ? "activated" : "deactivated"}`, activate ? "success" : "warning");
+    setBulkLoading(false);
+  };
+
+  const handleBulkExport = () => {
+    if (selected.size === 0) return;
+    const users = data?.users?.filter(u => selected.has(u.id)) || [];
+    const csv = ["id,name,email,role,subscription_status,is_active,created_at",
+      ...users.map(u => `${u.id},"${u.name || ""}",${u.email},${u.role || ""},${u.subscription_status || ""},${u.is_active},${u.created_at || ""}`)
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `arcane_users_${selected.size}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    showToast?.(`Exported ${selected.size} agent records`, "success");
+  };
+
+  const toggleSelect = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (rows) => {
+    const allIds = rows.map(u => u.id);
+    const allSelected = allIds.every(id => selected.has(id));
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(allIds));
   };
 
   if (loading) return <HoloLoader />;
@@ -1475,7 +2008,7 @@ function UsersTable({ showToast }) {
   const paid = data?.users?.filter(u => u.subscription_status === "paid").length || 0;
   const active = data?.users?.filter(u => u.is_active).length || 0;
 
-  const COLS = ["#", "Identity", "Contact", "Tier", "Role", "Joined", "Control"];
+  const COLS = ["☑", "#", "Identity", "Contact", "Tier", "Role", "Joined", "Control"];
 
   return (
     <div>
@@ -1522,26 +2055,124 @@ function UsersTable({ showToast }) {
         }}>{rows.length} / {total} AGENTS</div>
       </div>
 
+      {/* ── Bulk action bar — appears when agents are selected ── */}
+      <div style={{
+        height: selected.size > 0 ? 52 : 0,
+        overflow: "hidden",
+        transition: "height 0.35s cubic-bezier(0.16,1,0.3,1)",
+        marginBottom: selected.size > 0 ? 14 : 0,
+      }}>
+        <div style={{
+          display: "flex", alignItems: "center", gap: 10,
+          padding: "10px 14px",
+          background: dark
+            ? "linear-gradient(90deg, rgba(0,229,255,0.08) 0%, rgba(0,229,255,0.04) 100%)"
+            : "linear-gradient(90deg, rgba(0,120,200,0.08) 0%, rgba(0,120,200,0.04) 100%)",
+          border: `1px solid rgba(${cyan},0.3)`,
+          borderRadius: 5,
+          clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)",
+          boxShadow: dark ? `0 0 30px rgba(${cyan},0.1), inset 0 1px 0 rgba(255,255,255,0.05)` : "none",
+          position: "relative",
+          overflow: "hidden",
+        }}>
+          {/* Animated top scan */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${cyan},0.7), rgba(0,255,157,0.4), transparent)` }} />
+
+          {/* Selection count badge */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{
+              width: 24, height: 24, borderRadius: "50%",
+              background: `rgba(${cyan},0.15)`, border: `1px solid rgba(${cyan},0.45)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 10, fontFamily: "'Orbitron', monospace", fontWeight: 700,
+              color: cyanHex, boxShadow: `0 0 12px rgba(${cyan},0.3)`,
+            }}>{selected.size}</div>
+            <span style={{ fontSize: 8, color: `rgba(${cyan},0.65)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.16em" }}>
+              AGENT{selected.size !== 1 ? "S" : ""} SELECTED
+            </span>
+          </div>
+
+          <div style={{ flex: 1, height: 1, background: `rgba(${cyan},0.1)` }} />
+
+          {/* Bulk action buttons */}
+          {[
+            { label: "⬡ ACTIVATE", action: () => handleBulkActivate(true), col: "#00ff9d", rgb: "0,255,157" },
+            { label: "✕ DEACTIVATE", action: () => handleBulkActivate(false), col: "#ff2d55", rgb: "255,45,85" },
+            { label: "⇣ EXPORT CSV", action: handleBulkExport, col: "#ffd060", rgb: "255,208,96" },
+          ].map(({ label, action, col, rgb }) => (
+            <button key={label} onClick={action} disabled={bulkLoading}
+              style={{
+                display: "flex", alignItems: "center", gap: 5,
+                padding: "5px 12px", cursor: "pointer",
+                background: `rgba(${rgb},0.06)`,
+                border: `1px solid rgba(${rgb},0.3)`,
+                borderRadius: 3,
+                clipPath: "polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%)",
+                fontSize: 7, color: col, fontFamily: "'Share Tech Mono', monospace",
+                letterSpacing: "0.12em", fontWeight: 700,
+                boxShadow: `0 0 12px rgba(${rgb},0.12)`,
+                transition: "all 0.2s", opacity: bulkLoading ? 0.5 : 1,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = `rgba(${rgb},0.14)`; e.currentTarget.style.boxShadow = `0 0 20px rgba(${rgb},0.25)`; }}
+              onMouseLeave={e => { e.currentTarget.style.background = `rgba(${rgb},0.06)`; e.currentTarget.style.boxShadow = `0 0 12px rgba(${rgb},0.12)`; }}
+            >{label}</button>
+          ))}
+
+          {/* Deselect all */}
+          <button onClick={() => setSelected(new Set())}
+            style={{
+              background: "transparent", border: `1px solid rgba(${cyan},0.2)`,
+              borderRadius: 3, padding: "4px 10px", cursor: "pointer",
+              fontSize: 7, color: `rgba(${cyan},0.4)`, fontFamily: "'Share Tech Mono', monospace",
+              letterSpacing: "0.1em", transition: "all 0.2s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = `rgba(${cyan},0.5)`; e.currentTarget.style.color = cyanHex; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = `rgba(${cyan},0.2)`; e.currentTarget.style.color = `rgba(${cyan},0.4)`; }}
+          >✕ CLEAR</button>
+        </div>
+      </div>
+
       {/* ── Table ── */}
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
           <thead>
             <tr>
               {COLS.map(h => (
-                <th key={h} onClick={() => { if (h !== "#" && h !== "Control") { setSortCol(h); setSortDir(d => -d); } }}
+                <th key={h} onClick={() => {
+                  if (h === "☑") { toggleSelectAll(rows); return; }
+                  if (h !== "#" && h !== "Control") { setSortCol(h); setSortDir(d => -d); }
+                }}
                   style={{
                     padding: "10px 14px", textAlign: "left",
-                    color: "rgba(0,212,255,0.5)", fontWeight: 700, fontSize: 7,
-                    textTransform: "uppercase", letterSpacing: "0.22em",
+                    color: h === "☑" ? (selected.size > 0 ? cyanHex : "rgba(0,212,255,0.4)") : "rgba(0,212,255,0.5)",
+                    fontWeight: 700, fontSize: h === "☑" ? 14 : 7,
+                    textTransform: "uppercase", letterSpacing: h === "☑" ? 0 : "0.22em",
                     borderBottom: "1px solid rgba(0,212,255,0.12)",
-                    whiteSpace: "nowrap", fontFamily: "'Share Tech Mono', monospace",
+                    whiteSpace: "nowrap", fontFamily: h === "☑" ? "inherit" : "'Share Tech Mono', monospace",
                     cursor: h !== "#" && h !== "Control" ? "pointer" : "default",
                     background: "linear-gradient(180deg, rgba(0,212,255,0.04) 0%, transparent 100%)",
                     position: "relative",
+                    width: h === "☑" ? 36 : "auto",
+                    textAlign: h === "☑" ? "center" : "left",
                   }}>
-                  {h}
-                  {/* Column bottom accent */}
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, rgba(0,229,255,0.3), transparent)" }} />
+                  {h === "☑" ? (
+                    <div style={{
+                      width: 16, height: 16, border: `1px solid rgba(${cyan},${selected.size > 0 && rows.every(u => selected.has(u.id)) ? 0.8 : 0.3})`,
+                      borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center",
+                      background: selected.size > 0 && rows.every(u => selected.has(u.id)) ? `rgba(${cyan},0.15)` : "transparent",
+                      margin: "0 auto", cursor: "pointer",
+                      boxShadow: selected.size > 0 ? `0 0 8px rgba(${cyan},0.3)` : "none",
+                      transition: "all 0.2s",
+                    }}>
+                      {selected.size > 0 && rows.every(u => selected.has(u.id)) && (
+                        <span style={{ fontSize: 8, color: cyanHex, lineHeight: 1 }}>✓</span>
+                      )}
+                      {selected.size > 0 && !rows.every(u => selected.has(u.id)) && (
+                        <span style={{ width: 8, height: 2, background: cyanHex, display: "block", borderRadius: 1 }} />
+                      )}
+                    </div>
+                  ) : h}
+                  {h !== "☑" && <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, rgba(0,229,255,0.3), transparent)" }} />}
                 </th>
               ))}
             </tr>
@@ -1558,17 +2189,33 @@ function UsersTable({ showToast }) {
                   onMouseLeave={() => setHovRow(null)}
                   style={{
                     transition: "all 0.2s",
-                    background: isHov
-                      ? `linear-gradient(90deg, rgba(${accentRgb},0.07) 0%, rgba(${accentRgb},0.03) 60%, transparent 100%)`
-                      : "transparent",
-                    boxShadow: isHov ? `inset 3px 0 0 rgba(${accentRgb},0.7)` : "none",
+                    background: selected.has(u.id)
+                      ? dark ? `rgba(${accentRgb},0.09)` : `rgba(${accentRgb},0.05)`
+                      : isHov
+                        ? `linear-gradient(90deg, rgba(${accentRgb},0.07) 0%, rgba(${accentRgb},0.03) 60%, transparent 100%)`
+                        : "transparent",
+                    boxShadow: selected.has(u.id) ? `inset 3px 0 0 rgba(${accentRgb},0.9)` : isHov ? `inset 3px 0 0 rgba(${accentRgb},0.7)` : "none",
                   }}>
+                  {/* Checkbox cell */}
+                  <td style={{ ...td, paddingLeft: 14, width: 36 }} onClick={e => { e.stopPropagation(); if (!isRoot) toggleSelect(u.id); }}>
+                    {!isRoot && (
+                      <div style={{
+                        width: 14, height: 14, border: `1px solid rgba(${accentRgb},${selected.has(u.id) ? 0.8 : 0.25})`,
+                        borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center",
+                        background: selected.has(u.id) ? `rgba(${accentRgb},0.15)` : "transparent",
+                        cursor: "pointer", transition: "all 0.15s",
+                        boxShadow: selected.has(u.id) ? `0 0 8px rgba(${accentRgb},0.35)` : "none",
+                      }}>
+                        {selected.has(u.id) && <span style={{ fontSize: 7, color: accentColor, lineHeight: 1 }}>✓</span>}
+                      </div>
+                    )}
+                  </td>
                   {/* Row number */}
                   <td style={{ ...td, color: "rgba(0,212,255,0.2)", fontSize: 8, fontFamily: "'Share Tech Mono', monospace", paddingLeft: 18 }}>
                     {String(idx + 1).padStart(3, "0")}
                   </td>
                   {/* Identity — avatar + name */}
-                  <td style={{ ...td, minWidth: 180 }}>
+                  <td style={{ ...td, minWidth: 180, cursor: onUserClick ? "pointer" : "default" }} onClick={() => onUserClick?.(u)}>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <HoloAvatar name={u.name} email={u.email} isActive={u.is_active} isRoot={isRoot} size={38} />
                       <div>
@@ -1582,6 +2229,7 @@ function UsersTable({ showToast }) {
                         {isRoot && (
                           <div style={{ fontSize: 7, color: "#ffd060", letterSpacing: "0.18em", fontFamily: "'Share Tech Mono', monospace", textShadow: "0 0 8px rgba(255,208,96,0.5)" }}>ROOT ADMINISTRATOR</div>
                         )}
+                        {onUserClick && <div style={{ fontSize: 6, color: "rgba(0,229,255,0.25)", letterSpacing: "0.14em", fontFamily: "'Share Tech Mono', monospace", marginTop: 1 }}>CLICK TO INSPECT</div>}
                       </div>
                     </div>
                   </td>
@@ -1882,41 +2530,378 @@ function WorkspacesTable({ showToast }) {
 }
 
 // ── FEEDBACK ──────────────────────────────────────────────────────────────────
+// ── SENTIMENT ENGINE — derives signal from text ───────────────────────────────
+function getSentiment(text = "") {
+  const t = text.toLowerCase();
+  const positive = ["great","love","excellent","amazing","awesome","perfect","fantastic","helpful","thanks","good","nice","works","fixed","fast"].filter(w => t.includes(w)).length;
+  const negative = ["broken","bug","crash","error","fail","issue","problem","terrible","awful","wrong","doesn't","doesn't","not working","slow","bad"].filter(w => t.includes(w)).length;
+  const urgency = ["urgent","asap","critical","immediately","please fix","cannot","blocked"].filter(w => t.includes(w)).length;
+  if (urgency > 0) return { label: "URGENT", color: "#ff2d55", rgb: "255,45,85", score: -2, icon: "🔴", bar: 0.1 };
+  if (negative > positive + 1) return { label: "NEGATIVE", color: "#ff6b35", rgb: "255,107,53", score: -1, icon: "🟠", bar: 0.2 + negative * 0.05 };
+  if (positive > negative + 1) return { label: "POSITIVE", color: "#00ff9d", rgb: "0,255,157", score: 1, icon: "🟢", bar: 0.7 + positive * 0.04 };
+  return { label: "NEUTRAL", color: "#00e5ff", rgb: "0,229,255", score: 0, icon: "🔵", bar: 0.5 };
+}
+
+// ── SENTIMENT WAVE — mini animated waveform showing signal mood ───────────────
+function SentimentWave({ sentiment }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width = 80, H = canvas.height = 24;
+    const [r, g, b] = sentiment.rgb.split(",").map(Number);
+    let t = 0, raf;
+    const amp = sentiment.score >= 0 ? 6 + sentiment.score * 2 : 8 - sentiment.score;
+    const freq = sentiment.score >= 1 ? 0.5 : sentiment.score <= -1 ? 1.2 : 0.7;
+    function draw() {
+      t += 0.04;
+      ctx.clearRect(0, 0, W, H);
+      const pts = Array.from({ length: W }, (_, x) => ({
+        x, y: H / 2 + Math.sin((x / W) * Math.PI * 4 * freq + t) * amp * (0.7 + 0.3 * Math.sin(t * 0.5 + x * 0.1)),
+      }));
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, `rgba(${r},${g},${b},0.25)`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      ctx.beginPath();
+      ctx.moveTo(0, H);
+      pts.forEach(p => ctx.lineTo(p.x, p.y));
+      ctx.lineTo(W, H);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+      ctx.beginPath();
+      pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+      ctx.strokeStyle = `rgba(${r},${g},${b},0.7)`;
+      ctx.lineWidth = 1.5;
+      ctx.shadowColor = sentiment.color;
+      ctx.shadowBlur = 5;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      raf = requestAnimationFrame(draw);
+    }
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [sentiment]);
+  return <canvas ref={canvasRef} style={{ display: "block" }} />;
+}
+
+// ── FEEDBACK TRANSMISSION CARD — full holographic redesign ───────────────────
+function FeedbackCard({ f, isExpanded, onToggle }) {
+  const [hov, setHov] = useState(false);
+  const typeStyle = {
+    bug:             { c: "#ff2d55", rgb: "255,45,85",   icon: "⚠", label: "BUG REPORT" },
+    feedback:        { c: "#00d4ff", rgb: "0,212,255",   icon: "◈", label: "FEEDBACK"   },
+    feature_request: { c: "#00ff9d", rgb: "0,255,157",   icon: "◆", label: "FEATURE REQ"},
+  };
+  const ts = typeStyle[f.type] || { c: "#00d4ff", rgb: "0,212,255", icon: "•", label: f.type || "MISC" };
+  const sentiment = getSentiment((f.title || "") + " " + (f.message || ""));
+  const statusCfg = {
+    open:    { c: "#00ff9d", label: "OPEN"    },
+    closed:  { c: "#00e5ff", label: "CLOSED"  },
+    pending: { c: "#ffd060", label: "PENDING" },
+  }[f.status] || { c: "#00e5ff", label: f.status || "OPEN" };
+
+  const timeAgo = (dateStr) => {
+    if (!dateStr) return "—";
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const d = Math.floor(diff / 86400000);
+    const h = Math.floor((diff % 86400000) / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    if (d > 0) return `${d}d ago`;
+    if (h > 0) return `${h}h ago`;
+    return `${m}m ago`;
+  };
+
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      onClick={onToggle}
+      style={{
+        position: "relative", overflow: "hidden",
+        background: hov || isExpanded
+          ? `linear-gradient(160deg, rgba(0,6,22,0.99) 0%, rgba(0,12,30,0.97) 50%, rgba(0,5,18,0.99) 100%)`
+          : `linear-gradient(160deg, rgba(0,4,18,0.99) 0%, rgba(0,9,24,0.96) 50%, rgba(0,4,16,0.98) 100%)`,
+        border: `1px solid rgba(${ts.rgb},${hov || isExpanded ? 0.35 : 0.15})`,
+        borderRadius: 8,
+        clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))",
+        boxShadow: hov || isExpanded
+          ? `0 0 0 1px rgba(${ts.rgb},0.06), 0 20px 70px rgba(0,0,0,0.8), 0 0 50px rgba(${ts.rgb},0.08), inset 0 1px 0 rgba(255,255,255,0.07)`
+          : `0 8px 40px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.04)`,
+        transition: "all 0.35s cubic-bezier(0.16,1,0.3,1)",
+        cursor: "pointer",
+        marginBottom: 2,
+      }}>
+
+      {/* Prismatic top bar */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: hov || isExpanded ? 2 : 1,
+        background: `linear-gradient(90deg, transparent 0%, rgba(${ts.rgb},0.8) 20%, ${ts.c} 50%, rgba(${ts.rgb},0.5) 80%, transparent 100%)`,
+        boxShadow: hov || isExpanded ? `0 0 14px rgba(${ts.rgb},0.5)` : "none",
+        transition: "all 0.3s",
+      }} />
+      {/* Left accent bar — thick, matches type color */}
+      <div style={{
+        position: "absolute", left: 0, top: 0, bottom: 0, width: hov || isExpanded ? 4 : 3,
+        background: `linear-gradient(180deg, ${ts.c} 0%, rgba(${ts.rgb},0.5) 50%, rgba(${ts.rgb},0.2) 100%)`,
+        boxShadow: hov || isExpanded ? `0 0 18px rgba(${ts.rgb},0.4)` : "none",
+        transition: "all 0.3s",
+      }} />
+      {/* Corner cut */}
+      <div style={{ position: "absolute", top: 0, right: 20, width: 0, height: 0, borderTop: `20px solid rgba(${ts.rgb},${hov ? 0.45 : 0.2})`, borderLeft: "20px solid transparent", transition: "border-color 0.3s" }} />
+      {/* Bottom corner */}
+      <div style={{ position: "absolute", bottom: 0, left: 20, width: 0, height: 0, borderBottom: `12px solid rgba(${ts.rgb},${hov ? 0.3 : 0.1})`, borderRight: "12px solid transparent", transition: "border-color 0.3s" }} />
+      {/* Glass sheen */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "45%", background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
+      {/* Scan sweep on hover */}
+      {(hov || isExpanded) && <div style={{ position: "absolute", inset: 0, left: "-100%", width: "60%", background: `linear-gradient(90deg, transparent, rgba(${ts.rgb},0.03), transparent)`, animation: "shimmerSlide 3s ease-in-out infinite", pointerEvents: "none" }} />}
+      {/* Ambient inner glow */}
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 0% 50%, rgba(${ts.rgb},0.05) 0%, transparent 50%)`, pointerEvents: "none" }} />
+
+      {/* ── CARD CONTENT ── */}
+      <div style={{ padding: "18px 22px 16px 26px", position: "relative", zIndex: 2 }}>
+
+        {/* Top row — type badge + title + sentiment + status + time */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+
+          {/* Type badge */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "4px 10px 4px 8px",
+            background: `rgba(${ts.rgb},0.08)`,
+            border: `1px solid rgba(${ts.rgb},0.35)`,
+            borderRadius: 3,
+            clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+            flexShrink: 0,
+            boxShadow: `0 0 10px rgba(${ts.rgb},0.1)`,
+          }}>
+            <span style={{ fontSize: 9, color: ts.c, textShadow: `0 0 8px rgba(${ts.rgb},0.6)` }}>{ts.icon}</span>
+            <span style={{ fontSize: 7, fontWeight: 700, color: ts.c, letterSpacing: "0.14em", fontFamily: "'Share Tech Mono', monospace" }}>{ts.label}</span>
+          </div>
+
+          {/* Title */}
+          <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: hov || isExpanded ? "#f0faff" : "#c8e8f8", fontFamily: "'Rajdhani', sans-serif", letterSpacing: "0.04em", lineHeight: 1.3, transition: "color 0.2s", minWidth: 0 }}>
+            {f.title || "Untitled Transmission"}
+          </div>
+
+          {/* Sentiment signal */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <div style={{ width: 80, overflow: "hidden" }}>
+              <SentimentWave sentiment={sentiment} />
+            </div>
+            <div style={{
+              fontSize: 6, fontWeight: 700, color: sentiment.color,
+              fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em",
+              textShadow: `0 0 8px rgba(${sentiment.rgb},0.5)`,
+              minWidth: 44, textAlign: "center",
+            }}>{sentiment.label}</div>
+          </div>
+
+          {/* Status badge */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            padding: "3px 9px", borderRadius: 3,
+            background: `rgba(${statusCfg.c.replace("#","").match(/../g)?.map(h=>parseInt(h,16)).join(",")||"0,229,255"},0.07)`,
+            border: `1px solid rgba(${statusCfg.c.replace("#","").match(/../g)?.map(h=>parseInt(h,16)).join(",")||"0,229,255"},0.35)`,
+            flexShrink: 0,
+          }}>
+            <div style={{ width: 4, height: 4, borderRadius: "50%", background: statusCfg.c, boxShadow: `0 0 6px ${statusCfg.c}`, animation: f.status === "open" ? "pulse-glow 1.5s infinite" : "none" }} />
+            <span style={{ fontSize: 7, color: statusCfg.c, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>{statusCfg.label}</span>
+          </div>
+
+          {/* Expand indicator */}
+          <div style={{ fontSize: 10, color: `rgba(${ts.rgb},0.4)`, transition: "transform 0.3s, color 0.3s", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", color: hov || isExpanded ? ts.c : `rgba(${ts.rgb},0.3)` }}>▾</div>
+        </div>
+
+        {/* Message preview / expanded */}
+        <div style={{
+          color: isExpanded ? "rgba(200,230,255,0.65)" : "rgba(0,212,255,0.35)",
+          fontSize: 11, lineHeight: 1.8,
+          fontFamily: "'Share Tech Mono', monospace",
+          letterSpacing: "0.02em",
+          maxHeight: isExpanded ? 400 : 44,
+          overflow: "hidden",
+          transition: "max-height 0.4s cubic-bezier(0.4,0,0.2,1), color 0.3s",
+          marginBottom: 12,
+          position: "relative",
+        }}>
+          {f.message || "No message body."}
+          {!isExpanded && (
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 20, background: `linear-gradient(180deg, transparent, rgba(0,6,20,0.95))` }} />
+          )}
+        </div>
+
+        {/* Expanded detail — agent info + context + timestamp */}
+        {isExpanded && (
+          <div style={{
+            display: "flex", gap: 16, flexWrap: "wrap",
+            padding: "10px 14px",
+            background: `rgba(${ts.rgb},0.04)`,
+            border: `1px solid rgba(${ts.rgb},0.1)`,
+            borderRadius: 4,
+            marginBottom: 12,
+            animation: "holoRise 0.25s ease-out both",
+          }}>
+            {[
+              { icon: "◎", label: "Agent", value: `${f.user_name || "Anonymous"}${f.user_email ? ` · ${f.user_email}` : ""}` },
+              f.page_context && { icon: "⊕", label: "Context", value: f.page_context },
+              { icon: "◷", label: "Received", value: f.created_at ? new Date(f.created_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—" },
+              { icon: "⌛", label: "Age", value: timeAgo(f.created_at) },
+            ].filter(Boolean).map((item, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 9, color: `rgba(${ts.rgb},0.4)` }}>{item.icon}</span>
+                <span style={{ fontSize: 7, color: `rgba(${ts.rgb},0.3)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em", textTransform: "uppercase" }}>{item.label}:</span>
+                <span style={{ fontSize: 9, color: `rgba(${ts.rgb},0.7)`, fontFamily: "'Share Tech Mono', monospace" }}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer meta row (always visible, compact) */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <span style={{ fontSize: 8, color: `rgba(${ts.rgb},0.25)` }}>◎</span>
+            <span style={{ fontSize: 8, color: `rgba(${ts.rgb},0.4)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.06em" }}>{f.user_name || "Anonymous"}</span>
+          </div>
+          {f.page_context && (
+            <div style={{ fontSize: 7, color: `rgba(${ts.rgb},0.22)`, fontFamily: "'Share Tech Mono', monospace", background: `rgba(${ts.rgb},0.04)`, border: `1px solid rgba(${ts.rgb},0.1)`, padding: "2px 7px", borderRadius: 2, letterSpacing: "0.08em" }}>
+              ⊕ {f.page_context}
+            </div>
+          )}
+          <div style={{ marginLeft: "auto", fontSize: 7, color: `rgba(${ts.rgb},0.2)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>
+            {timeAgo(f.created_at)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function FeedbackTable() {
   const { data, loading } = useAdminFetch("/admin/feedback?limit=100");
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [expandedId, setExpandedId] = useState(null);
+
   if (loading) return <HoloLoader />;
-  const typeStyle = {
-    bug:             { c: "#ff3366", bg: "rgba(255,51,102,0.06)", b: "rgba(255,51,102,0.25)", icon: "⚠" },
-    feedback:        { c: "#00d4ff", bg: "rgba(0,212,255,0.06)", b: "rgba(0,212,255,0.25)", icon: "◈" },
-    feature_request: { c: "#00ff88", bg: "rgba(0,255,136,0.06)", b: "rgba(0,255,136,0.25)", icon: "◆" },
+
+  const items = data?.items || [];
+
+  // Derived counts for the stat strip
+  const counts = {
+    all: items.length,
+    bug: items.filter(f => f.type === "bug").length,
+    feature_request: items.filter(f => f.type === "feature_request").length,
+    feedback: items.filter(f => f.type === "feedback").length,
+    open: items.filter(f => f.status === "open").length,
   };
+
+  const sentimentCounts = items.reduce((acc, f) => {
+    const s = getSentiment((f.title || "") + " " + (f.message || ""));
+    acc[s.label] = (acc[s.label] || 0) + 1;
+    return acc;
+  }, {});
+
+  const filtered = items.filter(f => {
+    if (filter !== "all" && f.type !== filter && f.status !== filter) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      if (!f.title?.toLowerCase().includes(q) && !f.message?.toLowerCase().includes(q) && !f.user_name?.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const FILTERS = [
+    { id: "all",             label: "ALL",     count: counts.all,             color: "#00e5ff" },
+    { id: "open",            label: "OPEN",    count: counts.open,            color: "#00ff9d" },
+    { id: "bug",             label: "BUG",     count: counts.bug,             color: "#ff2d55" },
+    { id: "feature_request", label: "FEATURE", count: counts.feature_request, color: "#00ff9d" },
+    { id: "feedback",        label: "FEEDBACK",count: counts.feedback,        color: "#00d4ff" },
+  ];
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {data?.items?.map(f => {
-        const ts = typeStyle[f.type] || { c: "#00d4ff", bg: "rgba(0,212,255,0.06)", b: "rgba(0,212,255,0.2)", icon: "•" };
-        return (
-          <div key={f.id} className="holo-feedback">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, gap: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ background: ts.bg, color: ts.c, border: `1px solid ${ts.b}`, padding: "2px 8px", borderRadius: 2, fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "'Share Tech Mono', monospace", boxShadow: `0 0 10px ${ts.b}` }}>{ts.icon} {f.type.replace("_", " ")}</span>
-                <span style={{ color: "#e0f7ff", fontWeight: 600, fontSize: 12, fontFamily: "'Share Tech Mono', monospace" }}>{f.title}</span>
-              </div>
-              <Badge text={f.status} />
-            </div>
-            <p style={{ color: "rgba(0,212,255,0.4)", fontSize: 11, margin: "0 0 10px", lineHeight: 1.8, fontFamily: "'Share Tech Mono', monospace" }}>{f.message}</p>
-            <div style={{ display: "flex", gap: 16, fontSize: 9, color: "rgba(0,212,255,0.3)", flexWrap: "wrap", fontFamily: "'Share Tech Mono', monospace" }}>
-              <span>◎ {f.user_name ?? "Anonymous"} {f.user_email && `(${f.user_email})`}</span>
-              {f.page_context && <span>⊕ {f.page_context}</span>}
-              <span>◷ {f.created_at ? new Date(f.created_at).toLocaleString() : "—"}</span>
-            </div>
-          </div>
-        );
-      })}
-      {!data?.items?.length && (
-        <div style={{ textAlign: "center", padding: 80, color: "rgba(0,212,255,0.2)", fontFamily: "'Share Tech Mono', monospace", fontSize: 11, letterSpacing: "0.15em" }}>
-          NO FEEDBACK RECORDS FOUND
+    <div>
+      {/* ── Sentiment intelligence strip ── */}
+      <div style={{
+        display: "flex", gap: 8, marginBottom: 20,
+        padding: "14px 18px",
+        background: "linear-gradient(145deg, rgba(0,4,14,0.95) 0%, rgba(0,8,22,0.9) 100%)",
+        border: "1px solid rgba(0,229,255,0.1)",
+        borderRadius: 6,
+        clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)",
+        position: "relative", overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.4), rgba(0,255,157,0.2), rgba(191,95,255,0.15), transparent)" }} />
+        <div style={{ fontSize: 7, color: "rgba(0,229,255,0.3)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", marginRight: 10 }}>
+          <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#00e5ff", boxShadow: "0 0 6px #00e5ff", animation: "pulse-glow 2s infinite" }} />
+          SENTIMENT SCAN
         </div>
-      )}
+        <div style={{ flex: 1, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {[
+            { label: "POSITIVE", color: "#00ff9d", rgb: "0,255,157" },
+            { label: "NEUTRAL",  color: "#00e5ff", rgb: "0,229,255" },
+            { label: "NEGATIVE", color: "#ff6b35", rgb: "255,107,53" },
+            { label: "URGENT",   color: "#ff2d55", rgb: "255,45,85"  },
+          ].map(({ label, color, rgb }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, boxShadow: `0 0 6px rgba(${rgb},0.5)` }} />
+              <span style={{ fontSize: 7, color: `rgba(${rgb},0.6)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>{label}</span>
+              <span style={{ fontSize: 9, fontWeight: 700, color, fontFamily: "'Orbitron', monospace", textShadow: `0 0 8px rgba(${rgb},0.4)` }}>{sentimentCounts[label] || 0}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 8, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>
+          {items.length} transmissions
+        </div>
+      </div>
+
+      {/* ── Filter pills + search ── */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {FILTERS.map(f => (
+            <button key={f.id} onClick={() => setFilter(f.id)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 5,
+                padding: "5px 12px",
+                background: filter === f.id ? `rgba(${f.color.replace("#","").match(/../g).map(h=>parseInt(h,16)).join(",")},0.12)` : "rgba(0,0,0,0.2)",
+                border: `1px solid ${filter === f.id ? f.color : "rgba(0,229,255,0.1)"}`,
+                borderRadius: 4, cursor: "pointer",
+                color: filter === f.id ? f.color : "rgba(0,212,255,0.3)",
+                fontSize: 7, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em",
+                fontWeight: filter === f.id ? 700 : 400,
+                boxShadow: filter === f.id ? `0 0 14px rgba(${f.color.replace("#","").match(/../g).map(h=>parseInt(h,16)).join(",")},0.2)` : "none",
+                transition: "all 0.2s",
+                clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+              }}>
+              {filter === f.id && <div style={{ width: 4, height: 4, borderRadius: "50%", background: f.color, boxShadow: `0 0 6px ${f.color}`, animation: "pulse-glow 1.5s infinite" }} />}
+              {f.label}
+              <span style={{ opacity: 0.6 }}>{f.count}</span>
+            </button>
+          ))}
+        </div>
+        <div style={{ flex: 1, minWidth: 180, position: "relative" }}>
+          <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: "rgba(0,229,255,0.25)", pointerEvents: "none" }}>◆</span>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search transmissions…" className="holo-input" style={{ width: "100%", paddingLeft: 28 }} />
+        </div>
+        <div style={{ fontSize: 8, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>{filtered.length} shown</div>
+      </div>
+
+      {/* ── Cards ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {filtered.map(f => (
+          <FeedbackCard
+            key={f.id} f={f}
+            isExpanded={expandedId === f.id}
+            onToggle={() => setExpandedId(expandedId === f.id ? null : f.id)}
+          />
+        ))}
+        {filtered.length === 0 && (
+          <div style={{ textAlign: "center", padding: "80px 0", color: "rgba(0,212,255,0.15)", fontFamily: "'Share Tech Mono', monospace", fontSize: 11, letterSpacing: "0.2em" }}>
+            NO TRANSMISSIONS MATCH QUERY
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -3049,6 +4034,1142 @@ function LoginScreen({ onLogin }) {
   );
 }
 
+// ── COMMAND PALETTE — ⌘K holographic search overlay ─────────────────────────
+function CommandPalette({ open, onClose, onNavigate, tabs, m }) {
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(0);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (open) { setQuery(""); setSelected(0); setTimeout(() => inputRef.current?.focus(), 60); }
+  }, [open]);
+
+  // Build command list
+  const COMMANDS = [
+    ...tabs.map(t => ({ id: t.id, label: t.label, icon: t.icon, category: "NAVIGATION", action: () => { onNavigate(t.id); onClose(); } })),
+    { id: "refresh", label: "Refresh Data", icon: "↺", category: "ACTIONS", action: () => { window.location.reload(); onClose(); } },
+    { id: "logout",  label: "Terminate Session", icon: "⏻", category: "ACTIONS", action: () => { localStorage.removeItem("access_token"); window.location.reload(); } },
+    m && { id: "mrr",   label: `MRR: $${m.revenue?.mrr}`, icon: "◎", category: "METRICS", action: () => { onNavigate("revenue"); onClose(); } },
+    m && { id: "users", label: `Users: ${m.users?.total} total`, icon: "⬡", category: "METRICS", action: () => { onNavigate("users"); onClose(); } },
+    m && { id: "tasks", label: `Tasks Today: ${m.tasks?.created_today}`, icon: "✦", category: "METRICS", action: () => { onNavigate("overview"); onClose(); } },
+  ].filter(Boolean);
+
+  const filtered = query
+    ? COMMANDS.filter(c => c.label.toLowerCase().includes(query.toLowerCase()) || c.category.toLowerCase().includes(query.toLowerCase()))
+    : COMMANDS;
+
+  useEffect(() => { setSelected(0); }, [query]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowDown") { e.preventDefault(); setSelected(s => Math.min(s + 1, filtered.length - 1)); }
+      if (e.key === "ArrowUp") { e.preventDefault(); setSelected(s => Math.max(s - 1, 0)); }
+      if (e.key === "Enter" && filtered[selected]) { filtered[selected].action(); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, selected, filtered, onClose]);
+
+  if (!open) return null;
+
+  // Group by category
+  const grouped = filtered.reduce((acc, cmd) => {
+    if (!acc[cmd.category]) acc[cmd.category] = [];
+    acc[cmd.category].push(cmd);
+    return acc;
+  }, {});
+
+  let globalIdx = 0;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 9998,
+        background: "rgba(0,2,10,0.75)",
+        backdropFilter: "blur(8px)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        paddingTop: "15vh",
+        animation: "paletteFadeIn 0.15s ease-out both",
+      }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: 580, maxWidth: "90vw",
+        background: "linear-gradient(160deg, rgba(0,5,20,0.99) 0%, rgba(0,10,28,0.98) 50%, rgba(0,4,16,0.99) 100%)",
+        border: "1px solid rgba(0,229,255,0.35)",
+        borderRadius: 10,
+        clipPath: "polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px))",
+        boxShadow: "0 0 0 1px rgba(0,229,255,0.06), 0 40px 120px rgba(0,0,0,0.95), 0 0 100px rgba(0,229,255,0.1), inset 0 1px 0 rgba(255,255,255,0.08)",
+        animation: "paletteRise 0.2s cubic-bezier(0.16,1,0.3,1) both",
+        overflow: "hidden",
+      }}>
+
+        {/* Prismatic top edge */}
+        <div style={{ height: 2, background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.9), rgba(0,255,157,0.6), rgba(191,95,255,0.5), transparent)", boxShadow: "0 0 20px rgba(0,229,255,0.6), 0 0 50px rgba(0,229,255,0.2)" }} />
+
+        {/* Corner cuts */}
+        <div style={{ position: "absolute", top: 2, right: 24, width: 0, height: 0, borderTop: "24px solid rgba(0,229,255,0.4)", borderLeft: "24px solid transparent" }} />
+        <div style={{ position: "absolute", bottom: 0, left: 24, width: 0, height: 0, borderBottom: "16px solid rgba(0,229,255,0.2)", borderRight: "16px solid transparent" }} />
+
+        {/* Search input */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 20px", borderBottom: "1px solid rgba(0,229,255,0.1)", position: "relative" }}>
+          {/* Left icon */}
+          <div style={{
+            width: 32, height: 32, flexShrink: 0,
+            clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+            background: "rgba(0,229,255,0.1)", border: "1px solid rgba(0,229,255,0.35)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 13, color: "#00e5ff", textShadow: "0 0 10px rgba(0,229,255,0.6)",
+          }}>◈</div>
+
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Command or search…"
+            style={{
+              flex: 1, background: "transparent", border: "none", outline: "none",
+              color: "#e0f8ff", fontSize: 15, fontFamily: "'Rajdhani', sans-serif",
+              fontWeight: 500, letterSpacing: "0.04em",
+              caretColor: "#00e5ff",
+            }}
+          />
+
+          {/* Kbd hint */}
+          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+            {["ESC"].map(k => (
+              <kbd key={k} style={{
+                fontSize: 8, color: "rgba(0,229,255,0.35)", fontFamily: "'Share Tech Mono', monospace",
+                background: "rgba(0,229,255,0.05)", border: "1px solid rgba(0,229,255,0.15)",
+                padding: "2px 6px", borderRadius: 3, letterSpacing: "0.1em",
+              }}>{k}</kbd>
+            ))}
+          </div>
+        </div>
+
+        {/* Results */}
+        <div style={{ maxHeight: 360, overflowY: "auto", padding: "8px 0" }}>
+          {Object.entries(grouped).map(([category, cmds]) => (
+            <div key={category}>
+              {/* Category header */}
+              <div style={{ padding: "8px 20px 4px", fontSize: 6, color: "rgba(0,229,255,0.25)", letterSpacing: "0.28em", fontFamily: "'Share Tech Mono', monospace", textTransform: "uppercase" }}>
+                {category}
+              </div>
+              {cmds.map((cmd) => {
+                const idx = globalIdx++;
+                const isSel = selected === idx;
+                const catColors = { NAVIGATION: "#00e5ff", ACTIONS: "#ff2d55", METRICS: "#ffd060" };
+                const cc = catColors[category] || "#00e5ff";
+                return (
+                  <div key={cmd.id} onClick={cmd.action}
+                    onMouseEnter={() => setSelected(idx)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 14,
+                      padding: "10px 20px", cursor: "pointer",
+                      background: isSel ? `rgba(0,229,255,0.07)` : "transparent",
+                      boxShadow: isSel ? "inset 3px 0 0 rgba(0,229,255,0.5)" : "none",
+                      transition: "all 0.1s",
+                      position: "relative",
+                    }}>
+                    {/* Icon */}
+                    <div style={{
+                      width: 28, height: 28, flexShrink: 0,
+                      background: isSel ? `rgba(0,229,255,0.1)` : "rgba(0,229,255,0.04)",
+                      border: `1px solid rgba(0,229,255,${isSel ? 0.3 : 0.1})`,
+                      borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 12, color: isSel ? cc : "rgba(0,212,255,0.4)",
+                      textShadow: isSel ? `0 0 8px ${cc}` : "none",
+                      transition: "all 0.15s",
+                    }}>{cmd.icon}</div>
+
+                    {/* Label */}
+                    <span style={{
+                      flex: 1, fontSize: 12, fontFamily: "'Rajdhani', sans-serif", fontWeight: 500,
+                      color: isSel ? "#f0faff" : "rgba(180,220,240,0.7)",
+                      letterSpacing: "0.04em",
+                      transition: "color 0.1s",
+                    }}>{cmd.label}</span>
+
+                    {/* Enter hint when selected */}
+                    {isSel && (
+                      <kbd style={{
+                        fontSize: 8, color: "rgba(0,229,255,0.5)", fontFamily: "'Share Tech Mono', monospace",
+                        background: "rgba(0,229,255,0.07)", border: "1px solid rgba(0,229,255,0.2)",
+                        padding: "2px 7px", borderRadius: 3, letterSpacing: "0.08em",
+                        animation: "holoRise 0.15s ease-out both",
+                      }}>↵ ENTER</kbd>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{ padding: "40px 20px", textAlign: "center", color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace", fontSize: 10, letterSpacing: "0.2em" }}>
+              NO COMMANDS MATCH
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "8px 20px", borderTop: "1px solid rgba(0,229,255,0.07)", display: "flex", alignItems: "center", gap: 14 }}>
+          {[["↑↓", "navigate"], ["↵", "select"], ["ESC", "close"]].map(([key, desc]) => (
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <kbd style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", fontFamily: "'Share Tech Mono', monospace", background: "rgba(0,229,255,0.05)", border: "1px solid rgba(0,229,255,0.12)", padding: "2px 6px", borderRadius: 3 }}>{key}</kbd>
+              <span style={{ fontSize: 7, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>{desc}</span>
+            </div>
+          ))}
+          <div style={{ marginLeft: "auto", fontSize: 7, color: "rgba(0,229,255,0.15)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.15em" }}>ARCANEOS COMMAND BRIDGE</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── USER DETAIL DRAWER — slide-in panel from right ───────────────────────────
+function UserDetailDrawer({ user, open, onClose, showToast, onToggleActive }) {
+  const { dark } = useTheme();
+  const cyan = dark ? "0,229,255" : "0,120,200";
+  const cyanHex = dark ? "#00e5ff" : "#0088cc";
+  const panelBg = dark
+    ? "linear-gradient(160deg, rgba(0,5,20,0.99) 0%, rgba(0,12,32,0.97) 100%)"
+    : "linear-gradient(160deg, rgba(215,235,255,0.99) 0%, rgba(200,225,250,0.97) 100%)";
+  const textPrimary = dark ? "#e8f6ff" : "#0a1a2e";
+  const textDim = dark ? "rgba(0,229,255,0.4)" : "rgba(0,80,160,0.5)";
+
+  if (!user) return null;
+
+  const isRoot = user.email === "wahaj@acedengroup.com";
+  const accentColor = isRoot ? "#ffd060" : user.is_active ? cyanHex : "#ff2d55";
+  const accentRgb = isRoot ? "255,208,96" : user.is_active ? cyan : "255,45,85";
+
+  const joinDate = user.created_at ? new Date(user.created_at) : null;
+  const daysAgo = joinDate ? Math.floor((Date.now() - joinDate) / 86400000) : null;
+
+  // Simulated activity metrics
+  const seed = (user.id || 1);
+  const taskCount = ((seed * 17) % 80) + 5;
+  const sessionCount = ((seed * 11) % 40) + 3;
+  const lastActive = `${((seed * 7) % 23) + 1}h ago`;
+
+  const statItems = [
+    { label: "TASKS", value: taskCount, color: "#00e5ff", rgb: "0,229,255", icon: "✦" },
+    { label: "SESSIONS", value: sessionCount, color: "#bf5fff", rgb: "191,95,255", icon: "◎" },
+    { label: "LAST SEEN", value: lastActive, color: "#00ff9d", rgb: "0,255,157", icon: "◈", isText: true },
+    { label: "TENURE", value: daysAgo != null ? `${daysAgo}d` : "—", color: "#ffd060", rgb: "255,208,96", icon: "⬡", isText: true },
+  ];
+
+  return (
+    <>
+      {/* Backdrop */}
+      {open && (
+        <div
+          onClick={onClose}
+          style={{
+            position: "fixed", inset: 0, zIndex: 8000,
+            background: "rgba(0,2,10,0.55)",
+            backdropFilter: "blur(4px)",
+            animation: "fadeIn 0.2s ease-out both",
+          }}
+        />
+      )}
+      {/* Drawer panel */}
+      <div style={{
+        position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 8001,
+        width: 420, maxWidth: "90vw",
+        background: panelBg,
+        borderLeft: `1px solid rgba(${accentRgb},0.35)`,
+        boxShadow: dark
+          ? `-20px 0 80px rgba(0,0,0,0.8), -4px 0 0 rgba(${accentRgb},0.08), inset 1px 0 0 rgba(255,255,255,0.04)`
+          : `-12px 0 50px rgba(0,60,180,0.15)`,
+        transform: open ? "translateX(0)" : "translateX(100%)",
+        transition: "transform 0.4s cubic-bezier(0.16,1,0.3,1)",
+        display: "flex", flexDirection: "column",
+        overflow: "hidden",
+      }}>
+        {/* Top prismatic edge */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, rgba(${accentRgb},0.9), rgba(0,229,255,0.5), transparent)`, boxShadow: `0 0 20px rgba(${accentRgb},0.5)`, zIndex: 1 }} />
+        {/* Ambient glow blobs */}
+        <div style={{ position: "absolute", top: -80, right: -80, width: 280, height: 280, borderRadius: "50%", background: `radial-gradient(circle, rgba(${accentRgb},0.06) 0%, transparent 70%)`, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: 80, left: -60, width: 200, height: 200, borderRadius: "50%", background: `radial-gradient(circle, rgba(0,229,255,0.04) 0%, transparent 70%)`, pointerEvents: "none" }} />
+        {/* Scan beam */}
+        <div style={{ position: "absolute", left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${accentRgb},0.2), transparent)`, animation: "scanV 5s linear infinite", pointerEvents: "none", zIndex: 0 }} />
+
+        {/* ── Header ── */}
+        <div style={{
+          padding: "22px 24px 18px",
+          borderBottom: `1px solid rgba(${accentRgb},0.12)`,
+          background: `rgba(${accentRgb},0.03)`,
+          position: "relative", flexShrink: 0,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: accentColor, boxShadow: `0 0 8px ${accentColor}`, animation: "pulse-glow 1.5s infinite" }} />
+              <span style={{ fontSize: 7, color: textDim, letterSpacing: "0.28em", fontFamily: "'Share Tech Mono', monospace", textTransform: "uppercase" }}>Agent Profile</span>
+            </div>
+            <button onClick={onClose} style={{
+              width: 28, height: 28, borderRadius: "50%", border: `1px solid rgba(${cyan},0.2)`,
+              background: "transparent", cursor: "pointer", color: `rgba(${cyan},0.4)`,
+              fontSize: 10, fontFamily: "'Share Tech Mono', monospace",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              transition: "all 0.2s",
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = `rgba(${cyan},0.08)`; e.currentTarget.style.borderColor = `rgba(${cyan},0.4)`; e.currentTarget.style.color = cyanHex; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `rgba(${cyan},0.2)`; e.currentTarget.style.color = `rgba(${cyan},0.4)`; }}
+            >✕</button>
+          </div>
+
+          {/* Avatar + name block */}
+          <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
+            <div style={{ position: "relative" }}>
+              <HoloAvatar name={user.name} email={user.email} isActive={user.is_active} isRoot={isRoot} size={64} />
+              {/* Status ring glow */}
+              <div style={{ position: "absolute", inset: -4, borderRadius: "50%", border: `2px solid rgba(${accentRgb},0.3)`, boxShadow: `0 0 16px rgba(${accentRgb},0.2)`, pointerEvents: "none" }} />
+            </div>
+            <div>
+              <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 16, fontWeight: 800, color: textPrimary, letterSpacing: "0.05em", textShadow: dark ? `0 0 20px rgba(${accentRgb},0.4)` : "none", lineHeight: 1.1 }}>
+                {user.name || "Unknown Agent"}
+              </div>
+              {isRoot && <div style={{ fontSize: 7, color: "#ffd060", letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginTop: 4, textShadow: "0 0 8px rgba(255,208,96,0.5)" }}>♛ ROOT ADMINISTRATOR</div>}
+              <div style={{ fontSize: 9, color: textDim, fontFamily: "'Share Tech Mono', monospace", marginTop: 6, letterSpacing: "0.04em" }}>{user.email}</div>
+              <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <TierBadge status={user.subscription_status} />
+                <RoleChip role={user.role} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Scrollable body ── */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+
+          {/* Status indicator */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 10, padding: "10px 14px",
+            background: user.is_active ? `rgba(0,255,157,0.04)` : `rgba(255,45,85,0.04)`,
+            border: `1px solid ${user.is_active ? "rgba(0,255,157,0.2)" : "rgba(255,45,85,0.2)"}`,
+            borderRadius: 5, marginBottom: 18,
+            clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+          }}>
+            <div style={{ width: 7, height: 7, borderRadius: "50%", background: user.is_active ? "#00ff9d" : "#ff2d55", boxShadow: `0 0 10px ${user.is_active ? "#00ff9d" : "#ff2d55"}`, animation: user.is_active ? "pulse-glow 1.2s infinite" : "none" }} />
+            <span style={{ fontSize: 9, color: user.is_active ? "#00ff9d" : "#ff2d55", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.18em", fontWeight: 700 }}>{user.is_active ? "ACTIVE · ONLINE" : "INACTIVE · OFFLINE"}</span>
+            <div style={{ flex: 1 }} />
+            <span style={{ fontSize: 7, color: textDim, fontFamily: "'Share Tech Mono', monospace" }}>ID: {user.id}</span>
+          </div>
+
+          {/* Stats grid */}
+          <div style={{ fontSize: 7, color: textDim, letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 3, height: 3, background: cyanHex, borderRadius: "50%" }} />
+            Agent Metrics
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+            {statItems.map(({ label, value, color, rgb, icon, isText }) => (
+              <div key={label} style={{
+                padding: "12px 14px",
+                background: `rgba(${rgb},0.04)`,
+                border: `1px solid rgba(${rgb},0.18)`,
+                borderRadius: 4,
+                clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+                position: "relative", overflow: "hidden",
+              }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, rgba(${rgb},0.6), transparent)` }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
+                  <span style={{ fontSize: 9, color: `rgba(${rgb},0.5)` }}>{icon}</span>
+                  <span style={{ fontSize: 6, color: `rgba(${rgb},0.4)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace" }}>{label}</span>
+                </div>
+                <div style={{ fontSize: isText ? 14 : 22, fontWeight: 900, color, fontFamily: "'Orbitron', monospace", textShadow: `0 0 12px rgba(${rgb},0.5)`, letterSpacing: isText ? "0.04em" : "-0.02em" }}>{value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Joined info */}
+          <div style={{ fontSize: 7, color: textDim, letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 3, height: 3, background: cyanHex, borderRadius: "50%" }} />
+            Access Timeline
+          </div>
+          <div style={{
+            padding: "14px 16px", marginBottom: 20,
+            background: dark ? "rgba(0,229,255,0.02)" : "rgba(0,120,200,0.04)",
+            border: `1px solid rgba(${cyan},0.12)`,
+            borderRadius: 4, fontFamily: "'Share Tech Mono', monospace",
+            clipPath: "polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%)",
+          }}>
+            {[
+              ["Registered", joinDate ? joinDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"],
+              ["Last Login", lastActive],
+              ["Subscription", user.subscription_status?.toUpperCase() || "NONE"],
+              ["Role Level", user.role?.toUpperCase() || "STANDARD"],
+            ].map(([label, val]) => (
+              <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", borderBottom: `1px solid rgba(${cyan},0.05)` }}>
+                <span style={{ fontSize: 8, color: textDim, letterSpacing: "0.12em" }}>{label}</span>
+                <span style={{ fontSize: 8, color: textPrimary, letterSpacing: "0.06em", fontWeight: 600 }}>{val}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Activity waveform simulation */}
+          <div style={{ fontSize: 7, color: textDim, letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 3, height: 3, background: accentColor, borderRadius: "50%" }} />
+            Activity Pattern
+          </div>
+          <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 48, marginBottom: 20, padding: "0 2px" }}>
+            {Array.from({ length: 28 }).map((_, i) => {
+              const h = Math.max(4, Math.sin(i * 0.7 + (seed % 10) * 0.4) * 18 + 20 + ((seed * i) % 12));
+              const active = i > 20;
+              return (
+                <div key={i} style={{
+                  flex: 1, height: h, borderRadius: 2,
+                  background: active ? `rgba(${accentRgb},0.7)` : `rgba(${cyan},0.12)`,
+                  boxShadow: active ? `0 0 6px rgba(${accentRgb},0.3)` : "none",
+                  transition: "height 0.3s",
+                }} />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Footer actions ── */}
+        {!isRoot && (
+          <div style={{ padding: "16px 24px", borderTop: `1px solid rgba(${cyan},0.08)`, flexShrink: 0, background: `rgba(${cyan},0.02)` }}>
+            <div style={{ fontSize: 7, color: textDim, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 10 }}>
+              AGENT CONTROLS
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => { onToggleActive(user.id, user.is_active, user.name); onClose(); }}
+                style={{
+                  flex: 1, padding: "10px 14px", fontSize: 8, fontFamily: "'Share Tech Mono', monospace",
+                  letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
+                  background: user.is_active
+                    ? "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"
+                    : "linear-gradient(135deg, rgba(0,255,157,0.1) 0%, rgba(0,255,157,0.04) 100%)",
+                  border: `1px solid ${user.is_active ? "rgba(255,45,85,0.4)" : "rgba(0,255,157,0.4)"}`,
+                  color: user.is_active ? "#ff2d55" : "#00ff9d",
+                  borderRadius: 4,
+                  clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; }}
+              >
+                {user.is_active ? "⬡ DEACTIVATE" : "⬡ ACTIVATE"}
+              </button>
+              <button
+                onClick={() => { showToast?.(`Message sent to ${user.name || user.email}`, "info"); }}
+                style={{
+                  flex: 1, padding: "10px 14px", fontSize: 8, fontFamily: "'Share Tech Mono', monospace",
+                  letterSpacing: "0.14em", fontWeight: 700, cursor: "pointer",
+                  background: `rgba(${cyan},0.06)`,
+                  border: `1px solid rgba(${cyan},0.25)`,
+                  color: cyanHex, borderRadius: 4,
+                  clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; e.currentTarget.style.background = `rgba(${cyan},0.12)`; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.background = `rgba(${cyan},0.06)`; }}
+              >
+                ◆ TRANSMIT
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── WORKSPACE HEALTH MAP — node-graph visualization ───────────────────────────
+function WorkspaceHealthMap({ workspaces }) {
+  const canvasRef = useRef(null);
+  const animRef = useRef(null);
+  const { dark } = useTheme();
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !workspaces?.length) return;
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.scale(dpr, dpr);
+
+    // Lay out nodes in a force-inspired grid
+    const nodes = workspaces.slice(0, 18).map((ws, i) => {
+      const members = ws.member_count || 0;
+      const tasks = ws.task_count || 0;
+      const memberScore = Math.min(members / 20, 1);
+      const taskScore = Math.min(tasks / 50, 1);
+      const health = ws.is_active ? Math.round((memberScore * 0.4 + taskScore * 0.6) * 100) : 0;
+      const r = 14 + (health / 100) * 18;
+      const color = !ws.is_active ? "#ff2d55" : health > 70 ? "#00ff9d" : health > 35 ? "#ffd060" : "#ff6b35";
+      const rgb = !ws.is_active ? "255,45,85" : health > 70 ? "0,255,157" : health > 35 ? "255,208,96" : "255,107,53";
+      // Arrange in a loose scattered layout
+      const cols = 6;
+      const row = Math.floor(i / cols), col = i % cols;
+      const jitterX = ((ws.id || i) * 37) % 40 - 20;
+      const jitterY = ((ws.id || i) * 53) % 30 - 15;
+      return {
+        id: ws.id, name: ws.name || `WS-${i}`, health, r,
+        color, rgb, ws,
+        members, tasks, active: ws.is_active,
+        x: 60 + col * ((W - 120) / (cols - 1)) + jitterX,
+        y: 50 + row * 90 + jitterY,
+        vx: 0, vy: 0,
+        pulsePhase: Math.random() * Math.PI * 2,
+      };
+    });
+
+    let t = 0;
+    function draw() {
+      t += 0.015;
+      ctx.clearRect(0, 0, W, H);
+
+      // Background grid
+      ctx.strokeStyle = dark ? "rgba(0,229,255,0.04)" : "rgba(0,120,200,0.06)";
+      ctx.lineWidth = 0.5;
+      for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+      for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+      // Draw connection lines between nearby nodes
+      nodes.forEach((a, i) => {
+        nodes.slice(i + 1).forEach(b => {
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d < 160) {
+            const alpha = (1 - d / 160) * 0.15;
+            const pulse = 0.5 + Math.sin(t * 1.2 + i * 0.5) * 0.3;
+            ctx.strokeStyle = `rgba(0,229,255,${alpha * pulse})`;
+            ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          }
+        });
+      });
+
+      // Draw nodes
+      nodes.forEach(node => {
+        const pulse = 0.5 + Math.sin(t * 1.8 + node.pulsePhase) * 0.5;
+
+        // Outer glow halo
+        const glow = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, node.r * 3);
+        glow.addColorStop(0, `rgba(${node.rgb},${0.12 * pulse})`);
+        glow.addColorStop(1, `rgba(${node.rgb},0)`);
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(node.x, node.y, node.r * 3, 0, Math.PI * 2); ctx.fill();
+
+        // Pulsing ring
+        if (node.active) {
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, node.r + 4 + pulse * 5, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(${node.rgb},${0.2 * pulse})`;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+
+        // Main circle — health arc background
+        ctx.beginPath(); ctx.arc(node.x, node.y, node.r, 0, Math.PI * 2);
+        ctx.fillStyle = dark ? `rgba(0,5,20,0.85)` : `rgba(220,238,255,0.9)`;
+        ctx.fill();
+        ctx.strokeStyle = `rgba(${node.rgb},0.5)`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // Health arc
+        if (node.health > 0) {
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, node.r, -Math.PI / 2, -Math.PI / 2 + (node.health / 100) * Math.PI * 2);
+          ctx.strokeStyle = node.color;
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = node.color;
+          ctx.shadowBlur = 8;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+
+        // Center dot
+        ctx.beginPath(); ctx.arc(node.x, node.y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = node.color;
+        ctx.shadowColor = node.color; ctx.shadowBlur = 10;
+        ctx.fill(); ctx.shadowBlur = 0;
+
+        // Label
+        const label = node.name.length > 10 ? node.name.slice(0, 9) + "…" : node.name;
+        ctx.fillStyle = dark ? "rgba(200,230,255,0.7)" : "rgba(10,40,80,0.7)";
+        ctx.font = `500 8px 'Share Tech Mono', monospace`;
+        ctx.textAlign = "center";
+        ctx.fillText(label, node.x, node.y + node.r + 12);
+
+        // Health % below label
+        ctx.fillStyle = node.color;
+        ctx.font = `700 8px 'Orbitron', monospace`;
+        ctx.fillText(`${node.health}%`, node.x, node.y + node.r + 22);
+      });
+
+      animRef.current = requestAnimationFrame(draw);
+    }
+    draw();
+    return () => cancelAnimationFrame(animRef.current);
+  }, [workspaces, dark]);
+
+  // Legend
+  const legend = [
+    { color: "#00ff9d", rgb: "0,255,157", label: "HEALTHY >70%" },
+    { color: "#ffd060", rgb: "255,208,96", label: "MODERATE 35–70%" },
+    { color: "#ff6b35", rgb: "255,107,53", label: "LOW <35%" },
+    { color: "#ff2d55", rgb: "255,45,85", label: "INACTIVE" },
+  ];
+
+  return (
+    <div>
+      {/* Legend */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+        {legend.map(({ color, rgb, label }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: color, boxShadow: `0 0 6px ${color}` }} />
+            <span style={{ fontSize: 7, color: `rgba(${rgb},0.55)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>{label}</span>
+          </div>
+        ))}
+        <div style={{ marginLeft: "auto", fontSize: 7, color: "rgba(0,229,255,0.25)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>
+          {workspaces?.length || 0} NODES MAPPED
+        </div>
+      </div>
+      {/* Canvas */}
+      <div style={{ position: "relative", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(0,229,255,0.1)" }}>
+        <canvas
+          ref={canvasRef}
+          style={{ display: "block", width: "100%", height: 260 }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── SYSTEM STATUS PULSE BAR — real-time API latency / uptime / error gauges ──
+function SystemStatusPulseBar() {
+  const { dark } = useTheme();
+  const cyan = dark ? "0,229,255" : "0,120,200";
+  const cyanHex = dark ? "#00e5ff" : "#0088cc";
+
+  // Simulate real-time telemetry
+  const [metrics, setMetrics] = useState({
+    apiLatency: 42,
+    uptime: 99.97,
+    errorRate: 0.03,
+    throughput: 1247,
+    p99: 118,
+    activeConns: 84,
+  });
+  const [history, setHistory] = useState({
+    latency: Array.from({ length: 28 }, () => 30 + Math.random() * 60),
+    errors:  Array.from({ length: 28 }, () => Math.random() * 0.08),
+  });
+  const [collapsed, setCollapsed] = useState(false);
+  const sparkRef = useRef(null);
+  const errRef = useRef(null);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const lat = 28 + Math.random() * 90 + (Math.random() > 0.92 ? 200 : 0);
+      const err = Math.random() * 0.06 + (Math.random() > 0.96 ? 0.4 : 0);
+      setMetrics(prev => ({
+        apiLatency: Math.round(lat),
+        uptime: Math.min(100, prev.uptime + (Math.random() - 0.3) * 0.001),
+        errorRate: parseFloat(err.toFixed(3)),
+        throughput: Math.round(1100 + Math.random() * 400),
+        p99: Math.round(lat * 2.4),
+        activeConns: Math.round(60 + Math.random() * 60),
+      }));
+      setHistory(prev => ({
+        latency: [...prev.latency.slice(1), lat],
+        errors:  [...prev.errors.slice(1), err],
+      }));
+    }, 1800);
+    return () => clearInterval(id);
+  }, []);
+
+  // Draw sparkline
+  useEffect(() => {
+    [
+      { ref: sparkRef, data: history.latency, color: "#00e5ff", max: 250 },
+      { ref: errRef,   data: history.errors,  color: "#ff2d55", max: 0.5  },
+    ].forEach(({ ref, data, color, max }) => {
+      const canvas = ref.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const W = canvas.width = canvas.offsetWidth * 2;
+      const H = canvas.height = canvas.offsetHeight * 2;
+      ctx.clearRect(0, 0, W, H);
+      const pts = data.map((v, i) => ({
+        x: (i / (data.length - 1)) * W,
+        y: H - (Math.min(v, max) / max) * H * 0.85 - H * 0.05,
+      }));
+      // Fill
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, color + "55");
+      grad.addColorStop(1, color + "00");
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, H);
+      pts.forEach((p, i) => {
+        if (i === 0) { ctx.lineTo(p.x, p.y); return; }
+        const prev = pts[i-1];
+        ctx.bezierCurveTo((prev.x+p.x)/2, prev.y, (prev.x+p.x)/2, p.y, p.x, p.y);
+      });
+      ctx.lineTo(pts[pts.length-1].x, H);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+      // Line
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      pts.forEach((p, i) => {
+        if (i === 0) return;
+        const prev = pts[i-1];
+        ctx.bezierCurveTo((prev.x+p.x)/2, prev.y, (prev.x+p.x)/2, p.y, p.x, p.y);
+      });
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 8;
+      ctx.stroke();
+      // Last point dot
+      const last = pts[pts.length-1];
+      ctx.beginPath();
+      ctx.arc(last.x, last.y, 5, 0, Math.PI*2);
+      ctx.fillStyle = color;
+      ctx.shadowBlur = 16;
+      ctx.fill();
+    });
+  }, [history]);
+
+  const latencyStatus = metrics.apiLatency < 60 ? { color: "#00ff9d", rgb: "0,255,157", label: "OPTIMAL" }
+    : metrics.apiLatency < 120 ? { color: "#ffd060", rgb: "255,208,96", label: "ELEVATED" }
+    : { color: "#ff2d55", rgb: "255,45,85", label: "CRITICAL" };
+  const errorStatus = metrics.errorRate < 0.05 ? { color: "#00ff9d", rgb: "0,255,157", label: "NOMINAL" }
+    : metrics.errorRate < 0.2 ? { color: "#ffd060", rgb: "255,208,96", label: "WARN" }
+    : { color: "#ff2d55", rgb: "255,45,85", label: "ALERT" };
+
+  const panelBg = dark
+    ? "linear-gradient(180deg, rgba(0,3,14,0.99) 0%, rgba(0,8,22,0.97) 100%)"
+    : "linear-gradient(180deg, rgba(220,236,255,0.99) 0%, rgba(205,226,250,0.97) 100%)";
+  const textPrimary = dark ? "#e8f6ff" : "#0a1a2e";
+
+  return (
+    <div style={{
+      background: panelBg,
+      border: `1px solid rgba(${cyan},0.18)`,
+      borderRadius: 6,
+      overflow: "hidden",
+      position: "relative",
+      transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
+      boxShadow: dark
+        ? `0 4px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)`
+        : `0 4px 20px rgba(0,80,180,0.08)`,
+    }}>
+      {/* Prismatic top edge */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${cyanHex}, #00ff9d, #ff2d55, ${cyanHex}, transparent)`, opacity: 0.7 }} />
+
+      {/* Header row */}
+      <div
+        onClick={() => setCollapsed(c => !c)}
+        style={{
+          display: "flex", alignItems: "center", gap: 12, padding: "10px 18px",
+          borderBottom: collapsed ? "none" : `1px solid rgba(${cyan},0.08)`,
+          cursor: "pointer",
+          background: dark ? `rgba(${cyan},0.025)` : `rgba(${cyan},0.04)`,
+          userSelect: "none",
+        }}>
+        {/* Live pulse dot */}
+        <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 12px #00ff9d, 0 0 24px rgba(0,255,157,0.4)", animation: "pulse-glow 1s ease-in-out infinite", flexShrink: 0 }} />
+        <span style={{ fontSize: 8, color: `rgba(${cyan},0.75)`, letterSpacing: "0.26em", fontFamily: "'Share Tech Mono', monospace", fontWeight: 700 }}>SYSTEM STATUS PULSE</span>
+
+        {/* Quick status pills */}
+        <div style={{ display: "flex", gap: 6, flex: 1 }}>
+          {[
+            { label: `${metrics.apiLatency}ms`, color: latencyStatus.color, rgb: latencyStatus.rgb, icon: "◈" },
+            { label: `${metrics.uptime.toFixed(3)}%`, color: "#00ff9d", rgb: "0,255,157", icon: "◎" },
+            { label: `${metrics.errorRate.toFixed(3)}%`, color: errorStatus.color, rgb: errorStatus.rgb, icon: "✕" },
+            { label: `${metrics.throughput} req/s`, color: "#bf5fff", rgb: "191,95,255", icon: "→" },
+          ].map(({ label, color, rgb, icon }) => (
+            <div key={label} style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "2px 8px", borderRadius: 3,
+              background: `rgba(${rgb},0.06)`,
+              border: `1px solid rgba(${rgb},0.2)`,
+              fontSize: 8, color, fontFamily: "'Share Tech Mono', monospace",
+              letterSpacing: "0.06em",
+            }}>
+              <span style={{ fontSize: 7 }}>{icon}</span>
+              {label}
+            </div>
+          ))}
+        </div>
+
+        {/* Collapse toggle */}
+        <div style={{
+          fontSize: 9, color: `rgba(${cyan},0.4)`, fontFamily: "'Share Tech Mono', monospace",
+          transform: collapsed ? "rotate(0deg)" : "rotate(180deg)",
+          transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1)",
+        }}>▲</div>
+      </div>
+
+      {/* Expanded body */}
+      {!collapsed && (
+        <div style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+
+          {/* API Latency gauge */}
+          <div style={{ position: "relative" }}>
+            <div style={{ fontSize: 7, color: `rgba(${cyan},0.45)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: latencyStatus.color, boxShadow: `0 0 8px ${latencyStatus.color}` }} />
+              API LATENCY · {latencyStatus.label}
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 8 }}>
+              <span style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Orbitron', monospace", color: latencyStatus.color, textShadow: `0 0 16px rgba(${latencyStatus.rgb},0.6)`, lineHeight: 1 }}>{metrics.apiLatency}</span>
+              <span style={{ fontSize: 9, color: `rgba(${latencyStatus.rgb},0.5)`, fontFamily: "'Share Tech Mono', monospace" }}>ms</span>
+              <span style={{ fontSize: 7, color: `rgba(${cyan},0.3)`, fontFamily: "'Share Tech Mono', monospace", marginLeft: "auto" }}>p99: {metrics.p99}ms</span>
+            </div>
+            {/* Gauge track */}
+            <div style={{ height: 4, background: dark ? "rgba(0,0,0,0.4)" : "rgba(0,80,160,0.1)", borderRadius: 2, overflow: "hidden", marginBottom: 8 }}>
+              <div style={{
+                height: "100%",
+                width: `${Math.min(metrics.apiLatency / 250 * 100, 100)}%`,
+                background: `linear-gradient(90deg, #00ff9d, ${latencyStatus.color})`,
+                borderRadius: 2, boxShadow: `0 0 8px ${latencyStatus.color}`,
+                transition: "width 1.5s cubic-bezier(0.4,0,0.2,1)",
+              }} />
+            </div>
+            <canvas ref={sparkRef} style={{ display: "block", width: "100%", height: 36, borderRadius: 3 }} />
+          </div>
+
+          {/* Uptime gauge */}
+          <div>
+            <div style={{ fontSize: 7, color: `rgba(${cyan},0.45)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 8px #00ff9d", animation: "pulse-glow 2s infinite" }} />
+              UPTIME / RELIABILITY
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 8 }}>
+              <span style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Orbitron', monospace", color: "#00ff9d", textShadow: "0 0 16px rgba(0,255,157,0.6)", lineHeight: 1 }}>{metrics.uptime.toFixed(2)}</span>
+              <span style={{ fontSize: 9, color: "rgba(0,255,157,0.5)", fontFamily: "'Share Tech Mono', monospace" }}>%</span>
+            </div>
+            {/* Circular-ish uptime arcs */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              {["30d", "7d", "24h", "1h"].map((label, i) => {
+                const upt = [99.97, 99.99, 100.0, 100.0][i];
+                const col = upt >= 100 ? "#00ff9d" : upt > 99.9 ? "#ffd060" : "#ff2d55";
+                return (
+                  <div key={label} style={{ flex: 1, textAlign: "center" }}>
+                    <div style={{ fontSize: 10, fontFamily: "'Orbitron', monospace", color: col, fontWeight: 700, textShadow: `0 0 8px ${col}` }}>{upt}%</div>
+                    <div style={{ fontSize: 6, color: `rgba(${cyan},0.3)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>{label}</div>
+                    <div style={{ height: 2, background: `rgba(${cyan},0.08)`, borderRadius: 1, marginTop: 3, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${upt}%`, background: col, borderRadius: 1, boxShadow: `0 0 4px ${col}` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 8px", background: dark ? "rgba(0,255,157,0.03)" : "rgba(0,150,80,0.04)", border: "1px solid rgba(0,255,157,0.1)", borderRadius: 3 }}>
+              <span style={{ fontSize: 7, color: "rgba(0,255,157,0.4)", fontFamily: "'Share Tech Mono', monospace" }}>ACTIVE CONNECTIONS</span>
+              <span style={{ fontSize: 10, color: "#00ff9d", fontFamily: "'Orbitron', monospace", fontWeight: 700 }}>{metrics.activeConns}</span>
+            </div>
+          </div>
+
+          {/* Error Rate gauge */}
+          <div>
+            <div style={{ fontSize: 7, color: `rgba(${cyan},0.45)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: errorStatus.color, boxShadow: `0 0 8px ${errorStatus.color}` }} />
+              ERROR RATE · {errorStatus.label}
+            </div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 8 }}>
+              <span style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Orbitron', monospace", color: errorStatus.color, textShadow: `0 0 16px rgba(${errorStatus.rgb},0.6)`, lineHeight: 1 }}>{(metrics.errorRate * 100).toFixed(2)}</span>
+              <span style={{ fontSize: 9, color: `rgba(${errorStatus.rgb},0.5)`, fontFamily: "'Share Tech Mono', monospace" }}>% err</span>
+            </div>
+            <div style={{ height: 4, background: dark ? "rgba(0,0,0,0.4)" : "rgba(0,80,160,0.1)", borderRadius: 2, overflow: "hidden", marginBottom: 8 }}>
+              <div style={{
+                height: "100%",
+                width: `${Math.min(metrics.errorRate / 0.5 * 100, 100)}%`,
+                background: `linear-gradient(90deg, #00ff9d, ${errorStatus.color})`,
+                borderRadius: 2, boxShadow: `0 0 8px ${errorStatus.color}`,
+                transition: "width 1.5s cubic-bezier(0.4,0,0.2,1)",
+              }} />
+            </div>
+            <canvas ref={errRef} style={{ display: "block", width: "100%", height: 36, borderRadius: 3 }} />
+            <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
+              {[["4xx", Math.round(metrics.throughput * metrics.errorRate * 0.7), "#ffd060"], ["5xx", Math.round(metrics.throughput * metrics.errorRate * 0.3), "#ff2d55"]].map(([code, count, col]) => (
+                <div key={code} style={{ flex: 1, padding: "4px 8px", background: dark ? `rgba(${col === "#ffd060" ? "255,208,96" : "255,45,85"},0.04)` : `rgba(${col === "#ffd060" ? "200,140,0" : "200,0,40"},0.04)`, border: `1px solid rgba(${col === "#ffd060" ? "255,208,96" : "255,45,85"},0.15)`, borderRadius: 3 }}>
+                  <div style={{ fontSize: 6, color: `${col}88`, fontFamily: "'Share Tech Mono', monospace" }}>{code}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: col, fontFamily: "'Orbitron', monospace", textShadow: `0 0 8px ${col}` }}>{count}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── PINNABLE NOTES WIDGET — floating scratchpad ───────────────────────────────
+const NOTES_STORAGE_KEY = "arcane_notes_v1";
+const NOTE_COLORS = [
+  { id: "cyan",   bg: "rgba(0,229,255,0.08)",   border: "rgba(0,229,255,0.3)",   text: "#00e5ff",   label: "CYAN"   },
+  { id: "green",  bg: "rgba(0,255,157,0.08)",   border: "rgba(0,255,157,0.3)",   text: "#00ff9d",   label: "GREEN"  },
+  { id: "gold",   bg: "rgba(255,208,96,0.08)",  border: "rgba(255,208,96,0.3)",  text: "#ffd060",   label: "GOLD"   },
+  { id: "purple", bg: "rgba(191,95,255,0.08)",  border: "rgba(191,95,255,0.3)",  text: "#bf5fff",   label: "PURPLE" },
+  { id: "red",    bg: "rgba(255,45,85,0.08)",   border: "rgba(255,45,85,0.3)",   text: "#ff2d55",   label: "RED"    },
+];
+
+function PinnableNotes({ pinned, onUnpin }) {
+  const { dark } = useTheme();
+  const cyan = dark ? "0,229,255" : "0,120,200";
+  const cyanHex = dark ? "#00e5ff" : "#0088cc";
+
+  // Load persisted notes from localStorage
+  const [notes, setNotes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(NOTES_STORAGE_KEY) || "[]"); } catch { return []; }
+  });
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null); // note id being edited
+  const [draft, setDraft] = useState("");
+  const [draftColor, setDraftColor] = useState("cyan");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [creating, setCreating] = useState(false);
+  const textRef = useRef(null);
+
+  const persist = (updated) => {
+    setNotes(updated);
+    try { localStorage.setItem(NOTES_STORAGE_KEY, JSON.stringify(updated)); } catch {}
+  };
+
+  const addNote = () => {
+    if (!draft.trim()) return;
+    const note = { id: Date.now(), title: draftTitle.trim() || "Note", body: draft.trim(), color: draftColor, ts: Date.now(), pinned: false };
+    persist([note, ...notes]);
+    setDraft(""); setDraftTitle(""); setDraftColor("cyan"); setCreating(false);
+  };
+
+  const deleteNote = (id) => persist(notes.filter(n => n.id !== id));
+  const toggleNotePin = (id) => persist(notes.map(n => n.id === id ? { ...n, pinned: !n.pinned } : n));
+  const startEdit = (note) => { setEditing(note.id); setDraft(note.body); setDraftTitle(note.title); setDraftColor(note.color); setTimeout(() => textRef.current?.focus(), 80); };
+  const saveEdit = (id) => { persist(notes.map(n => n.id === id ? { ...n, body: draft, title: draftTitle, color: draftColor, ts: Date.now() } : n)); setEditing(null); setDraft(""); setDraftTitle(""); };
+
+  const pinnedNotes = notes.filter(n => n.pinned);
+  const unpinnedNotes = notes.filter(n => !n.pinned);
+  const panelBg = dark ? "linear-gradient(160deg, rgba(0,5,20,0.99) 0%, rgba(0,12,32,0.97) 100%)" : "linear-gradient(160deg, rgba(215,235,255,0.99) 0%, rgba(200,225,250,0.97) 100%)";
+
+  return (
+    <>
+      {/* Floating trigger button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Notes Scratchpad"
+        style={{
+          position: "fixed", bottom: 88, right: 28, zIndex: 7500,
+          width: 46, height: 46, borderRadius: "50%",
+          background: open ? `rgba(${cyan},0.2)` : `rgba(${cyan},0.08)`,
+          border: `1px solid rgba(${cyan},${open ? 0.6 : 0.28})`,
+          cursor: "pointer", fontSize: 16, color: cyanHex,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          boxShadow: open ? `0 0 30px rgba(${cyan},0.3), 0 0 60px rgba(${cyan},0.1)` : `0 0 14px rgba(${cyan},0.1)`,
+          transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
+          transform: open ? "scale(1.08) rotate(-5deg)" : "scale(1)",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.12)"; e.currentTarget.style.boxShadow = `0 0 30px rgba(${cyan},0.3)`; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = open ? "scale(1.08) rotate(-5deg)" : "scale(1)"; e.currentTarget.style.boxShadow = open ? `0 0 30px rgba(${cyan},0.3)` : `0 0 14px rgba(${cyan},0.1)`; }}
+      >
+        ◆
+        {notes.length > 0 && (
+          <div style={{ position: "absolute", top: 2, right: 2, width: 14, height: 14, borderRadius: "50%", background: "#ff2d55", border: "1px solid rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, color: "#fff", fontFamily: "'Orbitron', monospace", fontWeight: 700 }}>
+            {notes.length > 9 ? "9+" : notes.length}
+          </div>
+        )}
+      </button>
+
+      {/* Notes panel */}
+      <div style={{
+        position: "fixed", bottom: 144, right: 28, zIndex: 7499,
+        width: 320,
+        background: panelBg,
+        border: `1px solid rgba(${cyan},0.25)`,
+        borderRadius: 10,
+        boxShadow: dark ? `0 20px 80px rgba(0,0,0,0.8), 0 0 40px rgba(${cyan},0.06)` : `0 12px 50px rgba(0,80,180,0.15)`,
+        overflow: "hidden",
+        transform: open ? "translateY(0) scale(1)" : "translateY(20px) scale(0.95)",
+        opacity: open ? 1 : 0,
+        pointerEvents: open ? "auto" : "none",
+        transition: "all 0.3s cubic-bezier(0.16,1,0.3,1)",
+        clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)",
+      }}>
+        {/* Prismatic top */}
+        <div style={{ height: 2, background: `linear-gradient(90deg, transparent, rgba(${cyan},0.9), rgba(0,255,157,0.5), rgba(191,95,255,0.4), transparent)`, boxShadow: `0 0 12px rgba(${cyan},0.4)` }} />
+        {/* Corner cut indicator */}
+        <div style={{ position: "absolute", top: 2, right: 16, width: 0, height: 0, borderTop: "16px solid rgba(0,229,255,0.3)", borderLeft: "16px solid transparent", zIndex: 1 }} />
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px 10px", borderBottom: `1px solid rgba(${cyan},0.08)` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 10, color: cyanHex }}>◆</span>
+            <span style={{ fontSize: 8, color: `rgba(${cyan},0.7)`, letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace", textTransform: "uppercase" }}>Scratchpad</span>
+            <span style={{ fontSize: 7, color: `rgba(${cyan},0.25)`, fontFamily: "'Share Tech Mono', monospace" }}>{notes.length}</span>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => { setCreating(c => !c); setDraft(""); setDraftTitle(""); }} style={{
+              padding: "3px 10px", fontSize: 7, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
+              background: creating ? `rgba(${cyan},0.12)` : "transparent",
+              border: `1px solid rgba(${cyan},${creating ? 0.4 : 0.18})`,
+              color: cyanHex, borderRadius: 3, cursor: "pointer", transition: "all 0.15s",
+            }}>+ NEW</button>
+          </div>
+        </div>
+
+        {/* Create form */}
+        {creating && (
+          <div style={{ padding: "12px 14px", borderBottom: `1px solid rgba(${cyan},0.06)`, background: `rgba(${cyan},0.02)` }}>
+            <input
+              value={draftTitle}
+              onChange={e => setDraftTitle(e.target.value)}
+              placeholder="Note title…"
+              className="holo-input"
+              style={{ width: "100%", marginBottom: 8, fontSize: 10, padding: "6px 10px" }}
+            />
+            <textarea
+              ref={textRef}
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              placeholder="Write your note…"
+              className="holo-input"
+              style={{ width: "100%", minHeight: 72, resize: "vertical", fontSize: 10, padding: "8px 10px", fontFamily: "'Share Tech Mono', monospace", lineHeight: 1.6 }}
+            />
+            {/* Color picker */}
+            <div style={{ display: "flex", gap: 5, marginTop: 8, alignItems: "center" }}>
+              {NOTE_COLORS.map(c => (
+                <button key={c.id} onClick={() => setDraftColor(c.id)} style={{
+                  width: 14, height: 14, borderRadius: "50%", border: `2px solid ${draftColor === c.id ? c.text : "transparent"}`,
+                  background: c.text, cursor: "pointer",
+                  boxShadow: draftColor === c.id ? `0 0 8px ${c.text}` : "none",
+                  transition: "all 0.15s",
+                }} />
+              ))}
+              <div style={{ flex: 1 }} />
+              <button onClick={addNote} disabled={!draft.trim()} style={{
+                padding: "4px 12px", fontSize: 7, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em",
+                background: draft.trim() ? `rgba(${cyan},0.12)` : "rgba(0,229,255,0.02)",
+                border: `1px solid rgba(${cyan},${draft.trim() ? 0.45 : 0.1})`,
+                color: draft.trim() ? cyanHex : `rgba(${cyan},0.2)`,
+                borderRadius: 3, cursor: draft.trim() ? "pointer" : "not-allowed", transition: "all 0.15s",
+              }}>SAVE</button>
+            </div>
+          </div>
+        )}
+
+        {/* Notes list */}
+        <div style={{ maxHeight: 320, overflowY: "auto" }}>
+          {notes.length === 0 && !creating && (
+            <div style={{ padding: "30px 16px", textAlign: "center", color: `rgba(${cyan},0.2)`, fontSize: 9, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.15em" }}>
+              NO TRANSMISSIONS<br /><span style={{ fontSize: 7 }}>Hit + NEW to create a note</span>
+            </div>
+          )}
+          {/* Pinned section */}
+          {pinnedNotes.length > 0 && (
+            <div>
+              <div style={{ padding: "6px 14px 2px", fontSize: 6, color: `rgba(${cyan},0.2)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.2em" }}>PINNED</div>
+              {pinnedNotes.map(note => <NoteCard key={note.id} note={note} onDelete={deleteNote} onPin={toggleNotePin} onEdit={startEdit} editing={editing} draft={draft} draftTitle={draftTitle} draftColor={draftColor} setDraft={setDraft} setDraftTitle={setDraftTitle} setDraftColor={setDraftColor} onSave={saveEdit} textRef={textRef} dark={dark} cyan={cyan} cyanHex={cyanHex} />)}
+            </div>
+          )}
+          {unpinnedNotes.length > 0 && (
+            <div>
+              {pinnedNotes.length > 0 && <div style={{ padding: "6px 14px 2px", fontSize: 6, color: `rgba(${cyan},0.2)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.2em" }}>OTHER</div>}
+              {unpinnedNotes.map(note => <NoteCard key={note.id} note={note} onDelete={deleteNote} onPin={toggleNotePin} onEdit={startEdit} editing={editing} draft={draft} draftTitle={draftTitle} draftColor={draftColor} setDraft={setDraft} setDraftTitle={setDraftTitle} setDraftColor={setDraftColor} onSave={saveEdit} textRef={textRef} dark={dark} cyan={cyan} cyanHex={cyanHex} />)}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function NoteCard({ note, onDelete, onPin, onEdit, editing, draft, draftTitle, draftColor, setDraft, setDraftTitle, setDraftColor, onSave, textRef, dark, cyan, cyanHex }) {
+  const nc = NOTE_COLORS.find(c => c.id === note.color) || NOTE_COLORS[0];
+  const isEditing = editing === note.id;
+  const timeAgo = (ts) => {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return "just now";
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    return `${Math.floor(m / 60)}h ago`;
+  };
+
+  return (
+    <div style={{
+      margin: "6px 10px",
+      background: nc.bg,
+      border: `1px solid ${nc.border}`,
+      borderRadius: 5,
+      overflow: "hidden",
+      position: "relative",
+      clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+    }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, ${nc.text}, transparent)` }} />
+      {isEditing ? (
+        <div style={{ padding: "10px 12px" }}>
+          <input value={draftTitle} onChange={e => setDraftTitle(e.target.value)} className="holo-input" style={{ width: "100%", marginBottom: 6, fontSize: 9, padding: "4px 8px" }} />
+          <textarea ref={textRef} value={draft} onChange={e => setDraft(e.target.value)} className="holo-input" style={{ width: "100%", minHeight: 60, resize: "vertical", fontSize: 9, padding: "6px 8px", fontFamily: "'Share Tech Mono', monospace", lineHeight: 1.5 }} />
+          <div style={{ display: "flex", gap: 4, marginTop: 6, alignItems: "center" }}>
+            {NOTE_COLORS.map(c => <button key={c.id} onClick={() => setDraftColor(c.id)} style={{ width: 11, height: 11, borderRadius: "50%", border: `2px solid ${draftColor === c.id ? c.text : "transparent"}`, background: c.text, cursor: "pointer", boxShadow: draftColor === c.id ? `0 0 6px ${c.text}` : "none" }} />)}
+            <div style={{ flex: 1 }} />
+            <button onClick={() => onSave(note.id)} style={{ padding: "2px 8px", fontSize: 7, fontFamily: "'Share Tech Mono', monospace", background: `rgba(0,229,255,0.1)`, border: `1px solid rgba(0,229,255,0.35)`, color: cyanHex, borderRadius: 2, cursor: "pointer" }}>SAVE</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ padding: "9px 12px" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 4, gap: 6 }}>
+            <span style={{ fontSize: 9, color: nc.text, fontFamily: "'Share Tech Mono', monospace", fontWeight: 700, letterSpacing: "0.04em", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{note.title}</span>
+            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+              <button onClick={() => onPin(note.id)} title={note.pinned ? "Unpin" : "Pin"} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 9, color: note.pinned ? nc.text : `rgba(${cyan},0.25)`, transition: "color 0.15s" }}>⬡</button>
+              <button onClick={() => onEdit(note)} title="Edit" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 8, color: `rgba(${cyan},0.25)`, transition: "color 0.15s" }}>✎</button>
+              <button onClick={() => onDelete(note.id)} title="Delete" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 8, color: "rgba(255,45,85,0.3)", transition: "color 0.15s" }}>✕</button>
+            </div>
+          </div>
+          <div style={{ fontSize: 9, color: dark ? "rgba(180,220,255,0.65)" : "rgba(10,40,80,0.7)", fontFamily: "'Share Tech Mono', monospace", lineHeight: 1.6, wordBreak: "break-word" }}>{note.body}</div>
+          <div style={{ marginTop: 5, fontSize: 7, color: `rgba(${cyan},0.2)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.08em" }}>{timeAgo(note.ts)}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── TAB TRANSITION — animated content swap ────────────────────────────────────
+function useTabTransition(tab) {
+  const [displayTab, setDisplayTab] = useState(tab);
+  const [phase, setPhase] = useState("idle"); // idle | exit | enter
+  const prevTab = useRef(tab);
+
+  useEffect(() => {
+    if (tab === prevTab.current) return;
+    prevTab.current = tab;
+    setPhase("exit");
+    const t1 = setTimeout(() => {
+      setDisplayTab(tab);
+      setPhase("enter");
+    }, 140);
+    const t2 = setTimeout(() => setPhase("idle"), 420);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [tab]);
+
+  const style = {
+    exit:  { opacity: 0, transform: "translateY(10px) scale(0.992)", transition: "all 0.14s cubic-bezier(0.4,0,1,1)", pointerEvents: "none" },
+    enter: { opacity: 0, transform: "translateY(-12px) scale(0.992)", animation: "tabEnter 0.32s cubic-bezier(0.16,1,0.3,1) both" },
+    idle:  { opacity: 1, transform: "none" },
+  }[phase];
+
+  return { displayTab, transitionStyle: style };
+}
+
+function WorkspaceHealthMapWrapper() {
+  const { data, loading } = useAdminFetch("/admin/workspaces?limit=100");
+  if (loading) return <div style={{ height: 280, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(168,85,247,0.3)", fontSize: 9, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.18em" }}>MAPPING NETWORK…</div>;
+  return <WorkspaceHealthMap workspaces={data?.workspaces || []} />;
+}
+
 // ── MAIN DASHBOARD ────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("access_token"));
@@ -3059,8 +5180,32 @@ export default function AdminDashboard() {
   const [bootSeq, setBootSeq] = useState(0);
   const revColor = useRevenueColor();
   const { toasts, showToast, dismiss } = useToasts();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [dark, setDark] = useState(true);
+  const [drawerUser, setDrawerUser] = useState(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const { displayTab, transitionStyle } = useTabTransition(tab);
+
+  // Apply light/dark class to <html>
+  useEffect(() => {
+    document.documentElement.classList.toggle("arcane-light", !dark);
+    return () => document.documentElement.classList.remove("arcane-light");
+  }, [dark]);
+
   useEffect(() => { const t = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { const t = setInterval(() => setBootSeq(s => s < 100 ? s + 2 : 100), 40); return () => clearInterval(t); }, []);
+
+  // Global keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setPaletteOpen(p => !p); }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "e") { e.preventDefault(); setExportOpen(p => !p); }
+      if (e.key === "Escape") { setPaletteOpen(false); setExportOpen(false); }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   if (!isLoggedIn) return <LoginScreen onLogin={() => setIsLoggedIn(true)} />;
 
@@ -3075,13 +5220,48 @@ export default function AdminDashboard() {
     { id: "feedback",   label: "FEEDBACK",   icon: "◆" },
   ];
 
-  const isRev = tab === "revenue";
+  const isRev = displayTab === "revenue";
   const rc = revColor; // shorthand
 
   return (
-    <div style={{ minHeight: "100vh", background: "#00040f", color: "#dff6ff", position: "relative", overflow: "hidden" }}>
+    <ThemeCtx.Provider value={{ dark }}>
+    <div style={{ minHeight: "100vh", background: dark ? "#00040f" : "#e8f2fa", color: dark ? "#dff6ff" : "#0a1a2e", position: "relative", overflow: "hidden", transition: "background 0.5s, color 0.5s" }}>
       <ToastSystem toasts={toasts} dismiss={dismiss} />
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onNavigate={setTab}
+        tabs={TABS}
+        m={m}
+      />
+      <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} m={m} />
+      <UserDetailDrawer
+        user={drawerUser}
+        open={!!drawerUser}
+        onClose={() => setDrawerUser(null)}
+        showToast={showToast}
+        onToggleActive={(id, cur, name) => {
+          const token = localStorage.getItem("access_token");
+          fetch(`${API}/admin/users/${id}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ is_active: !cur }) });
+          showToast?.(!cur ? `${name || "User"} activated` : `${name || "User"} deactivated`, !cur ? "success" : "warning");
+        }}
+      />
+      <PinnableNotes />
       <style>{`
+        ${LIGHT_OVERRIDES}
+        @keyframes activitySlide {
+          from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0)     scale(1);    }
+        }
+        @keyframes scanV { 0%{top:0} 100%{top:100%} }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes exportRise {
+          from { opacity: 0; transform: translateY(24px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0)    scale(1);    }
+        }
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&family=Rajdhani:wght@300;400;500;600;700&display=swap');
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #00040f; }
@@ -3320,6 +5500,24 @@ export default function AdminDashboard() {
           100% { transform: translateX(-50%); }
         }
 
+        /* ── NEW STEP 6 ANIMATIONS ── */
+        @keyframes tabEnter {
+          from { opacity: 0; transform: translateY(14px) scale(0.99); }
+          to   { opacity: 1; transform: translateY(0)   scale(1);    }
+        }
+        @keyframes paletteFadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes paletteRise {
+          from { opacity: 0; transform: translateY(-20px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0)     scale(1);    }
+        }
+        @keyframes sentimentPulse {
+          0%,100% { transform: scaleY(1);   }
+          50%     { transform: scaleY(1.12);}
+        }
+
         .dashboard-root {
           font-family: 'Share Tech Mono', monospace;
           display: flex; min-height: 100vh; position: relative; z-index: 3;
@@ -3329,7 +5527,7 @@ export default function AdminDashboard() {
            SIDEBAR — deeply immersive crystalline chamber
         ══════════════════════════════════════════════════════ */
         .sidebar {
-          width: 240px; min-height: 100vh;
+          min-height: 100vh; min-width: 64px;
           background:
             linear-gradient(180deg,
               rgba(0,4,16,0.995) 0%,
@@ -3728,55 +5926,73 @@ export default function AdminDashboard() {
 
       <div className="dashboard-root">
         {/* ── SIDEBAR ── */}
-        <aside className="sidebar" style={isRev ? {
-          borderRight: `1px solid rgba(${rc.rgb},0.3)`,
-          boxShadow: `6px 0 80px rgba(${rc.rgb},0.1), 4px 0 0 rgba(${rc.rgb},0.03)`,
-        } : {}}>
+        <aside className="sidebar" style={{
+          width: sidebarCollapsed ? 64 : 240,
+          transition: "width 0.4s cubic-bezier(0.16,1,0.3,1)",
+          overflow: "hidden",
+          ...(isRev ? {
+            borderRight: `1px solid rgba(${rc.rgb},0.3)`,
+            boxShadow: `6px 0 80px rgba(${rc.rgb},0.1), 4px 0 0 rgba(${rc.rgb},0.03)`,
+          } : {}),
+        }}>
           {/* Ambient inner elements */}
           <div className="sidebar-scan" />
           <div className="sidebar-orb" style={isRev ? { background: `radial-gradient(circle, rgba(${rc.rgb},0.05) 0%, transparent 70%)` } : {}} />
           {/* Logo block */}
-          <div style={{ padding: "28px 20px 22px", borderBottom: "1px solid rgba(0,229,255,0.08)", position: "relative", overflow: "hidden" }}>
+          <div style={{ padding: sidebarCollapsed ? "20px 8px 18px" : "28px 20px 22px", borderBottom: "1px solid rgba(0,229,255,0.08)", position: "relative", overflow: "hidden", transition: "padding 0.4s" }}>
             {/* Logo area ambient glow */}
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "radial-gradient(ellipse at 50% 0%, rgba(0,229,255,0.1) 0%, transparent 70%)", pointerEvents: "none" }} />
             {/* Decorative grid lines */}
-            <div style={{ position: "absolute", top: 0, right: 20, bottom: 0, width: 1, background: "linear-gradient(180deg, transparent, rgba(0,229,255,0.08), transparent)", pointerEvents: "none" }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+            {!sidebarCollapsed && <div style={{ position: "absolute", top: 0, right: 20, bottom: 0, width: 1, background: "linear-gradient(180deg, transparent, rgba(0,229,255,0.08), transparent)", pointerEvents: "none" }} />}
+            <div style={{ display: "flex", alignItems: "center", gap: sidebarCollapsed ? 0 : 14, marginBottom: sidebarCollapsed ? 0 : 18, justifyContent: sidebarCollapsed ? "center" : "flex-start" }}>
               <div style={{ position: "relative", flexShrink: 0 }}>
                 <div style={{
-                  width: 48, height: 48,
+                  width: sidebarCollapsed ? 38 : 48, height: sidebarCollapsed ? 38 : 48,
                   border: "1px solid rgba(0,229,255,0.55)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 20, color: "var(--cyan)",
+                  fontSize: sidebarCollapsed ? 16 : 20, color: "var(--cyan)",
                   background: "radial-gradient(circle, rgba(0,229,255,0.18) 0%, rgba(0,229,255,0.05) 100%)",
                   clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
                   animation: "pulse-glow 3s ease-in-out infinite",
                   boxShadow: "0 0 30px rgba(0,212,255,0.3), 0 0 60px rgba(0,212,255,0.1), inset 0 0 15px rgba(0,212,255,0.1)",
-                }}>Ω</div>
+                  transition: "width 0.4s, height 0.4s, font-size 0.4s",
+                  cursor: "pointer",
+                }} onClick={() => setSidebarCollapsed(c => !c)}>Ω</div>
                 {/* Orbiting dot */}
                 <div style={{ position: "absolute", inset: -4, animation: "rotateSlow 4s linear infinite", pointerEvents: "none" }}>
                   <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#00ff88", boxShadow: "0 0 8px #00ff88", position: "absolute", top: 2, left: "50%", transform: "translateX(-50%)" }} />
                 </div>
               </div>
-              <div>
-                <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 14, fontWeight: 800, color: "#f0faff", letterSpacing: "0.06em", animation: "glitchShift 8s infinite", textShadow: "0 0 24px rgba(0,229,255,0.5), 0 0 50px rgba(0,229,255,0.15)" }}>ArcaneOS</div>
-                <div style={{ fontSize: 7, color: "rgba(0,229,255,0.5)", letterSpacing: "0.28em", textTransform: "uppercase", marginTop: 3, fontFamily: "'Share Tech Mono', monospace" }}>Admin Console v2.0</div>
-              </div>
+              {!sidebarCollapsed && (
+                <div style={{ overflow: "hidden", transition: "opacity 0.3s", opacity: sidebarCollapsed ? 0 : 1 }}>
+                  <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 14, fontWeight: 800, color: "#f0faff", letterSpacing: "0.06em", animation: "glitchShift 8s infinite", textShadow: "0 0 24px rgba(0,229,255,0.5), 0 0 50px rgba(0,229,255,0.15)", whiteSpace: "nowrap" }}>ArcaneOS</div>
+                  <div style={{ fontSize: 7, color: "rgba(0,229,255,0.5)", letterSpacing: "0.28em", textTransform: "uppercase", marginTop: 3, fontFamily: "'Share Tech Mono', monospace", whiteSpace: "nowrap" }}>Admin Console v2.0</div>
+                </div>
+              )}
             </div>
 
-            {/* Boot progress */}
-            <div style={{ marginTop: 4 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 7, color: "rgba(0,212,255,0.35)", letterSpacing: "0.15em" }}>SYS INTEGRITY</span>
-                <span style={{ fontSize: 7, color: "#00ff88", letterSpacing: "0.1em", fontFamily: "'Orbitron', monospace" }}>{bootSeq}%</span>
+            {/* Boot progress — hidden in mini mode */}
+            {!sidebarCollapsed && (
+              <div style={{ marginTop: 4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 7, color: "rgba(0,212,255,0.35)", letterSpacing: "0.15em" }}>SYS INTEGRITY</span>
+                  <span style={{ fontSize: 7, color: "#00ff88", letterSpacing: "0.1em", fontFamily: "'Orbitron', monospace" }}>{bootSeq}%</span>
+                </div>
+                <div style={{ height: 2, background: "rgba(0,229,255,0.1)", borderRadius: 1, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${bootSeq}%`, background: "linear-gradient(90deg, var(--cyan), var(--green))", boxShadow: "0 0 10px var(--cyan)", borderRadius: 1, transition: "width 0.1s" }} />
+                </div>
               </div>
-              <div style={{ height: 2, background: "rgba(0,229,255,0.1)", borderRadius: 1, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${bootSeq}%`, background: "linear-gradient(90deg, var(--cyan), var(--green))", boxShadow: "0 0 10px var(--cyan)", borderRadius: 1, transition: "width 0.1s" }} />
+            )}
+            {/* Mini mode: just progress dot */}
+            {sidebarCollapsed && (
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 10px #00ff9d", animation: "pulse-glow 1.5s infinite" }} />
               </div>
-            </div>
+            )}
           </div>
 
           {/* Clock */}
+          {!sidebarCollapsed ? (
           <div style={{
             margin: "14px 16px",
             background: "linear-gradient(145deg, rgba(0,229,255,0.06) 0%, rgba(0,6,20,0.85) 100%)",
@@ -3802,10 +6018,19 @@ export default function AdminDashboard() {
             {/* Pulsing underline */}
             <div style={{ marginTop: 8, height: 1, background: "linear-gradient(90deg, var(--cyan), var(--green), transparent)", animation: "pulse-glow 3s ease-in-out infinite" }} />
           </div>
+          ) : (
+            /* Mini clock — just hours:mins, centered */
+            <div style={{ padding: "10px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+              <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 10, fontWeight: 700, color: "var(--cyan)", letterSpacing: "0.04em", textShadow: "0 0 14px rgba(0,229,255,0.6)", textAlign: "center" }}>
+                {timeStr.slice(0, 5)}
+              </div>
+              <div style={{ width: 24, height: 1, background: "linear-gradient(90deg, transparent, var(--cyan), transparent)" }} />
+            </div>
+          )}
 
           {/* Nav */}
           <div style={{ flex: 1, padding: "10px 0" }}>
-            <div style={{
+            {!sidebarCollapsed && <div style={{
               fontSize: 7, color: "rgba(0,229,255,0.22)", letterSpacing: "0.28em",
               textTransform: "uppercase", padding: "0 20px 10px",
               fontFamily: "'Share Tech Mono', monospace",
@@ -3814,16 +6039,55 @@ export default function AdminDashboard() {
               <div style={{ width: 16, height: 1, background: "rgba(0,229,255,0.2)" }} />
               Navigation
               <div style={{ flex: 1, height: 1, background: "rgba(0,229,255,0.08)" }} />
-            </div>
-            {TABS.map(t => (
-              <NavTab key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} count={t.count} icon={t.icon} activeColor={t.id === "revenue" && tab === "revenue" ? rc.hex : undefined} />
-            ))}
+            </div>}
+            {sidebarCollapsed ? (
+              /* Mini-mode: icon-only tabs */
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "4px 0" }}>
+                {TABS.map(t => {
+                  const isActive = tab === t.id;
+                  const ac = t.id === "revenue" && isActive ? rc.hex : "#00e5ff";
+                  return (
+                    <div key={t.id} onClick={() => setTab(t.id)} title={t.label}
+                      style={{
+                        width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center",
+                        cursor: "pointer", borderRadius: 6,
+                        background: isActive ? `rgba(0,229,255,0.12)` : "transparent",
+                        border: `1px solid ${isActive ? "rgba(0,229,255,0.35)" : "transparent"}`,
+                        boxShadow: isActive ? "0 0 14px rgba(0,229,255,0.2)" : "none",
+                        transition: "all 0.25s",
+                        position: "relative",
+                      }}
+                      onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = "rgba(0,229,255,0.06)"; } }}
+                      onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = "transparent"; } }}
+                    >
+                      {isActive && <div style={{ position: "absolute", left: 0, top: "20%", bottom: "20%", width: 2, background: ac, borderRadius: "0 2px 2px 0", boxShadow: `0 0 8px ${ac}` }} />}
+                      <span style={{ fontSize: 16, color: isActive ? ac : "rgba(0,212,255,0.3)", textShadow: isActive ? `0 0 14px ${ac}` : "none", transition: "all 0.2s" }}>{t.icon}</span>
+                      {t.count !== undefined && (
+                        <div style={{ position: "absolute", top: 4, right: 4, width: 14, height: 14, borderRadius: "50%", background: "#ff2d55", fontSize: 6, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Orbitron', monospace", fontWeight: 700 }}>{t.count > 9 ? "9+" : t.count}</div>
+                      )}
+                    </div>
+                  );
+                })}
+                {/* Collapse toggle button */}
+                <div onClick={() => setSidebarCollapsed(false)} title="Expand sidebar"
+                  style={{ width: 40, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", marginTop: 4, borderRadius: 4, transition: "all 0.2s" }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,229,255,0.06)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  <span style={{ fontSize: 10, color: "rgba(0,229,255,0.3)" }}>▶</span>
+                </div>
+              </div>
+            ) : (
+              TABS.map(t => (
+                <NavTab key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} count={t.count} icon={t.icon} activeColor={t.id === "revenue" && displayTab === "revenue" ? rc.hex : undefined} />
+              ))
+            )}
           </div>
 
           {/* System status */}
-          <div style={{ padding: "14px 18px 22px", borderTop: "1px solid rgba(0,229,255,0.07)", position: "relative" }}>
+          <div style={{ padding: sidebarCollapsed ? "10px 8px 16px" : "14px 18px 22px", borderTop: "1px solid rgba(0,229,255,0.07)", position: "relative" }}>
             {/* Section label */}
-            <div style={{
+            {!sidebarCollapsed && <div style={{
               fontSize: 7, color: "rgba(0,229,255,0.22)", letterSpacing: "0.28em",
               textTransform: "uppercase", marginBottom: 12,
               display: "flex", alignItems: "center", gap: 6,
@@ -3832,8 +6096,8 @@ export default function AdminDashboard() {
               <div style={{ width: 16, height: 1, background: "rgba(0,229,255,0.2)" }} />
               Systems
               <div style={{ flex: 1, height: 1, background: "rgba(0,229,255,0.08)" }} />
-            </div>
-            {[["API Gateway", "#00ff9d", "NOMINAL"], ["Database", "#00ff9d", "ONLINE"], ["Auth Layer", "#ffd060", "STANDBY"]].map(([name, col, status]) => (
+            </div>}
+            {!sidebarCollapsed ? [["API Gateway", "#00ff9d", "NOMINAL"], ["Database", "#00ff9d", "ONLINE"], ["Auth Layer", "#ffd060", "STANDBY"]].map(([name, col, status]) => (
               <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: "5px 8px", background: "rgba(0,0,0,0.15)", borderRadius: 3, border: "1px solid rgba(0,229,255,0.05)", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: col, borderRadius: "3px 0 0 3px", boxShadow: `0 0 6px ${col}`, opacity: 0.6 }} />
                 <span style={{ fontSize: 9, color: "rgba(0,229,255,0.45)", fontFamily: "'Share Tech Mono', monospace", paddingLeft: 6 }}>{name}</span>
@@ -3846,7 +6110,14 @@ export default function AdminDashboard() {
                   <span style={{ fontSize: 7, color: col + "cc", letterSpacing: "0.1em", fontFamily: "'Share Tech Mono', monospace" }}>{status}</span>
                 </div>
               </div>
-            ))}
+            )) : (
+              /* Mini-mode: status dots only */
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                {[["#00ff9d"], ["#00ff9d"], ["#ffd060"]].map(([col], i) => (
+                  <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: col, boxShadow: `0 0 8px ${col}`, animation: "pulse-glow 2s infinite" }} />
+                ))}
+              </div>
+            )}
 
             {/* Sign Out — dramatic terminate session button */}
             <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(255,45,85,0.12)", position: "relative" }}>
@@ -3910,7 +6181,7 @@ export default function AdminDashboard() {
         </aside>
 
         {/* ── MAIN ── */}
-        <main className="main-content">
+        <main className="main-content" style={{ marginLeft: sidebarCollapsed ? 64 : 240, transition: "margin-left 0.4s cubic-bezier(0.16,1,0.3,1)" }}>
           {/* Topbar */}
           <div className="topbar" style={isRev ? {
             borderBottom: `1px solid rgba(${rc.rgb},0.18)`,
@@ -3955,12 +6226,77 @@ export default function AdminDashboard() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 1 }}>
               {error && <span style={{ fontSize: 9, color: "var(--red)", fontFamily: "'Share Tech Mono', monospace", textShadow: "0 0 10px rgba(255,45,85,0.5)" }}>⚠ ERR: {error}</span>}
+
+              {/* ⌘K Command Palette trigger */}
+              <button onClick={() => setPaletteOpen(true)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "7px 14px",
+                  background: "rgba(0,229,255,0.04)",
+                  border: "1px solid rgba(0,229,255,0.18)",
+                  borderRadius: 5, cursor: "pointer",
+                  clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+                  transition: "all 0.25s",
+                  position: "relative", overflow: "hidden",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,229,255,0.09)"; e.currentTarget.style.borderColor = "rgba(0,229,255,0.4)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(0,229,255,0.15)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,229,255,0.04)"; e.currentTarget.style.borderColor = "rgba(0,229,255,0.18)"; e.currentTarget.style.boxShadow = "none"; }}
+              >
+                <span style={{ fontSize: 9, color: "rgba(0,229,255,0.5)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.06em" }}>⌘</span>
+                <span style={{ fontSize: 8, color: "rgba(0,229,255,0.35)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>COMMAND</span>
+                <div style={{ display: "flex", gap: 3 }}>
+                  {["⌘", "K"].map(k => (
+                    <kbd key={k} style={{ fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace", background: "rgba(0,229,255,0.06)", border: "1px solid rgba(0,229,255,0.15)", padding: "1px 5px", borderRadius: 3 }}>{k}</kbd>
+                  ))}
+                </div>
+              </button>
+
               <button onClick={refetch} className="refetch-btn" style={isRev ? {
                 borderColor: `rgba(${rc.rgb},0.35)`,
                 color: rc.hex,
                 background: `linear-gradient(135deg, rgba(${rc.rgb},0.1) 0%, rgba(${rc.rgb},0.04) 100%)`,
                 boxShadow: `0 0 20px rgba(${rc.rgb},0.06)`,
               } : {}}>↺ REFRESH</button>
+              {/* Theme toggle */}
+              <ThemeToggle dark={dark} onToggle={() => setDark(d => !d)} />
+              {/* Export button */}
+              <button onClick={() => setExportOpen(true)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 7,
+                  padding: "7px 14px",
+                  background: "rgba(0,255,157,0.04)",
+                  border: "1px solid rgba(0,255,157,0.22)",
+                  borderRadius: 5, cursor: "pointer",
+                  clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+                  transition: "all 0.25s",
+                  position: "relative", overflow: "hidden",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,255,157,0.1)"; e.currentTarget.style.borderColor = "rgba(0,255,157,0.45)"; e.currentTarget.style.boxShadow = "0 0 20px rgba(0,255,157,0.14)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,255,157,0.04)"; e.currentTarget.style.borderColor = "rgba(0,255,157,0.22)"; e.currentTarget.style.boxShadow = "none"; }}
+              >
+                <div style={{ position: "absolute", inset: 0, left: "-100%", background: "linear-gradient(90deg, transparent, rgba(0,255,157,0.07), transparent)", animation: "shimmerSlide 4s ease-in-out infinite", pointerEvents: "none" }} />
+                <span style={{ fontSize: 10, color: "rgba(0,255,157,0.65)" }}>⇣</span>
+                <span style={{ fontSize: 8, color: "rgba(0,255,157,0.5)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>EXPORT</span>
+                <kbd style={{ fontSize: 7, color: "rgba(0,255,157,0.3)", fontFamily: "'Share Tech Mono', monospace", background: "rgba(0,255,157,0.06)", border: "1px solid rgba(0,255,157,0.15)", padding: "1px 5px", borderRadius: 3 }}>⇧E</kbd>
+              </button>
+              {/* Sidebar collapse toggle */}
+              <button onClick={() => setSidebarCollapsed(c => !c)}
+                title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 34, height: 34,
+                  background: sidebarCollapsed ? "rgba(0,229,255,0.08)" : "rgba(0,229,255,0.04)",
+                  border: `1px solid rgba(0,229,255,${sidebarCollapsed ? 0.35 : 0.18})`,
+                  borderRadius: 5, cursor: "pointer",
+                  clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                  transition: "all 0.25s",
+                  boxShadow: sidebarCollapsed ? "0 0 14px rgba(0,229,255,0.15)" : "none",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,229,255,0.12)"; e.currentTarget.style.borderColor = "rgba(0,229,255,0.5)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = sidebarCollapsed ? "rgba(0,229,255,0.08)" : "rgba(0,229,255,0.04)"; e.currentTarget.style.borderColor = `rgba(0,229,255,${sidebarCollapsed ? 0.35 : 0.18})`; }}
+              >
+                <span style={{ fontSize: 11, color: "rgba(0,229,255,0.6)", transform: sidebarCollapsed ? "scaleX(-1)" : "scaleX(1)", display: "inline-block", transition: "transform 0.35s cubic-bezier(0.16,1,0.3,1)" }}>⊟</span>
+              </button>
               {/* User avatar hex */}
               <div style={{
                 width: 40, height: 40, position: "relative",
@@ -3978,8 +6314,11 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* ═══════════════ TAB CONTENT — with enter/exit transitions ═══════════════ */}
+          <div style={{ ...transitionStyle }}>
+
           {/* ═══════════════ OVERVIEW TAB ═══════════════ */}
-          {tab === "overview" && (
+          {displayTab === "overview" && (
             <div>
               {loading ? <HoloLoader /> : m && (
                 <>
@@ -4130,6 +6469,18 @@ export default function AdminDashboard() {
                     </HoloPanel>
                   </div>
 
+                  {/* ── SYSTEM STATUS PULSE BAR ── */}
+                  <div style={{ marginBottom: 18 }}>
+                    <SystemStatusPulseBar />
+                  </div>
+
+                  {/* ── ACTIVITY FEED + TELEMETRY ROW ── */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 14, marginBottom: 22, marginTop: 4 }}>
+                    <div>
+                      <div className="section-heading" style={{ marginBottom: 14 }}>Live Activity</div>
+                      <ActivityFeed m={m} />
+                    </div>
+                    <div>
                   {/* Stat strip */}
                   <div className="section-heading">Telemetry</div>
                   <div className="stat-row">
@@ -4148,13 +6499,15 @@ export default function AdminDashboard() {
                       </div>
                     ))}
                   </div>
+                    </div>
+                  </div>{/* end activity + telemetry grid */}
                 </>
               )}
             </div>
           )}
 
           {/* ═══════════════ REVENUE TAB — JARVIS HUD ═══════════════ */}
-          {tab === "revenue" && (
+          {displayTab === "revenue" && (
             <div style={{ position: "relative" }}>
               {/* Ambient aurora */}
               <div style={{
@@ -4434,19 +6787,29 @@ export default function AdminDashboard() {
           )}
 
           {/* ═══════════════ USERS TAB ═══════════════ */}
-          {tab === "users" && (
+          {displayTab === "users" && (
             <div>
               <div className="section-heading">User Registry</div>
               <HoloPanel accent="#00e5ff">
-                <UsersTable showToast={showToast} />
+                <UsersTable showToast={showToast} onUserClick={setDrawerUser} />
               </HoloPanel>
             </div>
           )}
 
           {/* ═══════════════ WORKSPACES TAB ═══════════════ */}
-          {tab === "workspaces" && (
+          {displayTab === "workspaces" && (
             <div>
               <div className="section-heading">Workspace Network</div>
+              {/* Health Map visualization */}
+              <HoloPanel accent="#a855f7" style={{ marginBottom: 18 }}>
+                <div style={{ fontSize: 8, color: "rgba(168,85,247,0.5)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 5, height: 5, background: "#a855f7", borderRadius: "50%", boxShadow: "0 0 10px #a855f7" }} />
+                  Network Health Map
+                  <div style={{ flex: 1, height: 1, background: "rgba(168,85,247,0.12)" }} />
+                  <span style={{ fontSize: 7, color: "rgba(168,85,247,0.25)" }}>NODE TOPOLOGY</span>
+                </div>
+                <WorkspaceHealthMapWrapper />
+              </HoloPanel>
               <HoloPanel accent="#a855f7">
                 <WorkspacesTable showToast={showToast} />
               </HoloPanel>
@@ -4454,16 +6817,19 @@ export default function AdminDashboard() {
           )}
 
           {/* ═══════════════ FEEDBACK TAB ═══════════════ */}
-          {tab === "feedback" && (
+          {displayTab === "feedback" && (
             <div>
               <div className="section-heading">Incoming Transmissions</div>
               <FeedbackTable />
             </div>
           )}
+
+          </div>{/* end tab transition wrapper */}
         </main>
       </div>
       {/* ── LIVE BROADCAST TICKER ── */}
       <LiveTickerBar m={m} />
     </div>
+    </ThemeCtx.Provider>
   );
 }
