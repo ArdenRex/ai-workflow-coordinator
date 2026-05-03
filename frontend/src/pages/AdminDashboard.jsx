@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useContext } from "react";
+import React, { useState, useEffect, useCallback, useRef, useContext, useMemo } from "react";
 
 const API = process.env.REACT_APP_API_URL || "https://ai-workflow-coordinator-api-production.up.railway.app";
 
@@ -5137,6 +5137,1047 @@ function NoteCard({ note, onDelete, onPin, onEdit, editing, draft, draftTitle, d
   );
 }
 
+// ── NOTIFICATION BELL — real-time alert stream ────────────────────────────────
+const NOTIF_TYPES = {
+  critical: { color: "#ff2d55", rgb: "255,45,85",   icon: "⚠", label: "CRITICAL" },
+  warning:  { color: "#ffd060", rgb: "255,208,96",  icon: "◆", label: "WARNING"  },
+  info:     { color: "#00e5ff", rgb: "0,229,255",   icon: "◎", label: "INFO"     },
+  success:  { color: "#00ff9d", rgb: "0,255,157",   icon: "✦", label: "SUCCESS"  },
+};
+const NOTIF_TEMPLATES = [
+  { type: "critical", msg: "API latency spike detected — P99 > 2400ms", tag: "LATENCY" },
+  { type: "warning",  msg: "Error rate elevated: 4.2% over 5m window",  tag: "ERRORS"  },
+  { type: "success",  msg: "New agent nova_x activated by root admin",   tag: "USERS"   },
+  { type: "info",     msg: "Scheduled backup completed — 2.4GB archived",tag: "SYSTEM"  },
+  { type: "critical", msg: "Failed login attempts threshold exceeded",   tag: "SECURITY"},
+  { type: "warning",  msg: "Workspace flux_lab approaching storage limit",tag: "STORAGE" },
+  { type: "success",  msg: "Revenue milestone: MRR crossed $10K",        tag: "REVENUE" },
+  { type: "info",     msg: "System health check passed — all nodes OK",  tag: "HEALTH"  },
+  { type: "warning",  msg: "3 users on trial plan expiring today",        tag: "BILLING" },
+  { type: "critical", msg: "Webhook endpoint returning 503 errors",       tag: "API"     },
+  { type: "success",  msg: "Data export completed — 1,240 records",      tag: "EXPORT"  },
+  { type: "info",     msg: "New feedback transmission from echo_k",      tag: "FEEDBACK"},
+];
+
+function useNotifications() {
+  const [notifs, setNotifs] = useState(() =>
+    NOTIF_TEMPLATES.slice(0, 5).map((t, i) => ({
+      ...t, id: i, ts: Date.now() - i * 67000, read: i > 1,
+    }))
+  );
+  const idRef = useRef(50);
+
+  useEffect(() => {
+    const iv = setInterval(() => {
+      const tmpl = NOTIF_TEMPLATES[Math.floor(Math.random() * NOTIF_TEMPLATES.length)];
+      const notif = { ...tmpl, id: idRef.current++, ts: Date.now(), read: false };
+      setNotifs(prev => [notif, ...prev].slice(0, 30));
+    }, 14000 + Math.random() * 10000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const markRead = useCallback((id) =>
+    setNotifs(prev => prev.map(n => n.id === id ? { ...n, read: true } : n)), []);
+  const markAllRead = useCallback(() =>
+    setNotifs(prev => prev.map(n => ({ ...n, read: true }))), []);
+  const unreadCount = notifs.filter(n => !n.read).length;
+
+  return { notifs, markRead, markAllRead, unreadCount };
+}
+
+function NotificationBell({ notifs, unreadCount, markRead, markAllRead }) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const { dark } = useTheme();
+  const panelRef = useRef(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const filtered = filter === "all" ? notifs : notifs.filter(n => n.type === filter);
+  const timeAgo = (ts) => {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 10) return "just now";
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    return `${Math.floor(m / 60)}h ago`;
+  };
+
+  return (
+    <div ref={panelRef} style={{ position: "relative" }}>
+      {/* Bell button */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        title="Notifications (⌘N)"
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          width: 34, height: 34, position: "relative",
+          background: open ? "rgba(0,229,255,0.1)" : "rgba(0,229,255,0.04)",
+          border: `1px solid rgba(0,229,255,${open ? 0.45 : 0.18})`,
+          borderRadius: 5, cursor: "pointer",
+          clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+          transition: "all 0.25s",
+          boxShadow: unreadCount > 0 ? "0 0 16px rgba(255,45,85,0.2)" : "none",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,229,255,0.1)"; e.currentTarget.style.borderColor = "rgba(0,229,255,0.45)"; }}
+        onMouseLeave={e => { if (!open) { e.currentTarget.style.background = "rgba(0,229,255,0.04)"; e.currentTarget.style.borderColor = "rgba(0,229,255,0.18)"; } }}
+      >
+        <span style={{ fontSize: 14, color: unreadCount > 0 ? "#ff2d55" : "rgba(0,229,255,0.6)", transition: "color 0.3s", lineHeight: 1 }}>🔔</span>
+        {unreadCount > 0 && (
+          <div style={{
+            position: "absolute", top: -4, right: -4,
+            minWidth: 16, height: 16, borderRadius: 8,
+            background: "linear-gradient(135deg, #ff2d55, #ff6b7a)",
+            border: "1px solid rgba(0,4,14,0.9)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 7, color: "#fff", fontFamily: "'Orbitron', monospace", fontWeight: 700,
+            padding: "0 3px",
+            boxShadow: "0 0 12px rgba(255,45,85,0.6)",
+            animation: "pulse-glow 1.5s ease-in-out infinite",
+          }}>{unreadCount > 9 ? "9+" : unreadCount}</div>
+        )}
+      </button>
+
+      {/* Dropdown panel */}
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 10px)", right: 0,
+          width: 360, zIndex: 999,
+          background: dark
+            ? "linear-gradient(160deg, rgba(0,4,18,0.99) 0%, rgba(0,10,28,0.97) 100%)"
+            : "linear-gradient(160deg, rgba(220,238,255,0.99) 0%, rgba(200,228,252,0.97) 100%)",
+          border: "1px solid rgba(0,229,255,0.2)",
+          borderRadius: 8,
+          boxShadow: "0 20px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(0,229,255,0.05), inset 0 1px 0 rgba(255,255,255,0.06)",
+          clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%)",
+          animation: "exportRise 0.22s cubic-bezier(0.16,1,0.3,1) both",
+          overflow: "hidden",
+        }}>
+          {/* Header */}
+          <div style={{
+            padding: "14px 16px 10px",
+            borderBottom: "1px solid rgba(0,229,255,0.1)",
+            background: "rgba(0,229,255,0.03)",
+            position: "relative",
+          }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.6), transparent)" }} />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 5, height: 5, borderRadius: "50%", background: unreadCount > 0 ? "#ff2d55" : "#00ff9d", boxShadow: `0 0 8px ${unreadCount > 0 ? "#ff2d55" : "#00ff9d"}`, animation: "pulse-glow 1.2s infinite" }} />
+                <span style={{ fontSize: 9, color: "rgba(0,229,255,0.8)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace" }}>ALERT STREAM</span>
+                {unreadCount > 0 && (
+                  <span style={{ fontSize: 7, background: "rgba(255,45,85,0.15)", border: "1px solid rgba(255,45,85,0.3)", color: "#ff2d55", padding: "1px 6px", borderRadius: 8, fontFamily: "'Orbitron', monospace", fontWeight: 700 }}>{unreadCount} NEW</span>
+                )}
+              </div>
+              {unreadCount > 0 && (
+                <button onClick={markAllRead} style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: 3, transition: "color 0.2s" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "rgba(0,229,255,0.8)"}
+                  onMouseLeave={e => e.currentTarget.style.color = "rgba(0,229,255,0.4)"}
+                >MARK ALL READ</button>
+              )}
+            </div>
+            {/* Filter chips */}
+            <div style={{ display: "flex", gap: 4 }}>
+              {["all", "critical", "warning", "info", "success"].map(f => {
+                const nc = NOTIF_TYPES[f] || { color: "rgba(0,229,255,0.7)", rgb: "0,229,255" };
+                const active = filter === f;
+                const cnt = f === "all" ? notifs.length : notifs.filter(n => n.type === f).length;
+                return (
+                  <button key={f} onClick={() => setFilter(f)} style={{
+                    fontSize: 7, padding: "2px 8px", borderRadius: 10,
+                    fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.08em",
+                    background: active ? `rgba(${f === "all" ? "0,229,255" : nc.rgb},0.12)` : "transparent",
+                    border: `1px solid ${active ? (f === "all" ? "rgba(0,229,255,0.5)" : nc.color) : "rgba(0,229,255,0.1)"}`,
+                    color: active ? (f === "all" ? "#00e5ff" : nc.color) : "rgba(0,229,255,0.3)",
+                    cursor: "pointer", transition: "all 0.2s",
+                  }}>{f === "all" ? `ALL ${cnt}` : `${nc.icon} ${f.toUpperCase()} ${cnt}`}</button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Alert list */}
+          <div style={{ maxHeight: 340, overflowY: "auto", padding: "4px 0" }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: "28px 20px", textAlign: "center", fontSize: 9, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em" }}>NO ALERTS IN THIS CHANNEL</div>
+            ) : filtered.map((n, i) => {
+              const nt = NOTIF_TYPES[n.type];
+              return (
+                <div key={n.id}
+                  onClick={() => markRead(n.id)}
+                  style={{
+                    display: "flex", gap: 10, padding: "10px 14px",
+                    borderLeft: n.read ? "2px solid transparent" : `2px solid ${nt.color}`,
+                    background: n.read
+                      ? (i % 2 === 0 ? "rgba(0,229,255,0.008)" : "transparent")
+                      : `rgba(${nt.rgb},0.06)`,
+                    cursor: n.read ? "default" : "pointer",
+                    transition: "all 0.3s",
+                    position: "relative",
+                  }}
+                  onMouseEnter={e => { if (!n.read) e.currentTarget.style.background = `rgba(${nt.rgb},0.1)`; }}
+                  onMouseLeave={e => { if (!n.read) e.currentTarget.style.background = `rgba(${nt.rgb},0.06)`; }}
+                >
+                  {/* Icon */}
+                  <div style={{
+                    width: 26, height: 26, flexShrink: 0, borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: `rgba(${nt.rgb},0.08)`,
+                    border: `1px solid ${n.read ? `rgba(${nt.rgb},0.2)` : nt.color}`,
+                    boxShadow: n.read ? "none" : `0 0 10px rgba(${nt.rgb},0.3)`,
+                    fontSize: 10, color: n.read ? `rgba(${nt.rgb},0.4)` : nt.color,
+                    transition: "all 0.3s",
+                  }}>{nt.icon}</div>
+                  {/* Content */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                      <span style={{ fontSize: 7, color: n.read ? `rgba(${nt.rgb},0.3)` : nt.color, fontFamily: "'Orbitron', monospace", fontWeight: 700, letterSpacing: "0.06em" }}>{n.tag}</span>
+                      <div style={{ flex: 1, height: 1, background: `rgba(${nt.rgb},0.1)` }} />
+                      <span style={{ fontSize: 7, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace" }}>{timeAgo(n.ts)}</span>
+                    </div>
+                    <div style={{ fontSize: 9, color: n.read ? "rgba(150,200,255,0.4)" : (dark ? "rgba(180,230,255,0.85)" : "rgba(10,40,80,0.85)"), fontFamily: "'Share Tech Mono', monospace", lineHeight: 1.5, letterSpacing: "0.02em" }}>{n.msg}</div>
+                  </div>
+                  {!n.read && <div style={{ width: 5, height: 5, borderRadius: "50%", background: nt.color, boxShadow: `0 0 6px ${nt.color}`, flexShrink: 0, alignSelf: "center" }} />}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Footer */}
+          <div style={{ padding: "8px 14px", borderTop: "1px solid rgba(0,229,255,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 7, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>STREAM AUTO-REFRESH · {notifs.length} TOTAL</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              {Object.entries(NOTIF_TYPES).map(([k, v]) => {
+                const cnt = notifs.filter(n => n.type === k).length;
+                return <span key={k} style={{ fontSize: 7, color: `rgba(${v.rgb},0.5)`, fontFamily: "'Share Tech Mono', monospace" }}>{v.icon}{cnt}</span>;
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── KEYBOARD SHORTCUT CHEATSHEET MODAL ───────────────────────────────────────
+function KeyboardCheatsheet({ open, onClose }) {
+  const { dark } = useTheme();
+  if (!open) return null;
+
+  const SHORTCUTS = [
+    { group: "NAVIGATION",  items: [
+      { keys: ["⌘", "K"],       desc: "Open command palette" },
+      { keys: ["1"," — ","5"],   desc: "Switch between tabs" },
+      { keys: ["Tab"],           desc: "Cycle through nav items" },
+    ]},
+    { group: "DATA",  items: [
+      { keys: ["⌘", "⇧", "E"],  desc: "Open export modal" },
+      { keys: ["⇧", "E"],       desc: "Quick export trigger" },
+      { keys: ["⌘", "R"],       desc: "Refresh metrics data" },
+    ]},
+    { group: "INTERFACE",  items: [
+      { keys: ["⌘", "N"],       desc: "Toggle notifications bell" },
+      { keys: ["?"],            desc: "Open keyboard cheatsheet" },
+      { keys: ["⌘", "\\"],      desc: "Toggle sidebar mini-mode" },
+    ]},
+    { group: "THEME",  items: [
+      { keys: ["⌘", "D"],       desc: "Toggle dark / light mode" },
+      { keys: ["Esc"],          desc: "Close any open modal" },
+    ]},
+  ];
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "rgba(0,2,12,0.85)",
+      backdropFilter: "blur(16px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      animation: "paletteFadeIn 0.18s ease both",
+    }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: 540,
+        background: dark
+          ? "linear-gradient(155deg, rgba(0,4,18,0.99) 0%, rgba(0,10,28,0.97) 100%)"
+          : "linear-gradient(155deg, rgba(220,238,255,0.99) 0%, rgba(200,228,252,0.97) 100%)",
+        border: "1px solid rgba(0,229,255,0.22)",
+        borderRadius: 10,
+        boxShadow: "0 30px 100px rgba(0,0,0,0.9), 0 0 0 1px rgba(0,229,255,0.06), inset 0 1px 0 rgba(255,255,255,0.07)",
+        clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))",
+        animation: "paletteRise 0.24s cubic-bezier(0.16,1,0.3,1) both",
+        overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{ padding: "18px 22px 14px", borderBottom: "1px solid rgba(0,229,255,0.1)", background: "rgba(0,229,255,0.025)", position: "relative" }}>
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.7), rgba(191,95,255,0.5), rgba(0,229,255,0.7), transparent)" }} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 16, fontWeight: 900, color: dark ? "#fff" : "#0a1a2e", letterSpacing: "0.08em", textShadow: "0 0 30px rgba(0,229,255,0.5)" }}>⌨ HOTKEY MATRIX</div>
+              <kbd style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", fontFamily: "'Share Tech Mono', monospace", background: "rgba(0,229,255,0.08)", border: "1px solid rgba(0,229,255,0.2)", padding: "1px 6px", borderRadius: 3 }}>?</kbd>
+            </div>
+            <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: "rgba(0,229,255,0.35)", padding: 4, transition: "color 0.2s" }}
+              onMouseEnter={e => e.currentTarget.style.color = "rgba(255,45,85,0.7)"}
+              onMouseLeave={e => e.currentTarget.style.color = "rgba(0,229,255,0.35)"}
+            >✕</button>
+          </div>
+          <div style={{ fontSize: 7, color: "rgba(0,229,255,0.3)", letterSpacing: "0.2em", marginTop: 4, fontFamily: "'Share Tech Mono', monospace" }}>ARCANEOS · COMMAND REFERENCE · v9.0</div>
+        </div>
+
+        {/* Shortcut grid */}
+        <div style={{ padding: "18px 22px 22px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+          {SHORTCUTS.map(group => (
+            <div key={group.group}>
+              <div style={{ fontSize: 7, color: "rgba(0,229,255,0.35)", letterSpacing: "0.28em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 10, display: "flex", alignItems: "center", gap: 7 }}>
+                <div style={{ width: 3, height: 3, background: "#00e5ff", borderRadius: "50%", boxShadow: "0 0 6px #00e5ff" }} />
+                {group.group}
+                <div style={{ flex: 1, height: 1, background: "rgba(0,229,255,0.1)" }} />
+              </div>
+              {group.items.map((item, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8 }}>
+                  <span style={{ fontSize: 9, color: dark ? "rgba(150,210,255,0.6)" : "rgba(10,40,80,0.65)", fontFamily: "'Share Tech Mono', monospace", flex: 1, minWidth: 0 }}>{item.desc}</span>
+                  <div style={{ display: "flex", gap: 3, flexShrink: 0, alignItems: "center" }}>
+                    {item.keys.map((k, ki) => (
+                      k === " — " ? (
+                        <span key={ki} style={{ fontSize: 7, color: "rgba(0,229,255,0.2)" }}>—</span>
+                      ) : (
+                        <kbd key={ki} style={{
+                          fontSize: 8, color: "#00e5ff", fontFamily: "'Share Tech Mono', monospace",
+                          background: "rgba(0,229,255,0.06)",
+                          border: "1px solid rgba(0,229,255,0.22)",
+                          padding: "2px 7px", borderRadius: 4,
+                          boxShadow: "0 2px 0 rgba(0,229,255,0.12), inset 0 1px 0 rgba(255,255,255,0.06)",
+                          minWidth: k.length > 1 ? 28 : 18, textAlign: "center",
+                        }}>{k}</kbd>
+                      )
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: "10px 22px", borderTop: "1px solid rgba(0,229,255,0.08)", display: "flex", justifyContent: "space-between", background: "rgba(0,229,255,0.015)" }}>
+          <span style={{ fontSize: 7, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>PRESS ESC OR CLICK OUTSIDE TO DISMISS</span>
+          <span style={{ fontSize: 7, color: "rgba(0,229,255,0.15)", fontFamily: "'Orbitron', monospace" }}>⌘? TOGGLE</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── USER ACTIVITY HEATMAP — 7×24 login density grid ──────────────────────────
+function ActivityHeatmap({ m }) {
+  const { dark } = useTheme();
+  const cyan = dark ? "0,229,255" : "0,120,200";
+  const cyanHex = dark ? "#00e5ff" : "#0088cc";
+
+  // Generate synthetic 7×24 heatmap (days × hours)
+  const DAYS = ["MON","TUE","WED","THU","FRI","SAT","SUN"];
+  const heatData = useMemo(() => {
+    // Simulate realistic login patterns: peaks 9-11am, 2-4pm, dip nights/weekends
+    return DAYS.map((d, di) => {
+      const isWeekend = di >= 5;
+      return Array.from({ length: 24 }, (_, h) => {
+        const morningPeak  = Math.exp(-Math.pow(h - 9.5, 2) / 4) * (isWeekend ? 0.3 : 1);
+        const afternoonPeak= Math.exp(-Math.pow(h - 14, 2) / 5) * (isWeekend ? 0.25 : 0.85);
+        const eveningDip   = Math.exp(-Math.pow(h - 20, 2) / 6) * 0.2;
+        const raw = (morningPeak + afternoonPeak + eveningDip) * (0.7 + Math.random() * 0.6);
+        return Math.min(1, Math.max(0, raw));
+      });
+    });
+  }, []);
+
+  const maxVal = Math.max(...heatData.flat());
+  const [hovered, setHovered] = useState(null); // { d, h }
+
+  const getCellColor = (val) => {
+    if (val < 0.05) return dark ? "rgba(0,229,255,0.03)" : "rgba(0,120,200,0.04)";
+    const intensity = val / maxVal;
+    if (intensity < 0.2) return `rgba(0,229,255,${0.08 + intensity * 0.15})`;
+    if (intensity < 0.5) return `rgba(0,229,255,${0.15 + intensity * 0.3})`;
+    if (intensity < 0.75) return `rgba(0,255,157,${0.3 + intensity * 0.35})`;
+    return `rgba(255,208,96,${0.5 + intensity * 0.5})`;
+  };
+
+  const getCellGlow = (val) => {
+    const intensity = val / maxVal;
+    if (intensity < 0.2) return "none";
+    if (intensity < 0.5) return `0 0 6px rgba(0,229,255,${intensity * 0.3})`;
+    if (intensity < 0.75) return `0 0 10px rgba(0,255,157,${intensity * 0.4})`;
+    return `0 0 14px rgba(255,208,96,${intensity * 0.6})`;
+  };
+
+  const getTierLabel = (val) => {
+    const pct = (val / maxVal) * 100;
+    if (pct < 10) return "QUIET";
+    if (pct < 30) return "LOW";
+    if (pct < 60) return "MODERATE";
+    if (pct < 80) return "ACTIVE";
+    return "PEAK";
+  };
+
+  // Summary stats
+  const peakHour = heatData[0].reduce((best, v, h) => {
+    const avg = heatData.reduce((s, d) => s + d[h], 0) / 7;
+    return avg > best.avg ? { h, avg } : best;
+  }, { h: 0, avg: 0 });
+  const busyDay = DAYS[heatData.reduce((bi, d, i) => {
+    const sum = d.reduce((s, v) => s + v, 0);
+    return sum > heatData[bi].reduce((s, v) => s + v, 0) ? i : bi;
+  }, 0)];
+
+  return (
+    <div style={{
+      background: dark
+        ? "linear-gradient(160deg, rgba(0,4,18,0.98) 0%, rgba(0,10,28,0.95) 100%)"
+        : "linear-gradient(160deg, rgba(220,238,255,0.97) 0%, rgba(200,228,252,0.94) 100%)",
+      border: `1px solid rgba(${cyan},0.18)`,
+      borderRadius: 8, overflow: "hidden",
+      clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)",
+      boxShadow: dark ? "0 12px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)" : "0 8px 30px rgba(0,80,180,0.1)",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "14px 18px 12px", borderBottom: `1px solid rgba(${cyan},0.1)`, background: `rgba(${cyan},0.025)`, position: "relative" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${cyan},0.7), rgba(0,255,157,0.4), transparent)` }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#ffd060", boxShadow: "0 0 10px #ffd060", animation: "pulse-glow 2s infinite" }} />
+            <span style={{ fontSize: 9, color: `rgba(${cyan},0.8)`, letterSpacing: "0.28em", fontFamily: "'Share Tech Mono', monospace", fontWeight: 700 }}>USER ACTIVITY HEATMAP</span>
+          </div>
+          <div style={{ display: "flex", gap: 14 }}>
+            {[
+              { label: "PEAK HOUR", value: `${peakHour.h}:00`, color: "#ffd060" },
+              { label: "BUSIEST DAY", value: busyDay, color: "#00ff9d" },
+            ].map(s => (
+              <div key={s.label} style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 7, color: `rgba(${cyan},0.28)`, letterSpacing: "0.16em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 2 }}>{s.label}</div>
+                <div style={{ fontSize: 10, color: s.color, fontFamily: "'Orbitron', monospace", fontWeight: 700, textShadow: `0 0 10px ${s.color}80` }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Heatmap grid */}
+      <div style={{ padding: "16px 18px 14px" }}>
+        {/* Hour labels */}
+        <div style={{ display: "grid", gridTemplateColumns: "36px repeat(24, 1fr)", gap: 2, marginBottom: 4 }}>
+          <div />
+          {Array.from({ length: 24 }, (_, h) => (
+            <div key={h} style={{ fontSize: 6, color: `rgba(${cyan},0.22)`, fontFamily: "'Share Tech Mono', monospace", textAlign: "center", lineHeight: 1 }}>
+              {h % 3 === 0 ? `${h}h` : ""}
+            </div>
+          ))}
+        </div>
+
+        {/* Rows */}
+        {heatData.map((row, di) => (
+          <div key={di} style={{ display: "grid", gridTemplateColumns: "36px repeat(24, 1fr)", gap: 2, marginBottom: 2 }}>
+            {/* Day label */}
+            <div style={{ fontSize: 7, color: `rgba(${cyan},0.35)`, fontFamily: "'Share Tech Mono', monospace", display: "flex", alignItems: "center", letterSpacing: "0.04em" }}>{DAYS[di]}</div>
+            {/* Cells */}
+            {row.map((val, h) => {
+              const isHov = hovered?.d === di && hovered?.h === h;
+              return (
+                <div key={h}
+                  onMouseEnter={() => setHovered({ d: di, h })}
+                  onMouseLeave={() => setHovered(null)}
+                  title={`${DAYS[di]} ${h}:00 — ${getTierLabel(val)}`}
+                  style={{
+                    height: 13, borderRadius: 2,
+                    background: getCellColor(val),
+                    boxShadow: isHov ? `0 0 0 1px ${cyanHex}, ${getCellGlow(val)}` : getCellGlow(val),
+                    transition: "all 0.15s",
+                    transform: isHov ? "scale(1.3)" : "scale(1)",
+                    cursor: "crosshair",
+                    zIndex: isHov ? 2 : 0,
+                    position: "relative",
+                  }}
+                />
+              );
+            })}
+          </div>
+        ))}
+
+        {/* Legend + hover tooltip */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
+          {/* Legend */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 7, color: `rgba(${cyan},0.25)`, fontFamily: "'Share Tech Mono', monospace" }}>LESS</span>
+            {[0.02, 0.2, 0.4, 0.65, 0.9].map((v, i) => (
+              <div key={i} style={{ width: 12, height: 12, borderRadius: 2, background: getCellColor(v * maxVal), boxShadow: getCellGlow(v * maxVal) }} />
+            ))}
+            <span style={{ fontSize: 7, color: `rgba(${cyan},0.25)`, fontFamily: "'Share Tech Mono', monospace" }}>MORE</span>
+          </div>
+
+          {/* Hover info */}
+          {hovered ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 8, fontFamily: "'Share Tech Mono', monospace" }}>
+              <span style={{ color: `rgba(${cyan},0.35)` }}>{DAYS[hovered.d]} · {hovered.h}:00–{hovered.h + 1}:00</span>
+              <span style={{ color: "#ffd060", fontWeight: 700 }}>{getTierLabel(heatData[hovered.d][hovered.h])}</span>
+              <span style={{ color: `rgba(${cyan},0.25)` }}>{Math.round(heatData[hovered.d][hovered.h] * 100)}% DENSITY</span>
+            </div>
+          ) : (
+            <span style={{ fontSize: 7, color: `rgba(${cyan},0.18)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>HOVER A CELL FOR DETAILS</span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── REVENUE FORECAST PANEL — ML-style projection with confidence band ─────────
+function RevenueForecastPanel({ m }) {
+  const { dark } = useTheme();
+  const canvasRef = useRef(null);
+  const [hovIdx, setHovIdx] = useState(null);
+
+  const cyan = dark ? "0,229,255" : "0,120,200";
+  const cyanHex = dark ? "#00e5ff" : "#0088cc";
+
+  // Build 6 months history + 3 months forecast from real MRR
+  const baseMRR = m?.revenue?.mrr || 1200;
+  const monthNames = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const now = new Date();
+
+  const historyPoints = useMemo(() => {
+    return Array.from({ length: 6 }, (_, i) => {
+      const growth = 1 + (0.05 + Math.random() * 0.08) * (i === 0 ? 0 : 1);
+      const base = baseMRR * Math.pow(1.065, i - 5);
+      return {
+        month: monthNames[(now.getMonth() - 5 + i + 12) % 12],
+        value: Math.round(base * (0.92 + Math.random() * 0.16)),
+        type: "history",
+      };
+    });
+  }, [baseMRR]);
+
+  const forecastPoints = useMemo(() => {
+    const lastVal = historyPoints[historyPoints.length - 1].value;
+    return Array.from({ length: 3 }, (_, i) => {
+      const growthRate = 0.07 + Math.random() * 0.04;
+      const val = Math.round(lastVal * Math.pow(1 + growthRate, i + 1));
+      const uncertainty = 0.06 + i * 0.04; // widens with time
+      return {
+        month: monthNames[(now.getMonth() + i + 1) % 12],
+        value: val,
+        upper: Math.round(val * (1 + uncertainty)),
+        lower: Math.round(val * (1 - uncertainty * 0.6)),
+        type: "forecast",
+      };
+    });
+  }, [historyPoints]);
+
+  const allPoints = [...historyPoints, ...forecastPoints];
+  const maxVal = Math.max(...allPoints.map(p => p.upper || p.value)) * 1.1;
+  const minVal = Math.min(...allPoints.map(p => p.lower || p.value)) * 0.88;
+
+  // Draw the chart on canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    const padL = 52, padR = 20, padT = 18, padB = 32;
+    const cW = W - padL - padR, cH = H - padT - padB;
+
+    const toX = (i) => padL + (i / (allPoints.length - 1)) * cW;
+    const toY = (v) => padT + cH - ((v - minVal) / (maxVal - minVal)) * cH;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Grid lines
+    const gridColor = dark ? "rgba(0,229,255,0.06)" : "rgba(0,100,180,0.08)";
+    const labelColor = dark ? "rgba(0,229,255,0.28)" : "rgba(0,80,160,0.45)";
+    ctx.font = "8px 'Share Tech Mono', monospace";
+    for (let g = 0; g <= 4; g++) {
+      const v = minVal + ((maxVal - minVal) * g) / 4;
+      const y = toY(v);
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 6]);
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+      ctx.fillStyle = labelColor;
+      ctx.fillText(`$${v >= 1000 ? (v / 1000).toFixed(1) + "k" : Math.round(v)}`, 2, y + 3);
+    }
+    ctx.setLineDash([]);
+
+    // Forecast confidence band
+    if (forecastPoints.length > 0) {
+      const fStart = historyPoints.length - 1;
+      ctx.beginPath();
+      ctx.moveTo(toX(fStart), toY(historyPoints[historyPoints.length - 1].value));
+      forecastPoints.forEach((p, i) => ctx.lineTo(toX(fStart + 1 + i), toY(p.upper)));
+      for (let i = forecastPoints.length - 1; i >= 0; i--) ctx.lineTo(toX(fStart + 1 + i), toY(forecastPoints[i].lower));
+      ctx.closePath();
+      const bandGrad = ctx.createLinearGradient(toX(fStart), 0, toX(allPoints.length - 1), 0);
+      bandGrad.addColorStop(0, "rgba(191,95,255,0.06)");
+      bandGrad.addColorStop(1, "rgba(191,95,255,0.18)");
+      ctx.fillStyle = bandGrad;
+      ctx.fill();
+    }
+
+    // Area fill under history line
+    ctx.beginPath();
+    historyPoints.forEach((p, i) => i === 0 ? ctx.moveTo(toX(i), toY(p.value)) : ctx.lineTo(toX(i), toY(p.value)));
+    ctx.lineTo(toX(historyPoints.length - 1), H - padB);
+    ctx.lineTo(toX(0), H - padB);
+    ctx.closePath();
+    const areaGrad = ctx.createLinearGradient(0, padT, 0, H - padB);
+    areaGrad.addColorStop(0, dark ? "rgba(0,229,255,0.14)" : "rgba(0,120,200,0.12)");
+    areaGrad.addColorStop(1, "rgba(0,229,255,0)");
+    ctx.fillStyle = areaGrad;
+    ctx.fill();
+
+    // History line
+    ctx.beginPath();
+    historyPoints.forEach((p, i) => i === 0 ? ctx.moveTo(toX(i), toY(p.value)) : ctx.lineTo(toX(i), toY(p.value)));
+    const lineGrad = ctx.createLinearGradient(toX(0), 0, toX(historyPoints.length - 1), 0);
+    lineGrad.addColorStop(0, dark ? "rgba(0,229,255,0.5)" : "rgba(0,120,200,0.5)");
+    lineGrad.addColorStop(1, dark ? "#00e5ff" : "#0088cc");
+    ctx.strokeStyle = lineGrad;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = dark ? "#00e5ff" : "#0088cc";
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Forecast dashed line
+    ctx.beginPath();
+    const fJoin = historyPoints.length - 1;
+    ctx.moveTo(toX(fJoin), toY(historyPoints[fJoin].value));
+    forecastPoints.forEach((p, i) => ctx.lineTo(toX(fJoin + 1 + i), toY(p.value)));
+    ctx.strokeStyle = "#bf5fff";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 4]);
+    ctx.shadowColor = "#bf5fff";
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+
+    // Forecast upper/lower boundary lines
+    ctx.beginPath();
+    forecastPoints.forEach((p, i) => i === 0
+      ? ctx.moveTo(toX(fJoin + 1 + i), toY(p.upper))
+      : ctx.lineTo(toX(fJoin + 1 + i), toY(p.upper)));
+    ctx.strokeStyle = "rgba(191,95,255,0.3)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 4]);
+    ctx.stroke();
+    ctx.beginPath();
+    forecastPoints.forEach((p, i) => i === 0
+      ? ctx.moveTo(toX(fJoin + 1 + i), toY(p.lower))
+      : ctx.lineTo(toX(fJoin + 1 + i), toY(p.lower)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Data points
+    allPoints.forEach((p, i) => {
+      const x = toX(i), y = toY(p.value);
+      const isForecast = p.type === "forecast";
+      const isHov = hovIdx === i;
+      ctx.beginPath();
+      ctx.arc(x, y, isHov ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = isForecast ? (isHov ? "#bf5fff" : "rgba(191,95,255,0.7)") : (isHov ? "#00e5ff" : (dark ? "rgba(0,229,255,0.85)" : "rgba(0,120,200,0.85)"));
+      ctx.shadowColor = isForecast ? "#bf5fff" : cyanHex;
+      ctx.shadowBlur = isHov ? 16 : 6;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Month labels
+      ctx.fillStyle = labelColor;
+      ctx.font = `${isHov ? "bold " : ""}8px 'Share Tech Mono', monospace`;
+      ctx.textAlign = "center";
+      ctx.fillText(p.month, x, H - padB + 14);
+    });
+
+    // Hover tooltip
+    if (hovIdx !== null && allPoints[hovIdx]) {
+      const p = allPoints[hovIdx];
+      const x = toX(hovIdx), y = toY(p.value);
+      const isForecast = p.type === "forecast";
+      const tw = isForecast ? 130 : 90, th = isForecast ? 52 : 36;
+      const tx = Math.min(x - tw / 2, W - padR - tw);
+      const ty = Math.max(y - th - 10, padT);
+
+      ctx.fillStyle = dark ? "rgba(0,4,18,0.95)" : "rgba(220,238,255,0.96)";
+      ctx.strokeStyle = isForecast ? "rgba(191,95,255,0.5)" : `rgba(${cyan},0.5)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.roundRect(Math.max(tx, padL), ty, tw, th, 4);
+      ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = isForecast ? "#bf5fff" : cyanHex;
+      ctx.font = "bold 10px 'Orbitron', monospace";
+      ctx.textAlign = "left";
+      ctx.fillText(`$${p.value.toLocaleString()}`, Math.max(tx, padL) + 8, ty + 16);
+      ctx.fillStyle = dark ? "rgba(150,210,255,0.5)" : "rgba(0,80,160,0.6)";
+      ctx.font = "7px 'Share Tech Mono', monospace";
+      ctx.fillText(isForecast ? "PROJECTED" : "ACTUAL", Math.max(tx, padL) + 8, ty + 28);
+      if (isForecast && p.upper) {
+        ctx.fillStyle = "rgba(191,95,255,0.45)";
+        ctx.fillText(`↑$${p.upper.toLocaleString()} / ↓$${p.lower.toLocaleString()}`, Math.max(tx, padL) + 8, ty + 42);
+      }
+    }
+  }, [hovIdx, historyPoints, forecastPoints, dark, allPoints, maxVal, minVal, cyan, cyanHex]);
+
+  // Mouse move on canvas → compute hovered point index
+  const handleMouseMove = useCallback((e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const padL = 52, padR = 20, cW = canvas.width - padL - padR;
+    const idx = Math.round(((mx - padL) / cW) * (allPoints.length - 1));
+    setHovIdx(idx >= 0 && idx < allPoints.length ? idx : null);
+  }, [allPoints.length]);
+
+  const handleMouseLeave = useCallback(() => setHovIdx(null), []);
+
+  // Summary stats
+  const lastHistory = historyPoints[historyPoints.length - 1].value;
+  const lastForecast = forecastPoints[forecastPoints.length - 1].value;
+  const growth3m = Math.round(((lastForecast - lastHistory) / lastHistory) * 100);
+  const growthMoM = Math.round(((historyPoints[5].value - historyPoints[4].value) / historyPoints[4].value) * 100);
+
+  return (
+    <div style={{
+      background: dark
+        ? "linear-gradient(160deg, rgba(0,4,18,0.98) 0%, rgba(0,10,28,0.95) 100%)"
+        : "linear-gradient(160deg, rgba(220,238,255,0.97) 0%, rgba(200,228,252,0.94) 100%)",
+      border: `1px solid rgba(${cyan},0.18)`,
+      borderRadius: 8, overflow: "hidden",
+      clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)",
+      boxShadow: dark ? "0 12px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)" : "0 8px 30px rgba(0,80,180,0.1)",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "14px 18px 12px", borderBottom: `1px solid rgba(${cyan},0.1)`, background: "rgba(191,95,255,0.025)", position: "relative" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(191,95,255,0.7), rgba(0,229,255,0.4), transparent)" }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#bf5fff", boxShadow: "0 0 10px #bf5fff", animation: "pulse-glow 2s infinite" }} />
+            <span style={{ fontSize: 9, color: "rgba(191,95,255,0.85)", letterSpacing: "0.28em", fontFamily: "'Share Tech Mono', monospace" }}>REVENUE FORECAST</span>
+            <span style={{ fontSize: 7, background: "rgba(191,95,255,0.12)", border: "1px solid rgba(191,95,255,0.3)", color: "#bf5fff", padding: "1px 7px", borderRadius: 8, fontFamily: "'Orbitron', monospace", fontWeight: 700 }}>ML PROJECTION</span>
+          </div>
+          <div style={{ display: "flex", gap: 16 }}>
+            {[
+              { label: "MoM GROWTH", value: `+${growthMoM}%`, color: "#00ff9d" },
+              { label: "3M FORECAST", value: `+${growth3m}%`, color: "#bf5fff" },
+              { label: "PROJECTED MRR", value: `$${lastForecast.toLocaleString()}`, color: "#ffd060" },
+            ].map(s => (
+              <div key={s.label} style={{ textAlign: "right" }}>
+                <div style={{ fontSize: 7, color: `rgba(${cyan},0.28)`, letterSpacing: "0.14em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 2 }}>{s.label}</div>
+                <div style={{ fontSize: 11, color: s.color, fontFamily: "'Orbitron', monospace", fontWeight: 700, textShadow: `0 0 10px ${s.color}80` }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Canvas chart */}
+      <div style={{ padding: "14px 18px 10px", position: "relative" }}>
+        <canvas
+          ref={canvasRef}
+          width={720} height={190}
+          style={{ width: "100%", height: 190, cursor: "crosshair", display: "block" }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        />
+      </div>
+
+      {/* Footer legend */}
+      <div style={{ padding: "8px 18px 14px", display: "flex", alignItems: "center", gap: 20 }}>
+        {[
+          { color: cyanHex, label: "HISTORICAL MRR", dash: false },
+          { color: "#bf5fff", label: "3-MONTH PROJECTION", dash: true },
+          { color: "rgba(191,95,255,0.25)", label: "CONFIDENCE BAND", dash: false, band: true },
+        ].map(l => (
+          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {l.band ? (
+              <div style={{ width: 22, height: 8, background: "rgba(191,95,255,0.2)", border: "1px solid rgba(191,95,255,0.4)", borderRadius: 2 }} />
+            ) : (
+              <div style={{ width: 22, height: 2, background: l.color, borderRadius: 1, boxShadow: `0 0 6px ${l.color}`, ...(l.dash ? { backgroundImage: `repeating-linear-gradient(90deg, ${l.color} 0, ${l.color} 4px, transparent 4px, transparent 8px)`, background: "none" } : {}) }} />
+            )}
+            <span style={{ fontSize: 7, color: `rgba(${cyan},0.3)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>{l.label}</span>
+          </div>
+        ))}
+        <div style={{ flex: 1 }} />
+        <span style={{ fontSize: 7, color: `rgba(${cyan},0.18)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.08em" }}>HOVER POINTS FOR DETAIL</span>
+      </div>
+    </div>
+  );
+}
+
+// ── SESSION REPLAY LOG — paginated admin audit trail ─────────────────────────
+const SESSION_ACTIONS = [
+  { action: "USER_DEACTIVATED",  icon: "✕", color: "#ff2d55", rgb: "255,45,85"  },
+  { action: "USER_ACTIVATED",    icon: "✦", color: "#00ff9d", rgb: "0,255,157"  },
+  { action: "EXPORT_TRIGGERED",  icon: "⇣", color: "#ffd060", rgb: "255,208,96" },
+  { action: "TAB_NAVIGATED",     icon: "→", color: "#00e5ff", rgb: "0,229,255"  },
+  { action: "FILTER_APPLIED",    icon: "◈", color: "#00e5ff", rgb: "0,229,255"  },
+  { action: "BULK_ACTION",       icon: "⬡", color: "#ffd060", rgb: "255,208,96" },
+  { action: "SETTINGS_CHANGED",  icon: "◎", color: "#bf5fff", rgb: "191,95,255" },
+  { action: "LOGIN_SUCCESS",     icon: "↑", color: "#00ff9d", rgb: "0,255,157"  },
+  { action: "SEARCH_EXECUTED",   icon: "◆", color: "#00e5ff", rgb: "0,229,255"  },
+  { action: "THEME_TOGGLED",     icon: "☾", color: "#bf5fff", rgb: "191,95,255" },
+  { action: "EXPORT_COMPLETED",  icon: "✦", color: "#00ff9d", rgb: "0,255,157"  },
+  { action: "NOTES_SAVED",       icon: "✎", color: "#ffd060", rgb: "255,208,96" },
+];
+const SESSION_ADMINS = ["root@arcaneos", "admin_ω", "sys_core", "arc_admin"];
+const SESSION_TARGETS = ["nova_x", "cipher_7", "arc_user", "ghost_91", "data_77", "echo_k", "workspace:flux_lab", "workspace:neon_hive", "system", "export:CSV"];
+
+function makeSessionEntry(id, ago = 0) {
+  const act = SESSION_ACTIONS[Math.floor(Math.random() * SESSION_ACTIONS.length)];
+  const admin = SESSION_ADMINS[Math.floor(Math.random() * SESSION_ADMINS.length)];
+  const target = SESSION_TARGETS[Math.floor(Math.random() * SESSION_TARGETS.length)];
+  const ip = `10.${Math.floor(Math.random()*254)}.${Math.floor(Math.random()*254)}.${Math.floor(Math.random()*254)}`;
+  return { id, ...act, admin, target, ip, ts: Date.now() - ago, duration: Math.floor(Math.random() * 4000) + 80 };
+}
+
+function SessionReplayLog() {
+  const { dark } = useTheme();
+  const cyan = dark ? "0,229,255" : "0,120,200";
+  const cyanHex = dark ? "#00e5ff" : "#0088cc";
+  const PAGE_SIZE = 8;
+
+  const [entries] = useState(() =>
+    Array.from({ length: 48 }, (_, i) => makeSessionEntry(i, i * (18000 + Math.random() * 40000)))
+  );
+  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [sortDesc, setSortDesc] = useState(true);
+
+  const filtered = useMemo(() => {
+    let list = [...entries];
+    if (filterType !== "all") list = list.filter(e => e.action === filterType);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(e =>
+        e.action.toLowerCase().includes(q) ||
+        e.admin.toLowerCase().includes(q) ||
+        e.target.toLowerCase().includes(q) ||
+        e.ip.includes(q)
+      );
+    }
+    if (!sortDesc) list.reverse();
+    return list;
+  }, [entries, filterType, search, sortDesc]);
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const page_entries = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  const timeAgo = (ts) => {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return `${s}s ago`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  };
+
+  const uniqueActions = [...new Set(entries.map(e => e.action))];
+
+  return (
+    <div style={{
+      background: dark
+        ? "linear-gradient(160deg, rgba(0,4,18,0.98) 0%, rgba(0,10,28,0.95) 100%)"
+        : "linear-gradient(160deg, rgba(220,238,255,0.97) 0%, rgba(200,228,252,0.94) 100%)",
+      border: `1px solid rgba(${cyan},0.18)`,
+      borderRadius: 8, overflow: "hidden",
+      clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)",
+      boxShadow: dark ? "0 12px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)" : "0 8px 30px rgba(0,80,180,0.1)",
+    }}>
+      {/* Header */}
+      <div style={{ padding: "14px 18px 12px", borderBottom: `1px solid rgba(${cyan},0.1)`, background: `rgba(${cyan},0.025)`, position: "relative" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${cyan},0.7), rgba(0,255,157,0.3), transparent)` }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 5, height: 5, borderRadius: "50%", background: cyanHex, boxShadow: `0 0 10px ${cyanHex}`, animation: "pulse-glow 1.8s infinite" }} />
+            <span style={{ fontSize: 9, color: `rgba(${cyan},0.8)`, letterSpacing: "0.28em", fontFamily: "'Share Tech Mono', monospace" }}>SESSION REPLAY LOG</span>
+            <span style={{ fontSize: 7, background: `rgba(${cyan},0.08)`, border: `1px solid rgba(${cyan},0.22)`, color: cyanHex, padding: "1px 7px", borderRadius: 8, fontFamily: "'Orbitron', monospace" }}>{filtered.length} EVENTS</span>
+          </div>
+          <button onClick={() => setSortDesc(d => !d)} style={{
+            fontSize: 7, color: `rgba(${cyan},0.45)`, fontFamily: "'Share Tech Mono', monospace",
+            background: `rgba(${cyan},0.05)`, border: `1px solid rgba(${cyan},0.15)`,
+            padding: "3px 10px", borderRadius: 3, cursor: "pointer", letterSpacing: "0.1em", transition: "all 0.2s",
+          }}
+            onMouseEnter={e => { e.currentTarget.style.color = cyanHex; e.currentTarget.style.borderColor = `rgba(${cyan},0.4)`; }}
+            onMouseLeave={e => { e.currentTarget.style.color = `rgba(${cyan},0.45)`; e.currentTarget.style.borderColor = `rgba(${cyan},0.15)`; }}
+          >{sortDesc ? "↓ NEWEST FIRST" : "↑ OLDEST FIRST"}</button>
+        </div>
+
+        {/* Search + filter row */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ position: "relative", flex: 1 }}>
+            <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: `rgba(${cyan},0.3)`, pointerEvents: "none" }}>◆</span>
+            <input
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(0); }}
+              placeholder="Search action, admin, target, IP…"
+              className="holo-input"
+              style={{ paddingLeft: 28, width: "100%", fontSize: 8, padding: "6px 10px 6px 28px" }}
+            />
+          </div>
+          <select
+            value={filterType}
+            onChange={e => { setFilterType(e.target.value); setPage(0); }}
+            className="holo-input"
+            style={{ fontSize: 8, padding: "6px 10px", minWidth: 160 }}
+          >
+            <option value="all">ALL ACTIONS</option>
+            {uniqueActions.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Table header */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "28px 1.8fr 1fr 1.2fr 1fr 80px 64px",
+        padding: "8px 18px", borderBottom: `1px solid rgba(${cyan},0.08)`,
+        background: `rgba(${cyan},0.02)`,
+      }}>
+        {["", "ACTION", "ADMIN", "TARGET", "IP ADDR", "WHEN", "MS"].map((h, i) => (
+          <div key={i} style={{ fontSize: 7, color: `rgba(${cyan},0.3)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace" }}>{h}</div>
+        ))}
+      </div>
+
+      {/* Rows */}
+      <div>
+        {page_entries.length === 0 ? (
+          <div style={{ padding: "28px 18px", textAlign: "center", fontSize: 9, color: `rgba(${cyan},0.2)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em" }}>NO EVENTS MATCH QUERY</div>
+        ) : page_entries.map((entry, i) => (
+          <div key={entry.id}
+            style={{
+              display: "grid", gridTemplateColumns: "28px 1.8fr 1fr 1.2fr 1fr 80px 64px",
+              padding: "9px 18px", alignItems: "center",
+              borderBottom: `1px solid rgba(${cyan},0.04)`,
+              background: i % 2 === 0 ? `rgba(${cyan},0.01)` : "transparent",
+              transition: "background 0.15s",
+              cursor: "default",
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = `rgba(${entry.rgb},0.05)`}
+            onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? `rgba(${cyan},0.01)` : "transparent"}
+          >
+            {/* Icon */}
+            <div style={{
+              width: 20, height: 20, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: `rgba(${entry.rgb},0.1)`,
+              border: `1px solid rgba(${entry.rgb},0.3)`,
+              fontSize: 9, color: entry.color,
+              boxShadow: `0 0 8px rgba(${entry.rgb},0.15)`,
+            }}>{entry.icon}</div>
+            {/* Action */}
+            <div style={{ fontSize: 8, color: entry.color, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.06em", fontWeight: 700 }}>{entry.action}</div>
+            {/* Admin */}
+            <div style={{ fontSize: 8, color: dark ? "rgba(150,210,255,0.55)" : "rgba(10,40,80,0.6)", fontFamily: "'Share Tech Mono', monospace" }}>{entry.admin}</div>
+            {/* Target */}
+            <div style={{ fontSize: 8, color: dark ? "rgba(150,210,255,0.45)" : "rgba(10,40,80,0.5)", fontFamily: "'Share Tech Mono', monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{entry.target}</div>
+            {/* IP */}
+            <div style={{ fontSize: 7, color: `rgba(${cyan},0.28)`, fontFamily: "'Share Tech Mono', monospace" }}>{entry.ip}</div>
+            {/* Timestamp */}
+            <div style={{ fontSize: 7, color: `rgba(${cyan},0.25)`, fontFamily: "'Share Tech Mono', monospace" }}>{timeAgo(entry.ts)}</div>
+            {/* Duration */}
+            <div style={{ fontSize: 7, color: entry.duration > 2000 ? "#ffd060" : `rgba(${cyan},0.3)`, fontFamily: "'Orbitron', monospace", textAlign: "right" }}>{entry.duration}ms</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination */}
+      <div style={{ padding: "10px 18px", borderTop: `1px solid rgba(${cyan},0.08)`, display: "flex", alignItems: "center", gap: 8, background: `rgba(${cyan},0.015)` }}>
+        <span style={{ fontSize: 7, color: `rgba(${cyan},0.25)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>
+          PAGE {page + 1} / {totalPages || 1} · {filtered.length} RECORDS
+        </span>
+        <div style={{ flex: 1 }} />
+        {[
+          { label: "«", fn: () => setPage(0), disabled: page === 0 },
+          { label: "‹", fn: () => setPage(p => Math.max(0, p - 1)), disabled: page === 0 },
+          { label: "›", fn: () => setPage(p => Math.min(totalPages - 1, p + 1)), disabled: page >= totalPages - 1 },
+          { label: "»", fn: () => setPage(totalPages - 1), disabled: page >= totalPages - 1 },
+        ].map(({ label, fn, disabled }) => (
+          <button key={label} onClick={fn} disabled={disabled} style={{
+            width: 26, height: 24,
+            background: disabled ? "transparent" : `rgba(${cyan},0.05)`,
+            border: `1px solid rgba(${cyan},${disabled ? 0.07 : 0.2})`,
+            borderRadius: 3, cursor: disabled ? "default" : "pointer",
+            fontSize: 10, color: disabled ? `rgba(${cyan},0.15)` : `rgba(${cyan},0.55)`,
+            fontFamily: "'Share Tech Mono', monospace", transition: "all 0.2s",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+            onMouseEnter={e => { if (!disabled) { e.currentTarget.style.background = `rgba(${cyan},0.12)`; e.currentTarget.style.color = cyanHex; } }}
+            onMouseLeave={e => { if (!disabled) { e.currentTarget.style.background = `rgba(${cyan},0.05)`; e.currentTarget.style.color = `rgba(${cyan},0.55)`; } }}
+          >{label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── THEME TRANSITION OVERLAY — cinematic flash on toggle ──────────────────────
+function ThemeTransitionOverlay({ trigger }) {
+  const [visible, setVisible] = useState(false);
+  const [phase, setPhase] = useState(0); // 0=idle,1=flash,2=ripple,3=done
+  const prevTrigger = useRef(trigger);
+
+  useEffect(() => {
+    if (trigger === prevTrigger.current) return;
+    prevTrigger.current = trigger;
+    setVisible(true);
+    setPhase(1);
+    const t1 = setTimeout(() => setPhase(2), 80);
+    const t2 = setTimeout(() => setPhase(3), 340);
+    const t3 = setTimeout(() => { setVisible(false); setPhase(0); }, 700);
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  }, [trigger]);
+
+  if (!visible) return null;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 99999, pointerEvents: "none",
+      background: phase === 1
+        ? "rgba(0,229,255,0.18)"
+        : phase === 2
+        ? "rgba(0,229,255,0.06)"
+        : "transparent",
+      transition: phase === 1 ? "background 0.08s" : "background 0.36s cubic-bezier(0.4,0,0.2,1)",
+    }}>
+      {/* Radial ripple from center */}
+      {(phase === 1 || phase === 2) && (
+        <div style={{
+          position: "absolute", top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: phase === 2 ? "200vmax" : "0vmax",
+          height: phase === 2 ? "200vmax" : "0vmax",
+          borderRadius: "50%",
+          background: "radial-gradient(circle, rgba(0,229,255,0.12) 0%, transparent 70%)",
+          transition: "width 0.5s cubic-bezier(0.16,1,0.3,1), height 0.5s cubic-bezier(0.16,1,0.3,1)",
+          opacity: phase === 3 ? 0 : 1,
+        }} />
+      )}
+      {/* Scan line sweep */}
+      {phase === 1 && (
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 2,
+          background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.8), rgba(255,255,255,0.6), rgba(0,229,255,0.8), transparent)",
+          boxShadow: "0 0 20px rgba(0,229,255,0.5), 0 0 60px rgba(0,229,255,0.3)",
+          animation: "scanDown 0.42s ease-out both",
+        }} />
+      )}
+    </div>
+  );
+}
+
 // ── TAB TRANSITION — animated content swap ────────────────────────────────────
 function useTabTransition(tab) {
   const [displayTab, setDisplayTab] = useState(tab);
@@ -5170,6 +6211,1600 @@ function WorkspaceHealthMapWrapper() {
   return <WorkspaceHealthMap workspaces={data?.workspaces || []} />;
 }
 
+// ── GEO-INTELLIGENCE MAP ──────────────────────────────────────────────────────
+const GEO_REGIONS = [
+  { id: "na",   label: "N. America",  color: "#00e5ff", users: 0, path: "M 60 80 L 60 55 L 72 48 L 88 48 L 100 56 L 112 52 L 118 60 L 114 72 L 120 82 L 115 96 L 105 102 L 98 98 L 90 102 L 80 100 L 72 106 L 64 100 L 58 90 Z", cx: 88, cy: 76 },
+  { id: "sa",   label: "S. America",  color: "#00ff9d", users: 0, path: "M 80 108 L 88 104 L 96 108 L 100 118 L 104 128 L 102 140 L 96 148 L 88 150 L 80 146 L 76 136 L 74 124 L 76 114 Z", cx: 88, cy: 128 },
+  { id: "eu",   label: "Europe",      color: "#bf5fff", users: 0, path: "M 170 58 L 180 52 L 196 52 L 208 56 L 216 62 L 218 72 L 212 78 L 200 80 L 188 82 L 176 78 L 168 70 Z", cx: 193, cy: 67 },
+  { id: "af",   label: "Africa",      color: "#ffd060", users: 0, path: "M 176 86 L 192 84 L 208 86 L 218 94 L 220 110 L 218 124 L 210 136 L 198 144 L 184 144 L 174 136 L 168 122 L 168 106 L 170 94 Z", cx: 194, cy: 115 },
+  { id: "me",   label: "Middle East", color: "#ff8c42", users: 0, path: "M 218 68 L 232 66 L 244 70 L 248 80 L 244 90 L 232 92 L 220 88 L 214 78 Z", cx: 231, cy: 80 },
+  { id: "ru",   label: "Russia/CIS",  color: "#00d4ff", users: 0, path: "M 188 42 L 210 36 L 240 34 L 270 36 L 296 40 L 310 48 L 308 58 L 290 62 L 268 64 L 244 64 L 220 62 L 200 58 L 186 52 Z", cx: 248, cy: 50 },
+  { id: "sa2",  label: "S. Asia",     color: "#ff2d55", users: 0, path: "M 264 78 L 280 74 L 294 76 L 302 84 L 300 94 L 288 100 L 272 98 L 260 90 L 260 82 Z", cx: 281, cy: 87 },
+  { id: "sea",  label: "SE. Asia",    color: "#00ff88", users: 0, path: "M 302 90 L 318 86 L 332 88 L 340 96 L 338 106 L 326 110 L 312 108 L 302 100 Z", cx: 320, cy: 98 },
+  { id: "ea",   label: "E. Asia",     color: "#4dffb4", users: 0, path: "M 300 60 L 320 56 L 340 58 L 352 66 L 352 76 L 340 82 L 322 84 L 304 80 L 296 70 Z", cx: 324, cy: 70 },
+  { id: "oc",   label: "Oceania",     color: "#a78bfa", users: 0, path: "M 320 128 L 336 124 L 350 126 L 358 134 L 356 144 L 342 148 L 326 146 L 316 138 Z", cx: 337, cy: 136 },
+];
+
+function GeoIntelligenceMap({ m }) {
+  const { dark } = useTheme();
+  const [hovered, setHovered] = useState(null);
+  const [selected, setSelected] = useState(null);
+  const [animFrame, setAnimFrame] = useState(0);
+  const totalUsers = m?.users?.total || 120;
+
+  // Deterministically seed users per region from total
+  const regions = useMemo(() => {
+    const weights = [0.28, 0.08, 0.22, 0.06, 0.05, 0.07, 0.08, 0.05, 0.09, 0.02];
+    return GEO_REGIONS.map((r, i) => ({
+      ...r,
+      users: Math.max(1, Math.round(totalUsers * weights[i])),
+      pct: Math.round(weights[i] * 100),
+    }));
+  }, [totalUsers]);
+
+  const maxUsers = Math.max(...regions.map(r => r.users));
+
+  useEffect(() => {
+    const t = setInterval(() => setAnimFrame(f => f + 1), 2200);
+    return () => clearInterval(t);
+  }, []);
+
+  const activeRegion = selected || hovered;
+  const activeR = activeRegion ? regions.find(r => r.id === activeRegion) : null;
+
+  const panelBg = dark
+    ? "linear-gradient(135deg, rgba(0,4,14,0.97) 0%, rgba(0,10,24,0.94) 100%)"
+    : "linear-gradient(135deg, rgba(230,242,255,0.97) 0%, rgba(215,234,255,0.94) 100%)";
+
+  return (
+    <div style={{
+      background: panelBg,
+      border: `1px solid rgba(0,229,255,0.18)`,
+      borderRadius: 6, padding: "20px 22px",
+      clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))",
+      boxShadow: "0 16px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05)",
+      position: "relative", overflow: "hidden",
+    }}>
+      {/* Top prismatic edge */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.8), rgba(0,255,157,0.4), transparent)", pointerEvents: "none" }} />
+      {/* Scanning line */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "100%", pointerEvents: "none", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(0,229,255,0.12), transparent)", animation: "dataStream 6s linear infinite" }} />
+      </div>
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#00e5ff", boxShadow: "0 0 10px #00e5ff", animation: "pulse-glow 1.2s infinite" }} />
+          <span style={{ fontSize: 8, color: "rgba(0,229,255,0.7)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace" }}>GEO-INTELLIGENCE MAP</span>
+          <div style={{ height: 1, width: 40, background: "rgba(0,229,255,0.15)" }} />
+          <span style={{ fontSize: 7, color: "rgba(0,229,255,0.25)", letterSpacing: "0.18em", fontFamily: "'Share Tech Mono', monospace" }}>USER DENSITY CHOROPLETH</span>
+        </div>
+        <div style={{ display: "flex", gap: 16 }}>
+          {[
+            { l: "TOTAL USERS", v: totalUsers, c: "#00e5ff" },
+            { l: "REGIONS", v: regions.length, c: "#00ff9d" },
+            { l: "TOP ZONE", v: regions.reduce((a, b) => a.users > b.users ? a : b).label, c: "#bf5fff" },
+          ].map(({ l, v, c }) => (
+            <div key={l} style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 6, color: `rgba(${c === "#00e5ff" ? "0,229,255" : c === "#00ff9d" ? "0,255,157" : "191,95,255"},0.4)`, letterSpacing: "0.16em", fontFamily: "'Share Tech Mono', monospace" }}>{l}</div>
+              <div style={{ fontSize: 13, fontFamily: "'Orbitron', monospace", color: c, textShadow: `0 0 12px ${c}` }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Map + sidebar layout */}
+      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        {/* SVG World Map */}
+        <div style={{ flex: 1, position: "relative" }}>
+          <svg viewBox="0 0 400 180" style={{ width: "100%", height: "auto", display: "block" }}>
+            {/* Ocean background */}
+            <defs>
+              <radialGradient id="oceanGrad" cx="50%" cy="50%" r="80%">
+                <stop offset="0%" stopColor={dark ? "#001428" : "#cce4f7"} />
+                <stop offset="100%" stopColor={dark ? "#000810" : "#b8d8f0"} />
+              </radialGradient>
+              <filter id="geoGlow">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+            <rect x="0" y="0" width="400" height="180" fill="url(#oceanGrad)" rx="4" />
+            {/* Latitude lines */}
+            {[40, 80, 120, 160].map(y => (
+              <line key={y} x1="0" y1={y} x2="400" y2={y} stroke={dark ? "rgba(0,229,255,0.04)" : "rgba(0,120,200,0.06)"} strokeWidth="0.5" />
+            ))}
+            {/* Longitude lines */}
+            {[80, 160, 240, 320].map(x => (
+              <line key={x} x1={x} y1="0" x2={x} y2="180" stroke={dark ? "rgba(0,229,255,0.04)" : "rgba(0,120,200,0.06)"} strokeWidth="0.5" />
+            ))}
+
+            {/* Region shapes */}
+            {regions.map(r => {
+              const intensity = r.users / maxUsers;
+              const isHov = hovered === r.id;
+              const isSel = selected === r.id;
+              const isActive = isHov || isSel;
+              const alpha = 0.15 + intensity * 0.55;
+              return (
+                <g key={r.id}>
+                  <path
+                    d={r.path}
+                    fill={r.color}
+                    fillOpacity={isActive ? alpha + 0.15 : alpha}
+                    stroke={r.color}
+                    strokeWidth={isActive ? 1.2 : 0.5}
+                    strokeOpacity={isActive ? 0.9 : 0.35}
+                    style={{ cursor: "pointer", transition: "all 0.2s" }}
+                    onMouseEnter={() => setHovered(r.id)}
+                    onMouseLeave={() => setHovered(null)}
+                    onClick={() => setSelected(s => s === r.id ? null : r.id)}
+                    filter={isActive ? "url(#geoGlow)" : undefined}
+                  />
+                  {/* Pulse ring on hover */}
+                  {isActive && (
+                    <circle
+                      cx={r.cx} cy={r.cy} r={6 + (animFrame % 3)}
+                      fill="none" stroke={r.color} strokeWidth="0.8"
+                      strokeOpacity={0.4}
+                    />
+                  )}
+                  {/* User count label */}
+                  <text
+                    x={r.cx} y={r.cy + 1}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize="5"
+                    fill={dark ? "rgba(255,255,255,0.75)" : "rgba(0,10,30,0.8)"}
+                    fontFamily="'Share Tech Mono', monospace"
+                    style={{ pointerEvents: "none", userSelect: "none" }}
+                  >{r.users}</text>
+                </g>
+              );
+            })}
+
+            {/* Tooltip bubble */}
+            {activeR && (
+              <g>
+                <rect
+                  x={Math.min(activeR.cx + 6, 320)} y={activeR.cy - 20}
+                  width="68" height="30" rx="2"
+                  fill={dark ? "rgba(0,6,18,0.95)" : "rgba(220,238,255,0.97)"}
+                  stroke={activeR.color} strokeWidth="0.7" strokeOpacity="0.7"
+                />
+                <text
+                  x={Math.min(activeR.cx + 40, 354)} y={activeR.cy - 10}
+                  textAnchor="middle" fontSize="5.5"
+                  fill={activeR.color}
+                  fontFamily="'Share Tech Mono', monospace"
+                >{activeR.label}</text>
+                <text
+                  x={Math.min(activeR.cx + 40, 354)} y={activeR.cy + 2}
+                  textAnchor="middle" fontSize="6.5"
+                  fill={dark ? "#fff" : "#0a1a2e"}
+                  fontFamily="'Orbitron', monospace"
+                  fontWeight="700"
+                >{activeR.users} users · {activeR.pct}%</text>
+              </g>
+            )}
+          </svg>
+
+          {/* Live ping dots */}
+          <div style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
+            {regions.slice(0, 4).map((r, i) => (
+              <div key={r.id} style={{
+                position: "absolute",
+                left: `${(r.cx / 400) * 100}%`,
+                top: `${(r.cy / 180) * 100}%`,
+                width: 4, height: 4,
+                borderRadius: "50%",
+                background: r.color,
+                boxShadow: `0 0 8px ${r.color}`,
+                transform: "translate(-50%, -50%)",
+                animation: `pulse-glow ${1.2 + i * 0.4}s ease-in-out infinite`,
+              }} />
+            ))}
+          </div>
+        </div>
+
+        {/* Region density bars */}
+        <div style={{ width: 160, flexShrink: 0 }}>
+          <div style={{ fontSize: 7, color: "rgba(0,229,255,0.35)", letterSpacing: "0.18em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 10 }}>DENSITY RANKING</div>
+          {[...regions].sort((a, b) => b.users - a.users).map((r, i) => {
+            const isAct = selected === r.id || hovered === r.id;
+            const barW = (r.users / maxUsers) * 100;
+            return (
+              <div
+                key={r.id}
+                onMouseEnter={() => setHovered(r.id)}
+                onMouseLeave={() => setHovered(null)}
+                onClick={() => setSelected(s => s === r.id ? null : r.id)}
+                style={{
+                  marginBottom: 7, cursor: "pointer",
+                  padding: "5px 8px",
+                  background: isAct ? `rgba(${r.color === "#00e5ff" ? "0,229,255" : "0,0,0"},0.08)` : "transparent",
+                  borderRadius: 3,
+                  border: `1px solid ${isAct ? r.color + "44" : "transparent"}`,
+                  transition: "all 0.2s",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontSize: 7.5, color: isAct ? r.color : (dark ? "rgba(255,255,255,0.5)" : "rgba(0,20,60,0.6)"), fontFamily: "'Share Tech Mono', monospace", transition: "color 0.2s" }}>{r.label}</span>
+                  <span style={{ fontSize: 8, fontFamily: "'Orbitron', monospace", color: r.color, textShadow: isAct ? `0 0 8px ${r.color}` : "none", transition: "all 0.2s" }}>{r.users}</span>
+                </div>
+                <div style={{ height: 3, background: dark ? "rgba(0,229,255,0.06)" : "rgba(0,100,200,0.08)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", width: `${barW}%`,
+                    background: `linear-gradient(90deg, ${r.color}88, ${r.color})`,
+                    borderRadius: 2,
+                    boxShadow: isAct ? `0 0 8px ${r.color}` : "none",
+                    transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
+                  }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Footer legend */}
+      <div style={{ display: "flex", alignItems: "center", gap: 20, marginTop: 14, paddingTop: 12, borderTop: `1px solid rgba(0,229,255,0.08)` }}>
+        <div style={{ fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em" }}>INTENSITY SCALE</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 7, color: "rgba(0,229,255,0.25)", fontFamily: "'Share Tech Mono', monospace" }}>LOW</span>
+          <div style={{ width: 80, height: 4, borderRadius: 2, background: "linear-gradient(90deg, rgba(0,229,255,0.1), rgba(0,229,255,0.8))" }} />
+          <span style={{ fontSize: 7, color: "rgba(0,229,255,0.25)", fontFamily: "'Share Tech Mono', monospace" }}>HIGH</span>
+        </div>
+        <div style={{ marginLeft: "auto", fontSize: 7, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>CLICK REGION TO LOCK · HOVER TO INSPECT</div>
+      </div>
+    </div>
+  );
+}
+
+// ── TASK PIPELINE KANBAN ───────────────────────────────────────────────────────
+const KANBAN_COLS = [
+  { id: "queued",   label: "QUEUED",   color: "#ffd060", icon: "◌" },
+  { id: "active",   label: "ACTIVE",   color: "#00e5ff", icon: "◎" },
+  { id: "complete", label: "COMPLETE", color: "#00ff9d", icon: "✦" },
+  { id: "failed",   label: "FAILED",   color: "#ff2d55", icon: "✕" },
+];
+
+const TASK_NAMES = [
+  "Sync user metadata", "Export billing CSV", "Audit log rotation", "Schema migration v4",
+  "Prune stale sessions", "Email digest batch", "Index rebuild", "Cache warmup sweep",
+  "Alert threshold scan", "GDPR data purge", "API key rotation", "Webhook retry queue",
+  "Geo tag enrichment", "Plan upgrade notify", "Quota reset batch", "Health check sweep",
+  "DB vacuum cycle", "Token refresh cascade", "Rate limiter flush", "Analytics rollup",
+];
+const TASK_AGENTS = ["NOVA", "CIPHER", "ARC", "GHOST", "PRISM"];
+
+function makeKanbanTask(id, colId) {
+  const name = TASK_NAMES[Math.floor(Math.random() * TASK_NAMES.length)];
+  const agent = TASK_AGENTS[Math.floor(Math.random() * TASK_AGENTS.length)];
+  const priority = ["CRITICAL","HIGH","MEDIUM","LOW"][Math.floor(Math.random() * 4)];
+  const pColors = { CRITICAL: "#ff2d55", HIGH: "#ffd060", MEDIUM: "#00e5ff", LOW: "#00ff9d" };
+  const duration = Math.floor(Math.random() * 280) + 20;
+  const progress = colId === "complete" ? 100 : colId === "failed" ? Math.floor(Math.random() * 60) + 10 : colId === "active" ? Math.floor(Math.random() * 70) + 30 : 0;
+  return { id, colId, name, agent, priority, priorityColor: pColors[priority], duration, progress, ts: Date.now() - Math.floor(Math.random() * 3600000) };
+}
+
+function TaskPipelineKanban() {
+  const { dark } = useTheme();
+  const [cols, setCols] = useState(() => {
+    const counts = { queued: 5, active: 3, complete: 6, failed: 2 };
+    let idCounter = 1;
+    const result = {};
+    for (const [cid, count] of Object.entries(counts)) {
+      result[cid] = Array.from({ length: count }, () => makeKanbanTask(idCounter++, cid));
+    }
+    return result;
+  });
+  const [dragging, setDragging] = useState(null); // { taskId, fromCol }
+  const [dragOver, setDragOver] = useState(null);  // colId
+  const [colOrder, setColOrder] = useState(["queued", "active", "complete", "failed"]);
+  const [colDrag, setColDrag] = useState(null); // dragging a column header
+  const [colDragOver, setColDragOver] = useState(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newTaskName, setNewTaskName] = useState("");
+  const [filterPri, setFilterPri] = useState(null);
+
+  const totalTasks = Object.values(cols).reduce((s, arr) => s + arr.length, 0);
+
+  const handleTaskDragStart = (e, taskId, fromCol) => {
+    setDragging({ taskId, fromCol });
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleColDrop = (e, toCol) => {
+    e.preventDefault();
+    if (!dragging || dragging.fromCol === toCol) { setDragging(null); setDragOver(null); return; }
+    const task = cols[dragging.fromCol].find(t => t.id === dragging.taskId);
+    if (!task) return;
+    setCols(prev => ({
+      ...prev,
+      [dragging.fromCol]: prev[dragging.fromCol].filter(t => t.id !== dragging.taskId),
+      [toCol]: [{ ...task, colId: toCol, progress: toCol === "complete" ? 100 : task.progress }, ...prev[toCol]],
+    }));
+    setDragging(null);
+    setDragOver(null);
+  };
+
+  const handleColHeaderDragStart = (e, colId) => {
+    setColDrag(colId);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleColHeaderDrop = (e, toColId) => {
+    e.preventDefault();
+    if (!colDrag || colDrag === toColId) { setColDrag(null); setColDragOver(null); return; }
+    setColOrder(prev => {
+      const arr = [...prev];
+      const fromIdx = arr.indexOf(colDrag);
+      const toIdx = arr.indexOf(toColId);
+      arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, colDrag);
+      return arr;
+    });
+    setColDrag(null);
+    setColDragOver(null);
+  };
+
+  const addTask = () => {
+    if (!newTaskName.trim()) return;
+    const t = { id: Date.now(), colId: "queued", name: newTaskName.trim(), agent: "NOVA", priority: "MEDIUM", priorityColor: "#00e5ff", duration: 60, progress: 0, ts: Date.now() };
+    setCols(prev => ({ ...prev, queued: [t, ...prev.queued] }));
+    setNewTaskName("");
+    setShowAdd(false);
+  };
+
+  const removeTask = (taskId, colId) => {
+    setCols(prev => ({ ...prev, [colId]: prev[colId].filter(t => t.id !== taskId) }));
+  };
+
+  const panelBg = dark
+    ? "linear-gradient(135deg, rgba(0,4,14,0.97) 0%, rgba(0,10,24,0.94) 100%)"
+    : "linear-gradient(135deg, rgba(230,242,255,0.97) 0%, rgba(215,234,255,0.94) 100%)";
+
+  const timeAgo = ts => {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m`;
+    return `${Math.floor(m / 60)}h`;
+  };
+
+  return (
+    <div style={{ background: panelBg, border: "1px solid rgba(0,229,255,0.18)", borderRadius: 6, padding: "20px 22px", clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))", boxShadow: "0 16px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05)", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(255,208,96,0.8), rgba(0,229,255,0.4), transparent)", pointerEvents: "none" }} />
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#ffd060", boxShadow: "0 0 10px #ffd060", animation: "pulse-glow 1.5s infinite" }} />
+          <span style={{ fontSize: 8, color: "rgba(255,208,96,0.8)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace" }}>TASK PIPELINE</span>
+          <div style={{ height: 1, width: 30, background: "rgba(255,208,96,0.15)" }} />
+          <span style={{ fontSize: 7, color: "rgba(255,208,96,0.3)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace" }}>DRAG COLUMNS TO REORDER · DRAG CARDS TO MOVE</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Priority filter */}
+          {["CRITICAL","HIGH","MEDIUM","LOW"].map(p => {
+            const pc = { CRITICAL:"#ff2d55", HIGH:"#ffd060", MEDIUM:"#00e5ff", LOW:"#00ff9d" }[p];
+            return (
+              <button key={p} onClick={() => setFilterPri(f => f === p ? null : p)}
+                style={{ fontSize: 7, padding: "3px 8px", borderRadius: 3, cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", border: `1px solid ${filterPri === p ? pc : "rgba(0,229,255,0.1)"}`, background: filterPri === p ? `${pc}18` : "transparent", color: filterPri === p ? pc : "rgba(0,229,255,0.35)", transition: "all 0.2s" }}>
+                {p}
+              </button>
+            );
+          })}
+          <button onClick={() => setShowAdd(v => !v)}
+            style={{ fontSize: 7, padding: "4px 12px", borderRadius: 3, cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", border: "1px solid rgba(0,255,157,0.35)", background: "rgba(0,255,157,0.06)", color: "#00ff9d", transition: "all 0.2s" }}>
+            + ADD TASK
+          </button>
+        </div>
+      </div>
+
+      {/* Add task row */}
+      {showAdd && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <input
+            value={newTaskName}
+            onChange={e => setNewTaskName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && addTask()}
+            placeholder="Task name…"
+            style={{ flex: 1, background: dark ? "rgba(0,229,255,0.04)" : "rgba(0,100,200,0.06)", border: "1px solid rgba(0,229,255,0.2)", borderRadius: 3, padding: "6px 10px", color: dark ? "#fff" : "#0a1a2e", fontSize: 9, fontFamily: "'Share Tech Mono', monospace", outline: "none", letterSpacing: "0.06em" }}
+          />
+          <button onClick={addTask} style={{ padding: "6px 14px", borderRadius: 3, background: "rgba(0,255,157,0.12)", border: "1px solid rgba(0,255,157,0.35)", color: "#00ff9d", fontSize: 8, fontFamily: "'Share Tech Mono', monospace", cursor: "pointer", letterSpacing: "0.12em" }}>QUEUE</button>
+          <button onClick={() => setShowAdd(false)} style={{ padding: "6px 10px", borderRadius: 3, background: "rgba(255,45,85,0.08)", border: "1px solid rgba(255,45,85,0.25)", color: "#ff2d55", fontSize: 8, fontFamily: "'Share Tech Mono', monospace", cursor: "pointer" }}>✕</button>
+        </div>
+      )}
+
+      {/* Kanban columns */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+        {colOrder.map(colId => {
+          const col = KANBAN_COLS.find(c => c.id === colId);
+          const tasks = (cols[colId] || []).filter(t => !filterPri || t.priority === filterPri);
+          const isColDragOver = colDragOver === colId;
+          const isDropTarget = dragOver === colId;
+          return (
+            <div
+              key={colId}
+              onDragOver={e => { e.preventDefault(); setDragOver(colId); }}
+              onDrop={e => handleColDrop(e, colId)}
+              onDragLeave={() => setDragOver(null)}
+              onDragEnd={() => { setColDragOver(null); setColDrag(null); }}
+              style={{
+                background: isDropTarget ? `rgba(${col.color === "#00e5ff" ? "0,229,255" : col.color === "#00ff9d" ? "0,255,157" : col.color === "#ffd060" ? "255,208,96" : "255,45,85"},0.06)` : (dark ? "rgba(0,0,0,0.25)" : "rgba(200,222,248,0.35)"),
+                border: `1px solid ${isDropTarget ? col.color + "55" : (dark ? "rgba(0,229,255,0.08)" : "rgba(0,100,200,0.12)")}`,
+                borderRadius: 5, padding: "12px 10px",
+                minHeight: 200, transition: "all 0.2s",
+              }}
+            >
+              {/* Column header — draggable */}
+              <div
+                draggable
+                onDragStart={e => handleColHeaderDragStart(e, colId)}
+                onDragOver={e => { e.preventDefault(); setColDragOver(colId); }}
+                onDrop={e => { e.stopPropagation(); handleColHeaderDrop(e, colId); }}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, cursor: "grab", userSelect: "none", padding: "4px 6px", borderRadius: 3, background: isColDragOver && colDrag !== colId ? `${col.color}18` : "transparent", transition: "background 0.2s" }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 12, color: col.color, textShadow: `0 0 10px ${col.color}` }}>{col.icon}</span>
+                  <span style={{ fontSize: 8, color: col.color, letterSpacing: "0.18em", fontFamily: "'Share Tech Mono', monospace", fontWeight: 700 }}>{col.label}</span>
+                </div>
+                <div style={{ fontSize: 10, fontFamily: "'Orbitron', monospace", color: col.color, background: `${col.color}18`, border: `1px solid ${col.color}44`, borderRadius: 10, padding: "1px 7px", minWidth: 22, textAlign: "center" }}>{tasks.length}</div>
+              </div>
+              {/* Divider */}
+              <div style={{ height: 1, background: `linear-gradient(90deg, ${col.color}33, transparent)`, marginBottom: 10 }} />
+
+              {/* Task cards */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                {tasks.map(task => (
+                  <div
+                    key={task.id}
+                    draggable
+                    onDragStart={e => handleTaskDragStart(e, task.id, colId)}
+                    onDragEnd={() => { setDragging(null); setDragOver(null); }}
+                    style={{
+                      background: dark ? "rgba(0,6,18,0.85)" : "rgba(220,236,255,0.88)",
+                      border: `1px solid rgba(0,229,255,0.1)`,
+                      borderLeft: `2px solid ${task.priorityColor}`,
+                      borderRadius: 3, padding: "9px 10px",
+                      cursor: "grab", position: "relative", overflow: "hidden",
+                      transition: "all 0.18s",
+                      opacity: dragging?.taskId === task.id ? 0.4 : 1,
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(0,229,255,0.28)"; e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.4)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(0,229,255,0.1)"; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "none"; }}
+                  >
+                    {/* Priority dot */}
+                    <div style={{ position: "absolute", top: 6, right: 24, width: 4, height: 4, borderRadius: "50%", background: task.priorityColor, boxShadow: `0 0 6px ${task.priorityColor}`, opacity: 0.8 }} />
+                    {/* Close button */}
+                    <button onClick={() => removeTask(task.id, colId)}
+                      style={{ position: "absolute", top: 4, right: 4, width: 14, height: 14, borderRadius: 2, background: "rgba(255,45,85,0.0)", border: "none", color: "rgba(255,45,85,0.4)", cursor: "pointer", fontSize: 8, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s", padding: 0 }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,45,85,0.15)"; e.currentTarget.style.color = "#ff2d55"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,45,85,0.4)"; }}
+                    >✕</button>
+                    {/* Task name */}
+                    <div style={{ fontSize: 9, color: dark ? "rgba(255,255,255,0.82)" : "#0a1a2e", fontFamily: "'Share Tech Mono', monospace", marginBottom: 6, paddingRight: 18, letterSpacing: "0.04em", lineHeight: 1.3 }}>{task.name}</div>
+                    {/* Progress bar (for active) */}
+                    {task.progress > 0 && (
+                      <div style={{ height: 2, background: dark ? "rgba(0,229,255,0.08)" : "rgba(0,100,200,0.1)", borderRadius: 1, marginBottom: 6, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${task.progress}%`, background: colId === "complete" ? "#00ff9d" : colId === "failed" ? "#ff2d55" : "#00e5ff", borderRadius: 1, transition: "width 0.6s" }} />
+                      </div>
+                    )}
+                    {/* Meta */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 7, color: `${task.priorityColor}99`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>{task.priority}</span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <span style={{ fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace" }}>{task.agent}</span>
+                        <span style={{ fontSize: 7, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace" }}>{timeAgo(task.ts)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Empty state */}
+                {tasks.length === 0 && (
+                  <div style={{ textAlign: "center", padding: "24px 10px", color: `${col.color}33`, fontSize: 8, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em", border: `1px dashed ${col.color}22`, borderRadius: 3 }}>
+                    {dragging ? "DROP HERE" : "NO TASKS"}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer stats */}
+      <div style={{ display: "flex", gap: 20, marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(0,229,255,0.08)" }}>
+        {KANBAN_COLS.map(col => {
+          const count = cols[col.id]?.length || 0;
+          return (
+            <div key={col.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: col.color, boxShadow: `0 0 8px ${col.color}` }} />
+              <span style={{ fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>{col.label}</span>
+              <span style={{ fontSize: 9, fontFamily: "'Orbitron', monospace", color: col.color }}>{count}</span>
+            </div>
+          );
+        })}
+        <div style={{ marginLeft: "auto", fontSize: 7, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>TOTAL: {totalTasks} TASKS</div>
+      </div>
+    </div>
+  );
+}
+
+// ── REAL-TIME ALERT RULES ENGINE ──────────────────────────────────────────────
+const ALERT_METRICS = [
+  { id: "mrr",         label: "MRR ($)",          unit: "$",   defaultVal: 5000 },
+  { id: "users_total", label: "Total Users",       unit: "",    defaultVal: 100  },
+  { id: "cancels",     label: "Cancellations",     unit: "",    defaultVal: 5    },
+  { id: "churn_rate",  label: "Churn Rate (%)",    unit: "%",   defaultVal: 8    },
+  { id: "tasks_today", label: "Tasks Today",       unit: "",    defaultVal: 50   },
+  { id: "completion",  label: "Completion Rate (%)",unit: "%",  defaultVal: 80   },
+  { id: "signups",     label: "Signups (24h)",     unit: "",    defaultVal: 10   },
+  { id: "api_err",     label: "API Error Rate (%)",unit: "%",   defaultVal: 2    },
+];
+const ALERT_OPS = ["above", "below", "equals", "changes by"];
+const ALERT_CHANNELS = ["EMAIL", "SLACK", "WEBHOOK", "SMS"];
+const ALERT_SEVERITIES = [
+  { id: "critical", label: "CRITICAL", color: "#ff2d55" },
+  { id: "warning",  label: "WARNING",  color: "#ffd060" },
+  { id: "info",     label: "INFO",     color: "#00e5ff" },
+];
+
+function makeDefaultRule(id) {
+  return {
+    id,
+    name: "",
+    metric: ALERT_METRICS[0].id,
+    op: "above",
+    threshold: "",
+    severity: "warning",
+    channel: "EMAIL",
+    enabled: true,
+    cooldown: 15,
+    triggered: false,
+    lastFired: null,
+  };
+}
+
+function AlertRulesEngine({ m }) {
+  const { dark } = useTheme();
+  const [rules, setRules] = useState([
+    { id: 1, name: "MRR Drop Alert", metric: "mrr", op: "below", threshold: "3000", severity: "critical", channel: "EMAIL", enabled: true, cooldown: 30, triggered: false, lastFired: null },
+    { id: 2, name: "High Churn Rate", metric: "churn_rate", op: "above", threshold: "10", severity: "warning", channel: "SLACK", enabled: true, cooldown: 60, triggered: false, lastFired: null },
+    { id: 3, name: "Low Signups", metric: "signups", op: "below", threshold: "5", severity: "info", channel: "EMAIL", enabled: false, cooldown: 15, triggered: false, lastFired: null },
+  ]);
+  const [editingId, setEditingId] = useState(null);
+  const [editRule, setEditRule] = useState(null);
+  const [showNew, setShowNew] = useState(false);
+  const [newRule, setNewRule] = useState(() => makeDefaultRule(Date.now()));
+  const [firing, setFiring] = useState({}); // rule id -> true
+  const [testLog, setTestLog] = useState([]);
+
+  // Compute live preview: evaluate each rule against current metrics
+  const liveMetrics = useMemo(() => ({
+    mrr: m?.revenue?.mrr || 0,
+    users_total: m?.users?.total || 0,
+    cancels: m?.users?.cancelled || 0,
+    churn_rate: m?.users?.total ? Math.round((m?.users?.cancelled || 0) / m.users.total * 100) : 0,
+    tasks_today: m?.tasks?.created_today || 0,
+    completion: m?.tasks?.completion_rate || 0,
+    signups: m?.signup_trend?.slice(-1)[0]?.signups || 0,
+    api_err: 1.4,
+  }), [m]);
+
+  const evalRule = (rule) => {
+    const val = liveMetrics[rule.metric];
+    const thresh = parseFloat(rule.threshold);
+    if (isNaN(thresh)) return null;
+    switch (rule.op) {
+      case "above":   return val > thresh;
+      case "below":   return val < thresh;
+      case "equals":  return val === thresh;
+      case "changes by": return Math.abs(val - thresh) > thresh * 0.05;
+      default: return false;
+    }
+  };
+
+  const testRule = (rule) => {
+    const result = evalRule(rule);
+    const sev = ALERT_SEVERITIES.find(s => s.id === rule.severity);
+    const metricDef = ALERT_METRICS.find(mm => mm.id === rule.metric);
+    const currentVal = liveMetrics[rule.metric];
+    const entry = {
+      id: Date.now(),
+      ruleName: rule.name || "Unnamed Rule",
+      result: result === true ? "TRIGGERED" : result === false ? "CLEAR" : "INVALID",
+      severity: sev?.label || "?",
+      color: sev?.color || "#00e5ff",
+      metric: metricDef?.label || rule.metric,
+      currentVal,
+      threshold: rule.threshold,
+      op: rule.op,
+      ts: new Date().toLocaleTimeString(),
+    };
+    setTestLog(prev => [entry, ...prev.slice(0, 9)]);
+    if (result) {
+      setFiring(f => ({ ...f, [rule.id]: true }));
+      setTimeout(() => setFiring(f => { const n = { ...f }; delete n[rule.id]; return n; }), 2000);
+    }
+  };
+
+  const saveRule = (rule) => {
+    if (editingId) {
+      setRules(prev => prev.map(r => r.id === editingId ? { ...rule, id: editingId } : r));
+      setEditingId(null); setEditRule(null);
+    } else {
+      setRules(prev => [...prev, { ...rule, id: Date.now() }]);
+      setShowNew(false); setNewRule(makeDefaultRule(Date.now()));
+    }
+  };
+
+  const deleteRule = (id) => setRules(prev => prev.filter(r => r.id !== id));
+  const toggleRule = (id) => setRules(prev => prev.map(r => r.id === id ? { ...r, enabled: !r.enabled } : r));
+
+  const panelBg = dark
+    ? "linear-gradient(135deg, rgba(0,4,14,0.97) 0%, rgba(0,10,24,0.94) 100%)"
+    : "linear-gradient(135deg, rgba(230,242,255,0.97) 0%, rgba(215,234,255,0.94) 100%)";
+
+  const inputStyle = {
+    background: dark ? "rgba(0,229,255,0.04)" : "rgba(0,100,200,0.06)",
+    border: `1px solid rgba(0,229,255,0.18)`,
+    borderRadius: 3, padding: "5px 8px",
+    color: dark ? "#dff6ff" : "#0a1a2e",
+    fontSize: 8.5, fontFamily: "'Share Tech Mono', monospace",
+    outline: "none", letterSpacing: "0.04em",
+  };
+
+  const RuleForm = ({ rule, onSave, onCancel }) => {
+    const [r, setR] = useState({ ...rule });
+    const preview = evalRule(r);
+    const metricDef = ALERT_METRICS.find(mm => mm.id === r.metric);
+    const currentVal = liveMetrics[r.metric];
+    const sev = ALERT_SEVERITIES.find(s => s.id === r.severity);
+    return (
+      <div style={{ background: dark ? "rgba(0,229,255,0.03)" : "rgba(0,100,200,0.05)", border: `1px solid rgba(0,229,255,0.18)`, borderRadius: 5, padding: "16px 18px", marginBottom: 14 }}>
+        {/* Rule name */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+          <div>
+            <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>RULE NAME</div>
+            <input value={r.name} onChange={e => setR(p => ({ ...p, name: e.target.value }))} placeholder="Alert name…" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>METRIC</div>
+            <select value={r.metric} onChange={e => setR(p => ({ ...p, metric: e.target.value }))} style={{ ...inputStyle, width: "100%", boxSizing: "border-box", cursor: "pointer" }}>
+              {ALERT_METRICS.map(mm => <option key={mm.id} value={mm.id}>{mm.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>CONDITION</div>
+            <select value={r.op} onChange={e => setR(p => ({ ...p, op: e.target.value }))} style={{ ...inputStyle, width: "100%", boxSizing: "border-box", cursor: "pointer" }}>
+              {ALERT_OPS.map(op => <option key={op} value={op}>{op}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>THRESHOLD {metricDef?.unit || ""}</div>
+            <input value={r.threshold} onChange={e => setR(p => ({ ...p, threshold: e.target.value }))} placeholder="Value…" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>SEVERITY</div>
+            <select value={r.severity} onChange={e => setR(p => ({ ...p, severity: e.target.value }))} style={{ ...inputStyle, width: "100%", boxSizing: "border-box", cursor: "pointer" }}>
+              {ALERT_SEVERITIES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>CHANNEL</div>
+            <select value={r.channel} onChange={e => setR(p => ({ ...p, channel: e.target.value }))} style={{ ...inputStyle, width: "100%", boxSizing: "border-box", cursor: "pointer" }}>
+              {ALERT_CHANNELS.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>COOLDOWN (min)</div>
+            <input value={r.cooldown} onChange={e => setR(p => ({ ...p, cooldown: e.target.value }))} placeholder="15" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
+          </div>
+        </div>
+
+        {/* Live preview */}
+        <div style={{ background: dark ? "rgba(0,0,0,0.3)" : "rgba(0,60,140,0.06)", border: `1px solid ${preview === true ? (sev?.color || "#00e5ff") + "55" : "rgba(0,229,255,0.1)"}`, borderRadius: 4, padding: "10px 14px", marginBottom: 12, transition: "border-color 0.3s" }}>
+          <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 6 }}>LIVE PREVIEW</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace" }}>CURRENT VALUE</div>
+              <div style={{ fontSize: 16, fontFamily: "'Orbitron', monospace", color: "#00e5ff", textShadow: "0 0 12px rgba(0,229,255,0.5)" }}>{metricDef?.unit === "$" ? `$${currentVal?.toLocaleString()}` : `${currentVal}${metricDef?.unit || ""}`}</div>
+            </div>
+            <div style={{ fontSize: 18, color: "rgba(0,229,255,0.2)" }}>→</div>
+            <div style={{ fontSize: 8, color: "rgba(0,229,255,0.45)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>
+              {r.op.toUpperCase()} {metricDef?.unit === "$" ? `$${r.threshold}` : `${r.threshold}${metricDef?.unit || ""}`}
+            </div>
+            <div style={{ marginLeft: "auto" }}>
+              {preview === null ? (
+                <div style={{ fontSize: 9, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>SET THRESHOLD</div>
+              ) : preview ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", background: `${sev?.color || "#ff2d55"}18`, border: `1px solid ${sev?.color || "#ff2d55"}55`, borderRadius: 4 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: sev?.color || "#ff2d55", boxShadow: `0 0 10px ${sev?.color || "#ff2d55"}`, animation: "pulse-glow 0.8s infinite" }} />
+                  <span style={{ fontSize: 9, color: sev?.color || "#ff2d55", fontFamily: "'Orbitron', monospace", letterSpacing: "0.14em", fontWeight: 700 }}>WOULD TRIGGER</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", background: "rgba(0,255,157,0.08)", border: "1px solid rgba(0,255,157,0.3)", borderRadius: 4 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 10px #00ff9d" }} />
+                  <span style={{ fontSize: 9, color: "#00ff9d", fontFamily: "'Orbitron', monospace", letterSpacing: "0.14em", fontWeight: 700 }}>CLEAR</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => saveRule(r)} style={{ padding: "7px 18px", borderRadius: 3, background: "rgba(0,255,157,0.1)", border: "1px solid rgba(0,255,157,0.4)", color: "#00ff9d", fontSize: 8, fontFamily: "'Share Tech Mono', monospace", cursor: "pointer", letterSpacing: "0.14em", transition: "all 0.2s" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,255,157,0.18)"; e.currentTarget.style.boxShadow = "0 0 16px rgba(0,255,157,0.2)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,255,157,0.1)"; e.currentTarget.style.boxShadow = "none"; }}
+          >SAVE RULE</button>
+          <button onClick={onCancel} style={{ padding: "7px 14px", borderRadius: 3, background: "rgba(255,45,85,0.08)", border: "1px solid rgba(255,45,85,0.25)", color: "#ff2d55", fontSize: 8, fontFamily: "'Share Tech Mono', monospace", cursor: "pointer", letterSpacing: "0.12em" }}>CANCEL</button>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ background: panelBg, border: "1px solid rgba(191,95,255,0.22)", borderRadius: 6, padding: "20px 22px", clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))", boxShadow: "0 16px 60px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.05)", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(191,95,255,0.9), rgba(0,229,255,0.3), transparent)", pointerEvents: "none" }} />
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#bf5fff", boxShadow: "0 0 10px #bf5fff", animation: "pulse-glow 1.3s infinite" }} />
+          <span style={{ fontSize: 8, color: "rgba(191,95,255,0.8)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace" }}>REAL-TIME ALERT RULES ENGINE</span>
+          <div style={{ height: 1, width: 30, background: "rgba(191,95,255,0.15)" }} />
+          <span style={{ fontSize: 7, color: "rgba(191,95,255,0.3)", letterSpacing: "0.14em", fontFamily: "'Share Tech Mono', monospace" }}>LIVE THRESHOLD MONITORING · {rules.filter(r => r.enabled).length} ACTIVE</span>
+        </div>
+        <button onClick={() => { setShowNew(true); setEditingId(null); setEditRule(null); }}
+          style={{ padding: "5px 14px", borderRadius: 3, background: "rgba(191,95,255,0.08)", border: "1px solid rgba(191,95,255,0.35)", color: "#bf5fff", fontSize: 8, fontFamily: "'Share Tech Mono', monospace", cursor: "pointer", letterSpacing: "0.12em", transition: "all 0.2s" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(191,95,255,0.16)"; e.currentTarget.style.boxShadow = "0 0 14px rgba(191,95,255,0.2)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(191,95,255,0.08)"; e.currentTarget.style.boxShadow = "none"; }}
+        >+ NEW RULE</button>
+      </div>
+
+      {/* New rule form */}
+      {showNew && !editingId && (
+        <RuleForm rule={newRule} onSave={saveRule} onCancel={() => setShowNew(false)} />
+      )}
+
+      {/* Rules list */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 18 }}>
+        {rules.map(rule => {
+          const sev = ALERT_SEVERITIES.find(s => s.id === rule.severity);
+          const isTriggered = evalRule(rule) === true;
+          const isFiring = firing[rule.id];
+          const metricDef = ALERT_METRICS.find(mm => mm.id === rule.metric);
+          const currentVal = liveMetrics[rule.metric];
+          const isEditing = editingId === rule.id;
+
+          return (
+            <div key={rule.id}>
+              {isEditing ? (
+                <RuleForm rule={rule} onSave={saveRule} onCancel={() => { setEditingId(null); setEditRule(null); }} />
+              ) : (
+                <div style={{
+                  background: dark
+                    ? isFiring ? `rgba(${sev?.color === "#ff2d55" ? "255,45,85" : sev?.color === "#ffd060" ? "255,208,96" : "0,229,255"},0.08)` : "rgba(0,0,0,0.25)"
+                    : isFiring ? `rgba(191,95,255,0.06)` : "rgba(200,222,248,0.3)",
+                  border: `1px solid ${isFiring ? (sev?.color || "#bf5fff") + "66" : isTriggered && rule.enabled ? (sev?.color || "#bf5fff") + "44" : "rgba(0,229,255,0.08)"}`,
+                  borderLeft: `3px solid ${rule.enabled ? (sev?.color || "#bf5fff") : "rgba(0,229,255,0.12)"}`,
+                  borderRadius: 4, padding: "11px 14px",
+                  transition: "all 0.3s",
+                  boxShadow: isFiring ? `0 0 30px ${sev?.color || "#bf5fff"}22, inset 0 0 20px ${sev?.color || "#bf5fff"}08` : "none",
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    {/* Status indicator */}
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%",
+                      background: !rule.enabled ? "rgba(0,229,255,0.15)" : isTriggered ? (sev?.color || "#bf5fff") : "#00ff9d",
+                      boxShadow: rule.enabled && isTriggered ? `0 0 14px ${sev?.color || "#bf5fff"}` : rule.enabled ? "0 0 8px #00ff9d" : "none",
+                      animation: rule.enabled && isTriggered ? "pulse-glow 0.7s infinite" : rule.enabled ? "pulse-glow 2.5s infinite" : "none",
+                      flexShrink: 0,
+                    }} />
+
+                    {/* Rule name & meta */}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 10, color: dark ? "rgba(255,255,255,0.85)" : "#0a1a2e", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.06em", marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                        {rule.name || "Unnamed Rule"}
+                        {isFiring && <span style={{ fontSize: 7, padding: "1px 7px", borderRadius: 10, background: `${sev?.color}22`, border: `1px solid ${sev?.color}55`, color: sev?.color, letterSpacing: "0.14em", fontFamily: "'Orbitron', monospace", animation: "pulse-glow 0.6s infinite" }}>FIRING</span>}
+                      </div>
+                      <div style={{ fontSize: 7.5, color: "rgba(0,229,255,0.4)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.06em" }}>
+                        {metricDef?.label} {rule.op} {metricDef?.unit === "$" ? `$${rule.threshold}` : `${rule.threshold}${metricDef?.unit || ""}`}
+                        <span style={{ color: "rgba(0,229,255,0.2)", marginLeft: 10 }}>→ {rule.channel}</span>
+                        <span style={{ color: "rgba(0,229,255,0.2)", marginLeft: 10 }}>cooldown {rule.cooldown}m</span>
+                      </div>
+                    </div>
+
+                    {/* Current value */}
+                    <div style={{ textAlign: "right", marginRight: 8 }}>
+                      <div style={{ fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace" }}>CURRENT</div>
+                      <div style={{ fontSize: 14, fontFamily: "'Orbitron', monospace", color: isTriggered && rule.enabled ? (sev?.color || "#00e5ff") : "#00e5ff", textShadow: isTriggered && rule.enabled ? `0 0 10px ${sev?.color}` : "0 0 10px rgba(0,229,255,0.4)", transition: "color 0.3s" }}>
+                        {metricDef?.unit === "$" ? `$${(currentVal || 0).toLocaleString()}` : `${currentVal || 0}${metricDef?.unit || ""}`}
+                      </div>
+                    </div>
+
+                    {/* Severity badge */}
+                    <div style={{ padding: "3px 8px", borderRadius: 10, background: `${sev?.color}18`, border: `1px solid ${sev?.color}44`, color: sev?.color, fontSize: 7, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>{sev?.label}</div>
+
+                    {/* Controls */}
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {/* Test button */}
+                      <button onClick={() => testRule(rule)}
+                        style={{ padding: "4px 9px", borderRadius: 3, background: "rgba(0,229,255,0.06)", border: "1px solid rgba(0,229,255,0.2)", color: "rgba(0,229,255,0.7)", fontSize: 7, fontFamily: "'Share Tech Mono', monospace", cursor: "pointer", letterSpacing: "0.1em", transition: "all 0.2s" }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,229,255,0.12)"; e.currentTarget.style.borderColor = "rgba(0,229,255,0.4)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,229,255,0.06)"; e.currentTarget.style.borderColor = "rgba(0,229,255,0.2)"; }}
+                      >TEST</button>
+                      {/* Edit */}
+                      <button onClick={() => { setEditingId(rule.id); setShowNew(false); }}
+                        style={{ padding: "4px 9px", borderRadius: 3, background: "rgba(191,95,255,0.06)", border: "1px solid rgba(191,95,255,0.2)", color: "rgba(191,95,255,0.7)", fontSize: 7, fontFamily: "'Share Tech Mono', monospace", cursor: "pointer", letterSpacing: "0.1em", transition: "all 0.2s" }}
+                        onMouseEnter={e => { e.currentTarget.style.background = "rgba(191,95,255,0.12)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = "rgba(191,95,255,0.06)"; }}
+                      >EDIT</button>
+                      {/* Toggle */}
+                      <button onClick={() => toggleRule(rule.id)}
+                        style={{ padding: "4px 9px", borderRadius: 3, background: rule.enabled ? "rgba(0,255,157,0.06)" : "rgba(0,229,255,0.03)", border: `1px solid ${rule.enabled ? "rgba(0,255,157,0.25)" : "rgba(0,229,255,0.1)"}`, color: rule.enabled ? "#00ff9d" : "rgba(0,229,255,0.3)", fontSize: 7, fontFamily: "'Share Tech Mono', monospace", cursor: "pointer", letterSpacing: "0.1em", transition: "all 0.2s" }}>
+                        {rule.enabled ? "ON" : "OFF"}
+                      </button>
+                      {/* Delete */}
+                      <button onClick={() => deleteRule(rule.id)}
+                        style={{ padding: "4px 7px", borderRadius: 3, background: "rgba(255,45,85,0.05)", border: "1px solid rgba(255,45,85,0.15)", color: "rgba(255,45,85,0.5)", fontSize: 8, fontFamily: "'Share Tech Mono', monospace", cursor: "pointer", transition: "all 0.2s" }}
+                        onMouseEnter={e => { e.currentTarget.style.color = "#ff2d55"; e.currentTarget.style.background = "rgba(255,45,85,0.12)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,45,85,0.5)"; e.currentTarget.style.background = "rgba(255,45,85,0.05)"; }}
+                      >✕</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Test log */}
+      {testLog.length > 0 && (
+        <div style={{ marginTop: 4 }}>
+          <div style={{ fontSize: 7, color: "rgba(191,95,255,0.4)", letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ flex: 1, height: 1, background: "rgba(191,95,255,0.1)" }} />
+            TEST LOG ({testLog.length})
+            <button onClick={() => setTestLog([])} style={{ fontSize: 7, background: "none", border: "none", color: "rgba(255,45,85,0.4)", cursor: "pointer", padding: "0 4px" }}>CLEAR</button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 160, overflowY: "auto" }}>
+            {testLog.map(entry => (
+              <div key={entry.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 10px", background: dark ? "rgba(0,0,0,0.2)" : "rgba(0,60,140,0.05)", border: `1px solid ${entry.color}22`, borderRadius: 3 }}>
+                <div style={{ width: 5, height: 5, borderRadius: "50%", background: entry.result === "TRIGGERED" ? entry.color : "#00ff9d", flexShrink: 0 }} />
+                <span style={{ fontSize: 7.5, color: entry.result === "TRIGGERED" ? entry.color : "#00ff9d", fontFamily: "'Orbitron', monospace", letterSpacing: "0.1em", minWidth: 70 }}>{entry.result}</span>
+                <span style={{ fontSize: 7.5, color: dark ? "rgba(255,255,255,0.6)" : "#0a1a2e", fontFamily: "'Share Tech Mono', monospace", flex: 1 }}>{entry.ruleName}</span>
+                <span style={{ fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace" }}>{entry.metric}: {entry.currentVal} {entry.op} {entry.threshold}</span>
+                <span style={{ fontSize: 7, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace" }}>{entry.ts}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── COMMAND TELEMETRY STREAM ──────────────────────────────────────────────────
+const TELEM_METHODS  = ["GET", "POST", "PATCH", "DELETE", "PUT"];
+const TELEM_ENDPOINTS = [
+  "/admin/metrics", "/admin/users", "/admin/workspaces", "/admin/tasks",
+  "/admin/feedback", "/admin/revenue", "/auth/refresh", "/admin/users/:id",
+  "/admin/workspaces/:id", "/admin/export", "/admin/bulk-action", "/health",
+  "/admin/alerts", "/admin/audit-log", "/api/v2/events", "/admin/sessions",
+];
+const TELEM_STATUSES = [
+  { code: 200, label: "OK",       color: "#00ff9d", weight: 55 },
+  { code: 201, label: "CREATED",  color: "#00e5ff", weight: 15 },
+  { code: 204, label: "NO BODY",  color: "#00d4ff", weight: 10 },
+  { code: 400, label: "BAD REQ",  color: "#ffd060", weight: 8  },
+  { code: 401, label: "UNAUTH",   color: "#ff8c42", weight: 4  },
+  { code: 404, label: "NOT FOUND",color: "#bf5fff", weight: 4  },
+  { code: 500, label: "ERR",      color: "#ff2d55", weight: 4  },
+];
+
+function pickWeighted(arr) {
+  const total = arr.reduce((s, x) => s + (x.weight || 1), 0);
+  let r = Math.random() * total;
+  for (const x of arr) { r -= (x.weight || 1); if (r <= 0) return x; }
+  return arr[arr.length - 1];
+}
+
+let _telemId = 1;
+function makeTelemetryEntry() {
+  const method  = TELEM_METHODS[Math.floor(Math.random() * TELEM_METHODS.length)];
+  const endpoint = TELEM_ENDPOINTS[Math.floor(Math.random() * TELEM_ENDPOINTS.length)].replace(/:id/, Math.floor(Math.random() * 9000) + 1000);
+  const status  = pickWeighted(TELEM_STATUSES);
+  const latency = status.code >= 500 ? Math.floor(Math.random() * 1200) + 600
+                : status.code >= 400 ? Math.floor(Math.random() * 300) + 80
+                : Math.floor(Math.random() * 180) + 12;
+  const size    = Math.floor(Math.random() * 18000) + 200;
+  const agents  = ["nova_x","cipher_7","arc_sys","ghost_91","prism_2","admin"];
+  const agent   = agents[Math.floor(Math.random() * agents.length)];
+  const regions = ["US-EAST","US-WEST","EU-WEST","AP-SE","SA-EAST"];
+  const region  = regions[Math.floor(Math.random() * regions.length)];
+  return { id: _telemId++, method, endpoint, status, latency, size, agent, region, ts: Date.now() };
+}
+
+const METHOD_COLORS = { GET: "#00e5ff", POST: "#00ff9d", PATCH: "#ffd060", DELETE: "#ff2d55", PUT: "#bf5fff" };
+
+function CommandTelemetryStream() {
+  const { dark } = useTheme();
+  const [log, setLog] = useState(() => Array.from({ length: 18 }, (_, i) => ({ ...makeTelemetryEntry(), ts: Date.now() - i * 1400 })).reverse());
+  const [paused, setPaused] = useState(false);
+  const [filter, setFilter] = useState("ALL"); // method or status-class filter
+  const [search, setSearch] = useState("");
+  const [maxRows] = useState(60);
+  const listRef = useRef(null);
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      if (pausedRef.current) return;
+      const count = Math.random() < 0.35 ? 2 : 1;
+      setLog(prev => {
+        const next = [...prev];
+        for (let i = 0; i < count; i++) next.push(makeTelemetryEntry());
+        return next.slice(-maxRows);
+      });
+    }, 620 + Math.random() * 800);
+    return () => clearInterval(t);
+  }, []);
+
+  // Auto-scroll to bottom unless paused
+  useEffect(() => {
+    if (!paused && listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [log, paused]);
+
+  const filtered = useMemo(() => {
+    let rows = log;
+    if (filter !== "ALL") {
+      if (TELEM_METHODS.includes(filter)) rows = rows.filter(r => r.method === filter);
+      else if (filter === "2xx") rows = rows.filter(r => r.status.code < 300);
+      else if (filter === "4xx") rows = rows.filter(r => r.status.code >= 400 && r.status.code < 500);
+      else if (filter === "5xx") rows = rows.filter(r => r.status.code >= 500);
+      else if (filter === "SLOW") rows = rows.filter(r => r.latency > 400);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter(r => r.endpoint.toLowerCase().includes(q) || r.agent.toLowerCase().includes(q) || r.region.toLowerCase().includes(q));
+    }
+    return rows;
+  }, [log, filter, search]);
+
+  // Rolling stats
+  const stats = useMemo(() => {
+    const last60 = log.slice(-60);
+    const errCount = last60.filter(r => r.status.code >= 400).length;
+    const avgLat = last60.reduce((s, r) => s + r.latency, 0) / (last60.length || 1);
+    const p99 = [...last60].sort((a, b) => a.latency - b.latency)[Math.floor(last60.length * 0.99)]?.latency || 0;
+    const rps = (last60.length / 60).toFixed(2);
+    return { errCount, errRate: ((errCount / (last60.length || 1)) * 100).toFixed(1), avgLat: Math.round(avgLat), p99, rps };
+  }, [log]);
+
+  const panelBg = dark
+    ? "linear-gradient(135deg, rgba(0,4,14,0.97) 0%, rgba(0,10,24,0.94) 100%)"
+    : "linear-gradient(135deg, rgba(230,242,255,0.97) 0%, rgba(215,234,255,0.94) 100%)";
+
+  const timeStr = ts => {
+    const d = new Date(ts);
+    return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}.${String(d.getMilliseconds()).padStart(3,"0")}`;
+  };
+
+  const fmtSize = b => b > 1000 ? `${(b/1000).toFixed(1)}KB` : `${b}B`;
+
+  return (
+    <div style={{ background: panelBg, border: "1px solid rgba(0,229,255,0.18)", borderRadius: 6, padding: "18px 20px", clipPath: "polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))", boxShadow: "0 16px 60px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.05)", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,rgba(0,229,255,0.9),rgba(0,255,157,0.4),transparent)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "100%", pointerEvents: "none", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,rgba(0,229,255,0.08),transparent)", animation: "dataStream 5s linear infinite" }} />
+      </div>
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: paused ? "#ffd060" : "#00ff9d", boxShadow: `0 0 10px ${paused ? "#ffd060" : "#00ff9d"}`, animation: paused ? "none" : "pulse-glow 1s infinite" }} />
+          <span style={{ fontSize: 8, color: "rgba(0,229,255,0.75)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace" }}>COMMAND TELEMETRY STREAM</span>
+          <div style={{ height: 1, width: 28, background: "rgba(0,229,255,0.12)" }} />
+          <span style={{ fontSize: 7, color: paused ? "rgba(255,208,96,0.6)" : "rgba(0,255,157,0.5)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em" }}>{paused ? "⏸ PAUSED" : "● LIVE"}</span>
+        </div>
+        {/* Stat callouts */}
+        <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
+          {[
+            { l: "RPS",       v: stats.rps,     c: "#00e5ff" },
+            { l: "AVG LAT",   v: `${stats.avgLat}ms`, c: stats.avgLat > 300 ? "#ffd060" : "#00ff9d" },
+            { l: "P99 LAT",   v: `${stats.p99}ms`,   c: stats.p99 > 600 ? "#ff2d55" : "#00e5ff" },
+            { l: "ERR RATE",  v: `${stats.errRate}%`, c: parseFloat(stats.errRate) > 5 ? "#ff2d55" : "#00ff9d" },
+          ].map(({ l, v, c }) => (
+            <div key={l} style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 6, color: "rgba(0,229,255,0.3)", letterSpacing: "0.16em", fontFamily: "'Share Tech Mono', monospace" }}>{l}</div>
+              <div style={{ fontSize: 12, fontFamily: "'Orbitron', monospace", color: c, textShadow: `0 0 10px ${c}88`, transition: "color 0.3s" }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Filter strip */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+        {["ALL", ...TELEM_METHODS, "2xx", "4xx", "5xx", "SLOW"].map(f => {
+          const isAct = filter === f;
+          const c = METHOD_COLORS[f] || (f === "2xx" ? "#00ff9d" : f === "4xx" ? "#ffd060" : f === "5xx" ? "#ff2d55" : f === "SLOW" ? "#bf5fff" : "rgba(0,229,255,0.5)");
+          return (
+            <button key={f} onClick={() => setFilter(f)}
+              style={{ fontSize: 7, padding: "3px 8px", borderRadius: 3, cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", border: `1px solid ${isAct ? c : "rgba(0,229,255,0.1)"}`, background: isAct ? `${c}18` : "transparent", color: isAct ? c : "rgba(0,229,255,0.3)", transition: "all 0.18s" }}>
+              {f}
+            </button>
+          );
+        })}
+        <div style={{ flex: 1 }} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="search endpoint / agent / region…"
+          style={{ background: dark ? "rgba(0,229,255,0.03)" : "rgba(0,100,200,0.05)", border: "1px solid rgba(0,229,255,0.14)", borderRadius: 3, padding: "4px 10px", color: dark ? "#dff6ff" : "#0a1a2e", fontSize: 8, fontFamily: "'Share Tech Mono', monospace", outline: "none", width: 200, letterSpacing: "0.04em" }} />
+        <button onClick={() => setPaused(p => !p)}
+          style={{ padding: "4px 12px", borderRadius: 3, fontSize: 7, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em", cursor: "pointer", border: `1px solid ${paused ? "rgba(255,208,96,0.4)" : "rgba(0,229,255,0.2)"}`, background: paused ? "rgba(255,208,96,0.1)" : "rgba(0,229,255,0.04)", color: paused ? "#ffd060" : "rgba(0,229,255,0.6)", transition: "all 0.2s" }}>
+          {paused ? "▶ RESUME" : "⏸ PAUSE"}
+        </button>
+      </div>
+
+      {/* Column headers */}
+      <div style={{ display: "grid", gridTemplateColumns: "88px 60px 1fr 52px 68px 64px 72px 74px", gap: 0, padding: "4px 10px", marginBottom: 2, borderBottom: "1px solid rgba(0,229,255,0.08)" }}>
+        {["TIMESTAMP","METHOD","ENDPOINT","STATUS","LATENCY","SIZE","AGENT","REGION"].map(h => (
+          <div key={h} style={{ fontSize: 6.5, color: "rgba(0,229,255,0.25)", letterSpacing: "0.16em", fontFamily: "'Share Tech Mono', monospace" }}>{h}</div>
+        ))}
+      </div>
+
+      {/* Log rows */}
+      <div ref={listRef} style={{ height: 280, overflowY: "auto", display: "flex", flexDirection: "column", gap: 1 }}>
+        {filtered.slice().reverse().map((entry, i) => {
+          const isNew = i === 0 && !paused;
+          const isErr = entry.status.code >= 400;
+          const isSlow = entry.latency > 400;
+          return (
+            <div key={entry.id} style={{
+              display: "grid", gridTemplateColumns: "88px 60px 1fr 52px 68px 64px 72px 74px",
+              gap: 0, padding: "4px 10px", borderRadius: 2,
+              background: isNew ? `rgba(0,229,255,0.05)` : isErr ? `rgba(${entry.status.code >= 500 ? "255,45,85" : "255,208,96"},0.03)` : "transparent",
+              borderLeft: isErr ? `2px solid ${entry.status.color}55` : isNew ? "2px solid rgba(0,229,255,0.4)" : "2px solid transparent",
+              transition: "background 0.4s",
+              animation: isNew ? "activitySlide 0.3s ease-out" : "none",
+            }}
+              onMouseEnter={e => { e.currentTarget.style.background = "rgba(0,229,255,0.04)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = isErr ? `rgba(${entry.status.code >= 500 ? "255,45,85" : "255,208,96"},0.03)` : "transparent"; }}
+            >
+              <div style={{ fontSize: 7.5, color: "rgba(0,229,255,0.25)", fontFamily: "'Share Tech Mono', monospace" }}>{timeStr(entry.ts)}</div>
+              <div>
+                <span style={{ fontSize: 7.5, padding: "1px 6px", borderRadius: 2, background: `${METHOD_COLORS[entry.method]}18`, border: `1px solid ${METHOD_COLORS[entry.method]}44`, color: METHOD_COLORS[entry.method], fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.06em" }}>{entry.method}</span>
+              </div>
+              <div style={{ fontSize: 7.5, color: dark ? "rgba(255,255,255,0.7)" : "#0a1a2e", fontFamily: "'Share Tech Mono', monospace", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", paddingRight: 8 }}>{entry.endpoint}</div>
+              <div>
+                <span style={{ fontSize: 7.5, padding: "1px 5px", borderRadius: 2, background: `${entry.status.color}15`, border: `1px solid ${entry.status.color}40`, color: entry.status.color, fontFamily: "'Share Tech Mono', monospace" }}>{entry.status.code}</span>
+              </div>
+              <div style={{ fontSize: 7.5, color: isSlow ? "#ff2d55" : entry.latency > 200 ? "#ffd060" : "#00ff9d", fontFamily: "'Orbitron', monospace", textShadow: isSlow ? "0 0 8px rgba(255,45,85,0.5)" : "none" }}>{entry.latency}ms</div>
+              <div style={{ fontSize: 7.5, color: "rgba(0,229,255,0.35)", fontFamily: "'Share Tech Mono', monospace" }}>{fmtSize(entry.size)}</div>
+              <div style={{ fontSize: 7.5, color: "rgba(0,229,255,0.45)", fontFamily: "'Share Tech Mono', monospace" }}>{entry.agent}</div>
+              <div style={{ fontSize: 7.5, color: "rgba(191,95,255,0.6)", fontFamily: "'Share Tech Mono', monospace" }}>{entry.region}</div>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div style={{ textAlign: "center", padding: "40px 0", color: "rgba(0,229,255,0.2)", fontSize: 8, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.18em" }}>NO MATCHING ENTRIES</div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(0,229,255,0.07)" }}>
+        <div style={{ fontSize: 7, color: "rgba(0,229,255,0.2)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>{log.length} ENTRIES BUFFERED · SHOWING {filtered.length}</div>
+        <div style={{ flex: 1 }} />
+        {Object.entries(METHOD_COLORS).map(([m, c]) => {
+          const cnt = log.filter(r => r.method === m).length;
+          return <div key={m} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div style={{ width: 5, height: 5, borderRadius: 1, background: c, opacity: 0.7 }} />
+            <span style={{ fontSize: 7, color: `${c}88`, fontFamily: "'Share Tech Mono', monospace" }}>{m} {cnt}</span>
+          </div>;
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── COHORT RETENTION MATRIX ────────────────────────────────────────────────────
+function CohortRetentionMatrix({ m }) {
+  const { dark } = useTheme();
+  const [hovCell, setHovCell] = useState(null); // { row, col }
+
+  const baseUsers = m?.users?.total || 100;
+  const monthNames = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
+  const now = new Date();
+
+  // Generate 8 weekly cohorts × 8 periods
+  const COHORTS = 8;
+  const PERIODS = 8;
+
+  const matrix = useMemo(() => {
+    return Array.from({ length: COHORTS }, (_, row) => {
+      const cohortMonth = monthNames[(now.getMonth() - COHORTS + 1 + row + 12) % 12];
+      const cohortSize = Math.round((baseUsers / COHORTS) * (0.85 + Math.random() * 0.3));
+      return {
+        label: cohortMonth,
+        size: cohortSize,
+        retention: Array.from({ length: PERIODS }, (_, col) => {
+          if (col === 0) return 100;
+          if (col > COHORTS - row - 1) return null; // future data
+          // Realistic retention decay: high early drop, then plateaus
+          const base = col === 1 ? 68 + Math.random() * 12
+                     : col === 2 ? 52 + Math.random() * 10
+                     : col === 3 ? 42 + Math.random() * 10
+                     : col === 4 ? 36 + Math.random() * 8
+                     : col === 5 ? 30 + Math.random() * 8
+                     : col === 6 ? 26 + Math.random() * 7
+                     : 22 + Math.random() * 7;
+          return Math.round(base);
+        }),
+      };
+    });
+  }, [baseUsers]);
+
+  // Color scale: green → yellow → red based on retention %
+  const retentionColor = (pct) => {
+    if (pct === null) return { bg: "transparent", text: "transparent", glow: "none" };
+    if (pct >= 80) return { bg: "rgba(0,255,157,0.22)", text: "#00ff9d", glow: "0 0 10px rgba(0,255,157,0.4)" };
+    if (pct >= 65) return { bg: "rgba(0,229,255,0.18)", text: "#00e5ff", glow: "0 0 8px rgba(0,229,255,0.3)" };
+    if (pct >= 50) return { bg: "rgba(0,212,255,0.14)", text: "#00d4ff", glow: "none" };
+    if (pct >= 35) return { bg: "rgba(255,208,96,0.14)", text: "#ffd060", glow: "none" };
+    if (pct >= 22) return { bg: "rgba(255,140,66,0.14)", text: "#ff8c42", glow: "none" };
+    return { bg: "rgba(255,45,85,0.14)", text: "#ff2d55", glow: "none" };
+  };
+
+  const panelBg = dark
+    ? "linear-gradient(135deg,rgba(0,4,14,0.97) 0%,rgba(0,10,24,0.94) 100%)"
+    : "linear-gradient(135deg,rgba(230,242,255,0.97) 0%,rgba(215,234,255,0.94) 100%)";
+
+  // Compute weighted avg retention per period (for column summary)
+  const colAvgs = Array.from({ length: PERIODS }, (_, col) => {
+    if (col === 0) return 100;
+    const vals = matrix.map(r => r.retention[col]).filter(v => v !== null);
+    if (!vals.length) return null;
+    return Math.round(vals.reduce((s, v) => s + v, 0) / vals.length);
+  });
+
+  return (
+    <div style={{ background: panelBg, border: "1px solid rgba(0,255,157,0.18)", borderRadius: 6, padding: "20px 22px", clipPath: "polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))", boxShadow: "0 16px 60px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.05)", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,rgba(0,255,157,0.9),rgba(0,229,255,0.4),transparent)", pointerEvents: "none" }} />
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 10px #00ff9d", animation: "pulse-glow 1.4s infinite" }} />
+          <span style={{ fontSize: 8, color: "rgba(0,255,157,0.8)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace" }}>COHORT RETENTION MATRIX</span>
+          <div style={{ height: 1, width: 28, background: "rgba(0,255,157,0.15)" }} />
+          <span style={{ fontSize: 7, color: "rgba(0,255,157,0.3)", letterSpacing: "0.14em", fontFamily: "'Share Tech Mono', monospace" }}>WEEK-OVER-WEEK USER RETENTION · {COHORTS} COHORTS × {PERIODS} PERIODS</span>
+        </div>
+        {/* Summary stats */}
+        <div style={{ display: "flex", gap: 16 }}>
+          {[
+            { l: "AVG W1 RET", v: `${colAvgs[1] ?? "—"}%`, c: "#00ff9d" },
+            { l: "AVG W4 RET", v: `${colAvgs[4] ?? "—"}%`, c: "#ffd060" },
+            { l: "AVG W7 RET", v: `${colAvgs[7] ?? "—"}%`, c: "#ff8c42" },
+          ].map(({ l, v, c }) => (
+            <div key={l} style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 6, color: "rgba(0,229,255,0.3)", letterSpacing: "0.16em", fontFamily: "'Share Tech Mono', monospace" }}>{l}</div>
+              <div style={{ fontSize: 13, fontFamily: "'Orbitron', monospace", color: c, textShadow: `0 0 10px ${c}88` }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Matrix grid */}
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ borderCollapse: "collapse", width: "100%", tableLayout: "fixed" }}>
+          <thead>
+            <tr>
+              <th style={{ width: 72, textAlign: "left", padding: "4px 8px", fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", fontWeight: 400 }}>COHORT</th>
+              <th style={{ width: 56, textAlign: "right", padding: "4px 6px", fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em", fontWeight: 400 }}>SIZE</th>
+              {Array.from({ length: PERIODS }, (_, i) => (
+                <th key={i} style={{ textAlign: "center", padding: "4px 4px", fontSize: 7, color: i === 0 ? "rgba(0,229,255,0.5)" : "rgba(0,229,255,0.25)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", fontWeight: 400 }}>
+                  {i === 0 ? "W0" : `W+${i}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {matrix.map((cohort, row) => (
+              <tr key={row}>
+                <td style={{ padding: "3px 8px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 3, height: 3, borderRadius: "50%", background: "#00ff9d", opacity: 0.6 }} />
+                    <span style={{ fontSize: 8, color: dark ? "rgba(255,255,255,0.65)" : "#0a1a2e", fontFamily: "'Share Tech Mono', monospace" }}>{cohort.label}</span>
+                  </div>
+                </td>
+                <td style={{ padding: "3px 6px", textAlign: "right" }}>
+                  <span style={{ fontSize: 8, fontFamily: "'Orbitron', monospace", color: "rgba(0,229,255,0.45)" }}>{cohort.size}</span>
+                </td>
+                {cohort.retention.map((pct, col) => {
+                  const { bg, text, glow } = retentionColor(pct);
+                  const isHov = hovCell && hovCell.row === row && hovCell.col === col;
+                  const isRowHov = hovCell && hovCell.row === row;
+                  const isColHov = hovCell && hovCell.col === col;
+                  return (
+                    <td key={col}
+                      onMouseEnter={() => setHovCell({ row, col })}
+                      onMouseLeave={() => setHovCell(null)}
+                      style={{ padding: "2px 3px", textAlign: "center" }}
+                    >
+                      {pct !== null ? (
+                        <div style={{
+                          padding: "5px 4px",
+                          borderRadius: 3,
+                          background: isHov ? `${text}30` : isRowHov || isColHov ? `${text}18` : bg,
+                          border: `1px solid ${isHov ? text + "88" : (isRowHov || isColHov) ? text + "44" : text + "28"}`,
+                          color: text,
+                          fontSize: 8.5,
+                          fontFamily: "'Orbitron', monospace",
+                          fontWeight: isHov ? 700 : 400,
+                          textShadow: isHov ? glow : "none",
+                          boxShadow: isHov ? glow : "none",
+                          transition: "all 0.15s",
+                          cursor: "default",
+                          userSelect: "none",
+                        }}>
+                          {pct}%
+                        </div>
+                      ) : (
+                        <div style={{ padding: "5px 4px", borderRadius: 3, background: dark ? "rgba(0,0,0,0.15)" : "rgba(0,60,120,0.05)", border: "1px solid rgba(0,229,255,0.04)" }}>
+                          <span style={{ fontSize: 8, color: "rgba(0,229,255,0.1)", fontFamily: "'Share Tech Mono', monospace" }}>—</span>
+                        </div>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            {/* Column average row */}
+            <tr style={{ borderTop: "1px solid rgba(0,229,255,0.1)" }}>
+              <td style={{ padding: "5px 8px" }}>
+                <span style={{ fontSize: 7, color: "rgba(0,229,255,0.35)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>AVG</span>
+              </td>
+              <td />
+              {colAvgs.map((avg, col) => {
+                const { bg, text } = retentionColor(avg);
+                return (
+                  <td key={col} style={{ padding: "2px 3px", textAlign: "center" }}>
+                    {avg !== null ? (
+                      <div style={{ padding: "4px 4px", borderRadius: 3, background: bg, border: `1px solid ${text}44`, color: text, fontSize: 8, fontFamily: "'Orbitron', monospace", fontWeight: 700 }}>{avg}%</div>
+                    ) : <div style={{ height: 22 }} />}
+                  </td>
+                );
+              })}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Legend */}
+      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 14, paddingTop: 10, borderTop: "1px solid rgba(0,229,255,0.07)" }}>
+        <span style={{ fontSize: 7, color: "rgba(0,229,255,0.25)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>RETENTION SCALE</span>
+        {[
+          { range: "80–100%", c: "#00ff9d" },
+          { range: "65–79%",  c: "#00e5ff" },
+          { range: "50–64%",  c: "#00d4ff" },
+          { range: "35–49%",  c: "#ffd060" },
+          { range: "22–34%",  c: "#ff8c42" },
+          { range: "< 22%",   c: "#ff2d55" },
+        ].map(({ range, c }) => (
+          <div key={range} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 2, background: `${c}22`, border: `1px solid ${c}55` }} />
+            <span style={{ fontSize: 7, color: `${c}88`, fontFamily: "'Share Tech Mono', monospace" }}>{range}</span>
+          </div>
+        ))}
+        {hovCell && matrix[hovCell.row] && matrix[hovCell.row].retention[hovCell.col] !== null && (
+          <div style={{ marginLeft: "auto", fontSize: 7.5, color: "rgba(0,229,255,0.6)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>
+            {matrix[hovCell.row].label} cohort · W+{hovCell.col} · {matrix[hovCell.row].retention[hovCell.col]}% retained
+            ({Math.round((matrix[hovCell.row].size * matrix[hovCell.row].retention[hovCell.col]) / 100)} users)
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── SYSTEM HEALTH RADAR CHART ─────────────────────────────────────────────────
+const RADAR_AXES = [
+  { id: "cpu",      label: "CPU",      unit: "%",  color: "#00e5ff", good: "low"  },
+  { id: "memory",   label: "MEMORY",   unit: "%",  color: "#bf5fff", good: "low"  },
+  { id: "latency",  label: "LATENCY",  unit: "ms", color: "#ffd060", good: "low"  },
+  { id: "errRate",  label: "ERR RATE", unit: "%",  color: "#ff2d55", good: "low"  },
+  { id: "uptime",   label: "UPTIME",   unit: "%",  color: "#00ff9d", good: "high" },
+  { id: "throughput",label:"THROUGHPUT",unit:"rps", color: "#ff8c42", good: "high" },
+];
+
+function SystemHealthRadar({ m }) {
+  const { dark } = useTheme();
+  const canvasRef = useRef(null);
+  const [hovAxis, setHovAxis] = useState(null);
+  const [tick, setTick] = useState(0);
+
+  // Simulated live metrics — drift slowly over time
+  const metricsRef = useRef({
+    cpu: 23, memory: 61, latency: 48, errRate: 1.4, uptime: 99.7, throughput: 38,
+  });
+  const [metrics, setMetrics] = useState({ ...metricsRef.current });
+
+  useEffect(() => {
+    const t = setInterval(() => {
+      const m2 = metricsRef.current;
+      metricsRef.current = {
+        cpu:        Math.max(5,  Math.min(95,  m2.cpu        + (Math.random() - 0.5) * 4)),
+        memory:     Math.max(20, Math.min(95,  m2.memory     + (Math.random() - 0.5) * 2)),
+        latency:    Math.max(8,  Math.min(900, m2.latency    + (Math.random() - 0.5) * 15)),
+        errRate:    Math.max(0,  Math.min(20,  m2.errRate    + (Math.random() - 0.5) * 0.4)),
+        uptime:     Math.max(90, Math.min(100, m2.uptime     + (Math.random() - 0.48) * 0.05)),
+        throughput: Math.max(5,  Math.min(120, m2.throughput + (Math.random() - 0.5) * 5)),
+      };
+      setMetrics({ ...metricsRef.current });
+      setTick(t => t + 1);
+    }, 1800);
+    return () => clearInterval(t);
+  }, []);
+
+  // Normalize each axis 0→1 (1 = best health)
+  const normalized = useMemo(() => {
+    const ranges = {
+      cpu:        { min: 0, max: 100, good: "low"  },
+      memory:     { min: 0, max: 100, good: "low"  },
+      latency:    { min: 0, max: 900, good: "low"  },
+      errRate:    { min: 0, max: 20,  good: "low"  },
+      uptime:     { min: 90, max: 100, good: "high" },
+      throughput: { min: 0, max: 120, good: "high" },
+    };
+    const result = {};
+    for (const [id, { min, max, good }] of Object.entries(ranges)) {
+      const raw = metrics[id];
+      const norm = (raw - min) / (max - min);
+      result[id] = good === "high" ? norm : 1 - norm;
+    }
+    return result;
+  }, [metrics]);
+
+  // Overall health score
+  const healthScore = Math.round(Object.values(normalized).reduce((s, v) => s + v, 0) / RADAR_AXES.length * 100);
+
+  const panelBg = dark
+    ? "linear-gradient(135deg,rgba(0,4,14,0.97) 0%,rgba(0,10,24,0.94) 100%)"
+    : "linear-gradient(135deg,rgba(230,242,255,0.97) 0%,rgba(215,234,255,0.94) 100%)";
+
+  // Canvas drawing
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width, H = canvas.height;
+    const cx = W / 2, cy = H / 2;
+    const R = Math.min(W, H) / 2 - 44;
+    const N = RADAR_AXES.length;
+    const angleStep = (Math.PI * 2) / N;
+    const offset = -Math.PI / 2; // start at top
+
+    ctx.clearRect(0, 0, W, H);
+
+    const getPoint = (axisIdx, fraction) => {
+      const angle = offset + axisIdx * angleStep;
+      return {
+        x: cx + Math.cos(angle) * R * fraction,
+        y: cy + Math.sin(angle) * R * fraction,
+      };
+    };
+
+    // Draw concentric rings
+    const rings = [0.2, 0.4, 0.6, 0.8, 1.0];
+    rings.forEach(r => {
+      ctx.beginPath();
+      for (let i = 0; i < N; i++) {
+        const p = getPoint(i, r);
+        i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = dark ? `rgba(0,229,255,${r === 1 ? 0.12 : 0.06})` : `rgba(0,100,200,${r === 1 ? 0.15 : 0.07})`;
+      ctx.lineWidth = r === 1 ? 1 : 0.5;
+      ctx.stroke();
+
+      // Ring label at top
+      if (r < 1) {
+        ctx.fillStyle = dark ? "rgba(0,229,255,0.2)" : "rgba(0,80,180,0.35)";
+        ctx.font = "8px 'Share Tech Mono', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(`${Math.round(r * 100)}%`, cx, cy - R * r - 3);
+      }
+    });
+
+    // Draw spokes
+    for (let i = 0; i < N; i++) {
+      const p = getPoint(i, 1);
+      const isHov = hovAxis === RADAR_AXES[i].id;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(p.x, p.y);
+      ctx.strokeStyle = isHov ? RADAR_AXES[i].color + "88" : (dark ? "rgba(0,229,255,0.1)" : "rgba(0,80,180,0.12)");
+      ctx.lineWidth = isHov ? 1.5 : 0.8;
+      ctx.stroke();
+    }
+
+    // Draw data polygon with gradient fill
+    const dataPoints = RADAR_AXES.map((ax, i) => getPoint(i, normalized[ax.id] || 0));
+    ctx.beginPath();
+    dataPoints.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+    ctx.closePath();
+
+    // Gradient fill
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    grad.addColorStop(0, "rgba(0,229,255,0.25)");
+    grad.addColorStop(0.5, "rgba(0,255,157,0.14)");
+    grad.addColorStop(1, "rgba(0,229,255,0.06)");
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Polygon stroke
+    ctx.strokeStyle = "rgba(0,229,255,0.7)";
+    ctx.lineWidth = 1.5;
+    ctx.shadowBlur = 12;
+    ctx.shadowColor = "rgba(0,229,255,0.4)";
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Data point dots
+    dataPoints.forEach((p, i) => {
+      const ax = RADAR_AXES[i];
+      const isHov = hovAxis === ax.id;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, isHov ? 5 : 3, 0, Math.PI * 2);
+      ctx.fillStyle = ax.color;
+      ctx.shadowBlur = isHov ? 16 : 8;
+      ctx.shadowColor = ax.color;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+
+    // Axis labels
+    RADAR_AXES.forEach((ax, i) => {
+      const outerP = getPoint(i, 1.22);
+      const isHov = hovAxis === ax.id;
+      ctx.font = `${isHov ? "bold " : ""}9px 'Share Tech Mono', monospace`;
+      ctx.textAlign = outerP.x < cx - 5 ? "right" : outerP.x > cx + 5 ? "left" : "center";
+      ctx.fillStyle = isHov ? ax.color : (dark ? "rgba(0,229,255,0.55)" : "rgba(0,60,160,0.65)");
+      ctx.fillText(ax.label, outerP.x, outerP.y);
+
+      // Value label
+      const valP = getPoint(i, 1.42);
+      ctx.font = "8px 'Orbitron', monospace";
+      ctx.fillStyle = isHov ? ax.color : `${ax.color}88`;
+      const raw = metrics[ax.id];
+      const display = ax.unit === "%" ? `${raw.toFixed(ax.id === "uptime" ? 1 : 1)}%`
+                    : ax.unit === "ms" ? `${Math.round(raw)}ms`
+                    : `${Math.round(raw)}rps`;
+      ctx.fillText(display, valP.x, valP.y + 11);
+    });
+
+    // Center health score
+    ctx.font = "bold 22px 'Orbitron', monospace";
+    ctx.textAlign = "center";
+    ctx.fillStyle = healthScore >= 80 ? "#00ff9d" : healthScore >= 60 ? "#ffd060" : "#ff2d55";
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = healthScore >= 80 ? "#00ff9d" : healthScore >= 60 ? "#ffd060" : "#ff2d55";
+    ctx.fillText(`${healthScore}`, cx, cy + 6);
+    ctx.shadowBlur = 0;
+    ctx.font = "7px 'Share Tech Mono', monospace";
+    ctx.fillStyle = dark ? "rgba(255,255,255,0.3)" : "rgba(0,20,60,0.4)";
+    ctx.fillText("HEALTH", cx, cy + 18);
+
+  }, [metrics, normalized, hovAxis, dark, healthScore, tick]);
+
+  const fmtRaw = (id) => {
+    const raw = metrics[id];
+    const ax = RADAR_AXES.find(a => a.id === id);
+    if (ax.unit === "%") return `${raw.toFixed(ax.id === "uptime" ? 2 : 1)}%`;
+    if (ax.unit === "ms") return `${Math.round(raw)}ms`;
+    return `${Math.round(raw)}rps`;
+  };
+
+  const healthColor = healthScore >= 80 ? "#00ff9d" : healthScore >= 60 ? "#ffd060" : "#ff2d55";
+
+  return (
+    <div style={{ background: panelBg, border: "1px solid rgba(0,229,255,0.18)", borderRadius: 6, padding: "20px 22px", clipPath: "polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))", boxShadow: "0 16px 60px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.05)", position: "relative", overflow: "hidden" }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,rgba(0,229,255,0.9),rgba(0,255,157,0.3),transparent)", pointerEvents: "none" }} />
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: healthColor, boxShadow: `0 0 10px ${healthColor}`, animation: "pulse-glow 1.6s infinite", transition: "background 0.5s" }} />
+          <span style={{ fontSize: 8, color: "rgba(0,229,255,0.75)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace" }}>SYSTEM HEALTH RADAR</span>
+          <div style={{ height: 1, width: 28, background: "rgba(0,229,255,0.12)" }} />
+          <span style={{ fontSize: 7, color: "rgba(0,229,255,0.28)", letterSpacing: "0.14em", fontFamily: "'Share Tech Mono', monospace" }}>LIVE · UPDATES EVERY 1.8s</span>
+        </div>
+        {/* Overall score badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 6, color: "rgba(0,229,255,0.3)", letterSpacing: "0.16em", fontFamily: "'Share Tech Mono', monospace" }}>SYSTEM HEALTH</div>
+            <div style={{ fontSize: 22, fontFamily: "'Orbitron', monospace", fontWeight: 800, color: healthColor, textShadow: `0 0 20px ${healthColor}`, lineHeight: 1, transition: "color 0.5s" }}>{healthScore}<span style={{ fontSize: 11 }}>%</span></div>
+          </div>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", border: `2px solid ${healthColor}55`, display: "flex", alignItems: "center", justifyContent: "center", background: `${healthColor}12`, boxShadow: `0 0 20px ${healthColor}33`, transition: "all 0.5s" }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: healthColor, boxShadow: `0 0 14px ${healthColor}`, animation: "pulse-glow 1.2s infinite" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Chart + axis metrics side-by-side */}
+      <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+        {/* Canvas radar */}
+        <div style={{ flex: "0 0 auto", position: "relative" }}>
+          <canvas
+            ref={canvasRef}
+            width={340} height={320}
+            style={{ display: "block" }}
+          />
+        </div>
+
+        {/* Axis metric cards */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+          {RADAR_AXES.map(ax => {
+            const norm = normalized[ax.id] || 0;
+            const raw = metrics[ax.id];
+            const isHov = hovAxis === ax.id;
+            const isGood = norm >= 0.7;
+            const isMid  = norm >= 0.4 && norm < 0.7;
+            const statusColor = isGood ? "#00ff9d" : isMid ? "#ffd060" : "#ff2d55";
+            const statusLabel = isGood ? "NOMINAL" : isMid ? "CAUTION" : "ALERT";
+            return (
+              <div
+                key={ax.id}
+                onMouseEnter={() => setHovAxis(ax.id)}
+                onMouseLeave={() => setHovAxis(null)}
+                style={{
+                  padding: "9px 12px", borderRadius: 4,
+                  background: isHov ? `${ax.color}0d` : (dark ? "rgba(0,0,0,0.25)" : "rgba(0,60,140,0.05)"),
+                  border: `1px solid ${isHov ? ax.color + "55" : "rgba(0,229,255,0.08)"}`,
+                  borderLeft: `2px solid ${ax.color}`,
+                  transition: "all 0.2s", cursor: "default",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor, boxShadow: `0 0 8px ${statusColor}`, animation: isGood ? "none" : "pulse-glow 1s infinite", flexShrink: 0 }} />
+                  <span style={{ fontSize: 8, color: isHov ? ax.color : "rgba(0,229,255,0.5)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em", flex: 1, transition: "color 0.2s" }}>{ax.label}</span>
+                  <span style={{ fontSize: 14, fontFamily: "'Orbitron', monospace", color: ax.color, textShadow: isHov ? `0 0 12px ${ax.color}` : "none", transition: "text-shadow 0.2s" }}>{fmtRaw(ax.id)}</span>
+                  <div style={{ width: 80, position: "relative" }}>
+                    <div style={{ height: 4, background: dark ? "rgba(0,229,255,0.06)" : "rgba(0,80,160,0.08)", borderRadius: 2, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${norm * 100}%`, background: `linear-gradient(90deg, ${ax.color}88, ${ax.color})`, borderRadius: 2, boxShadow: isHov ? `0 0 10px ${ax.color}` : "none", transition: "width 0.5s cubic-bezier(0.16,1,0.3,1)" }} />
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 8, background: `${statusColor}18`, border: `1px solid ${statusColor}44`, color: statusColor, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", minWidth: 52, textAlign: "center" }}>{statusLabel}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 14, paddingTop: 10, borderTop: "1px solid rgba(0,229,255,0.07)" }}>
+        <div style={{ fontSize: 7, color: "rgba(0,229,255,0.22)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>HOVER AXIS CARD TO HIGHLIGHT SPOKE · RADAR UPDATES LIVE</div>
+        <div style={{ flex: 1 }} />
+        {[["#00ff9d","NOMINAL ≥70%"],["#ffd060","CAUTION 40–69%"],["#ff2d55","ALERT < 40%"]].map(([c, l]) => (
+          <div key={l} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: c, opacity: 0.8 }} />
+            <span style={{ fontSize: 7, color: `${c}88`, fontFamily: "'Share Tech Mono', monospace" }}>{l}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── MAIN DASHBOARD ────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("access_token"));
@@ -5183,8 +7818,12 @@ export default function AdminDashboard() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [dark, setDark] = useState(true);
+  const [darkToggleCount, setDarkToggleCount] = useState(0);
+  const toggleDark = useCallback(() => { setDark(d => !d); setDarkToggleCount(c => c + 1); }, []);
   const [drawerUser, setDrawerUser] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
+  const { notifs, markRead, markAllRead, unreadCount } = useNotifications();
   const { displayTab, transitionStyle } = useTabTransition(tab);
 
   // Apply light/dark class to <html>
@@ -5201,7 +7840,18 @@ export default function AdminDashboard() {
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setPaletteOpen(p => !p); }
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "e") { e.preventDefault(); setExportOpen(p => !p); }
-      if (e.key === "Escape") { setPaletteOpen(false); setExportOpen(false); }
+      if ((e.metaKey || e.ctrlKey) && e.key === "d") { e.preventDefault(); toggleDark(); }
+      if ((e.metaKey || e.ctrlKey) && e.key === "\\") { e.preventDefault(); setSidebarCollapsed(c => !c); }
+      if ((e.metaKey || e.ctrlKey) && e.key === "n") { e.preventDefault(); setCheatsheetOpen(false); }
+      if (e.key === "?" && !e.metaKey && !e.ctrlKey && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
+        e.preventDefault(); setCheatsheetOpen(p => !p);
+      }
+      if (e.key === "Escape") { setPaletteOpen(false); setExportOpen(false); setCheatsheetOpen(false); }
+      // Tab shortcuts 1-5
+      if (!e.metaKey && !e.ctrlKey && !e.shiftKey && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
+        const tabMap = { "1": "overview", "2": "revenue", "3": "users", "4": "workspaces", "5": "feedback" };
+        if (tabMap[e.key]) setTab(tabMap[e.key]);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
@@ -5225,7 +7875,8 @@ export default function AdminDashboard() {
 
   return (
     <ThemeCtx.Provider value={{ dark }}>
-    <div style={{ minHeight: "100vh", background: dark ? "#00040f" : "#e8f2fa", color: dark ? "#dff6ff" : "#0a1a2e", position: "relative", overflow: "hidden", transition: "background 0.5s, color 0.5s" }}>
+    <div style={{ minHeight: "100vh", background: dark ? "#00040f" : "#e8f2fa", color: dark ? "#dff6ff" : "#0a1a2e", position: "relative", overflow: "hidden", transition: "background 0.55s cubic-bezier(0.4,0,0.2,1), color 0.55s" }}>
+      <ThemeTransitionOverlay trigger={darkToggleCount} />
       <ToastSystem toasts={toasts} dismiss={dismiss} />
       <CommandPalette
         open={paletteOpen}
@@ -5235,6 +7886,7 @@ export default function AdminDashboard() {
         m={m}
       />
       <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} m={m} />
+      <KeyboardCheatsheet open={cheatsheetOpen} onClose={() => setCheatsheetOpen(false)} />
       <UserDetailDrawer
         user={drawerUser}
         open={!!drawerUser}
@@ -6258,7 +8910,7 @@ export default function AdminDashboard() {
                 boxShadow: `0 0 20px rgba(${rc.rgb},0.06)`,
               } : {}}>↺ REFRESH</button>
               {/* Theme toggle */}
-              <ThemeToggle dark={dark} onToggle={() => setDark(d => !d)} />
+              <ThemeToggle dark={dark} onToggle={toggleDark} />
               {/* Export button */}
               <button onClick={() => setExportOpen(true)}
                 style={{
@@ -6278,6 +8930,27 @@ export default function AdminDashboard() {
                 <span style={{ fontSize: 10, color: "rgba(0,255,157,0.65)" }}>⇣</span>
                 <span style={{ fontSize: 8, color: "rgba(0,255,157,0.5)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>EXPORT</span>
                 <kbd style={{ fontSize: 7, color: "rgba(0,255,157,0.3)", fontFamily: "'Share Tech Mono', monospace", background: "rgba(0,255,157,0.06)", border: "1px solid rgba(0,255,157,0.15)", padding: "1px 5px", borderRadius: 3 }}>⇧E</kbd>
+              </button>
+              {/* Notifications bell */}
+              <NotificationBell notifs={notifs} unreadCount={unreadCount} markRead={markRead} markAllRead={markAllRead} />
+              {/* Keyboard cheatsheet trigger */}
+              <button
+                onClick={() => setCheatsheetOpen(o => !o)}
+                title="Keyboard shortcuts (?)"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  width: 34, height: 34,
+                  background: cheatsheetOpen ? "rgba(191,95,255,0.1)" : "rgba(0,229,255,0.04)",
+                  border: `1px solid rgba(${cheatsheetOpen ? "191,95,255" : "0,229,255"},${cheatsheetOpen ? 0.45 : 0.18})`,
+                  borderRadius: 5, cursor: "pointer",
+                  clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                  transition: "all 0.25s",
+                  boxShadow: cheatsheetOpen ? "0 0 14px rgba(191,95,255,0.2)" : "none",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(191,95,255,0.1)"; e.currentTarget.style.borderColor = "rgba(191,95,255,0.45)"; }}
+                onMouseLeave={e => { if (!cheatsheetOpen) { e.currentTarget.style.background = "rgba(0,229,255,0.04)"; e.currentTarget.style.borderColor = "rgba(0,229,255,0.18)"; } }}
+              >
+                <span style={{ fontSize: 12, color: cheatsheetOpen ? "rgba(191,95,255,0.9)" : "rgba(0,229,255,0.55)", fontFamily: "'Orbitron', monospace", fontWeight: 700, transition: "color 0.25s" }}>?</span>
               </button>
               {/* Sidebar collapse toggle */}
               <button onClick={() => setSidebarCollapsed(c => !c)}
@@ -6501,6 +9174,60 @@ export default function AdminDashboard() {
                   </div>
                     </div>
                   </div>{/* end activity + telemetry grid */}
+
+                  {/* ── USER ACTIVITY HEATMAP ── */}
+                  <div style={{ marginBottom: 22 }}>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Login Density — 7×24 Heatmap</div>
+                    <ActivityHeatmap m={m} />
+                  </div>
+
+                  {/* ── REVENUE FORECAST ── */}
+                  <div style={{ marginBottom: 22 }}>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Revenue Forecast — ML Projection</div>
+                    <RevenueForecastPanel m={m} />
+                  </div>
+
+                  {/* ── SESSION REPLAY LOG ── */}
+                  <div style={{ marginBottom: 22 }}>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Session Replay — Admin Audit Trail</div>
+                    <SessionReplayLog />
+                  </div>
+
+                  {/* ── GEO-INTELLIGENCE MAP ── */}
+                  <div style={{ marginBottom: 22 }}>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Geo-Intelligence — User Density Choropleth</div>
+                    <GeoIntelligenceMap m={m} />
+                  </div>
+
+                  {/* ── TASK PIPELINE KANBAN ── */}
+                  <div style={{ marginBottom: 22 }}>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Task Pipeline — Kanban Workflow</div>
+                    <TaskPipelineKanban />
+                  </div>
+
+                  {/* ── ALERT RULES ENGINE ── */}
+                  <div style={{ marginBottom: 22 }}>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Alert Rules Engine — Real-Time Thresholds</div>
+                    <AlertRulesEngine m={m} />
+                  </div>
+
+                  {/* ── COMMAND TELEMETRY STREAM ── */}
+                  <div style={{ marginBottom: 22 }}>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Command Telemetry — Live API Stream</div>
+                    <CommandTelemetryStream />
+                  </div>
+
+                  {/* ── COHORT RETENTION MATRIX ── */}
+                  <div style={{ marginBottom: 22 }}>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Cohort Retention — Week-over-Week Matrix</div>
+                    <CohortRetentionMatrix m={m} />
+                  </div>
+
+                  {/* ── SYSTEM HEALTH RADAR ── */}
+                  <div style={{ marginBottom: 22 }}>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>System Health — Live Radar Telemetry</div>
+                    <SystemHealthRadar m={m} />
+                  </div>
                 </>
               )}
             </div>
