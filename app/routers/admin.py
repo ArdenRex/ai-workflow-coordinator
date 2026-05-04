@@ -19,6 +19,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy import func, extract, select, distinct
 from sqlalchemy.orm import Session
 
@@ -26,7 +27,7 @@ from app import crud
 from app.auth import get_current_user
 from app.database import get_db
 from app.models import (
-    Feedback, FeedbackStatus, Task, TaskStatus, User,
+    Feedback, FeedbackStatus, FreelancerRequest, Task, TaskStatus, User,
     UserRole, Workspace, Priority,
 )
 
@@ -38,8 +39,21 @@ ADMIN_EMAILS = [e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split("
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Full admin access — only for emails in ADMIN_EMAILS."""
     if current_user.email.lower() not in ADMIN_EMAILS:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access only.")
+    return current_user
+
+
+def require_admin_or_freelancer(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Allows both admins and approved freelancers.
+    Used on /metrics and /users so the freelancer dashboard can fetch data.
+    """
+    is_admin      = current_user.email.lower() in ADMIN_EMAILS
+    is_freelancer = current_user.subscription_status == "freelancer"
+    if not is_admin and not is_freelancer:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
     return current_user
 
 
@@ -48,7 +62,7 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
 @router.get("/metrics", summary="Full platform metrics snapshot")
 def get_metrics(
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_admin_or_freelancer),
 ) -> dict:
     now = datetime.now(timezone.utc)
 
@@ -213,7 +227,7 @@ def list_users(
     role_filter: Optional[str] = Query(None, alias="role"),
     search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    _admin: User = Depends(require_admin),
+    _admin: User = Depends(require_admin_or_freelancer),
 ) -> dict:
     stmt = select(User)
     if status_filter:
@@ -368,3 +382,97 @@ def list_feedback(
             for f in items
         ],
     }
+
+
+# ── GET /admin/freelancer-requests ────────────────────────────────────────────
+
+@router.get("/freelancer-requests", summary="List all freelancer access requests")
+def list_freelancer_requests(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> dict:
+    """Returns all pending and approved freelancer access requests."""
+    requests = list(db.scalars(
+        select(FreelancerRequest).order_by(FreelancerRequest.created_at.desc())
+    ).all())
+
+    return {
+        "requests": [
+            {
+                "id":          r.id,
+                "name":        r.name,
+                "email":       r.email,
+                "status":      r.status,
+                "created_at":  r.created_at.isoformat() if r.created_at else None,
+                "approved_at": r.approved_at.isoformat() if r.approved_at else None,
+            }
+            for r in requests
+        ]
+    }
+
+
+# ── PATCH /admin/freelancer-requests/{id} ─────────────────────────────────────
+
+class FreelancerRequestAction(BaseModel):
+    approved: bool
+
+
+@router.patch("/freelancer-requests/{request_id}", summary="Approve or deny a freelancer request")
+def action_freelancer_request(
+    request_id: int,
+    payload: FreelancerRequestAction,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+) -> dict:
+    """
+    Approve → creates a real User account with subscription_status='freelancer'.
+    Deny / Revoke → marks request as denied and deactivates the user if one exists.
+    """
+    from app.crud import create_user
+
+    req = db.get(FreelancerRequest, request_id)
+    if not req:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Request not found.")
+
+    now = datetime.now(timezone.utc)
+
+    if payload.approved:
+        # Create user account if not already created
+        existing_user = crud.get_user_by_email(db, req.email)
+        if not existing_user:
+            new_user = User(
+                name=req.name,
+                email=req.email,
+                password_hash=req.password_hash,   # already hashed at request time
+                subscription_status="freelancer",
+                is_active=True,
+                is_verified=True,
+            )
+            db.add(new_user)
+        else:
+            # Re-approving a previously denied freelancer — reactivate
+            existing_user.subscription_status = "freelancer"
+            existing_user.is_active = True
+
+        req.status = "approved"
+        req.approved_at = now
+        db.commit()
+
+        logger.info("Freelancer request approved: email=%s", req.email)
+        return {"message": f"Access approved for {req.email}. They can now log in."}
+
+    else:
+        # Deny or revoke
+        req.status = "denied"
+        req.approved_at = None
+
+        # Deactivate the user account if it exists
+        existing_user = crud.get_user_by_email(db, req.email)
+        if existing_user and existing_user.subscription_status == "freelancer":
+            existing_user.is_active = False
+
+        db.commit()
+
+        logger.info("Freelancer request denied/revoked: email=%s", req.email)
+        return {"message": f"Access denied for {req.email}."}
+
