@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
     <title>AI Workflow Coordinator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -100,6 +100,61 @@
       .delay-1   { animation-delay: 0.06s; }
       .delay-2   { animation-delay: 0.12s; }
       .delay-3   { animation-delay: 0.18s; }
+
+      /* ── RESPONSIVE BREAKPOINTS ─────────────────────────────────────── */
+
+      /* Fluid base font so rem units scale naturally */
+      html { font-size: 16px; }
+      @media (max-width: 1280px) { html { font-size: 15px; } }
+      @media (max-width: 1024px) { html { font-size: 14px; } }
+      @media (max-width: 768px)  { html { font-size: 13px; } }
+
+      /* Prevent horizontal scroll on small screens */
+      body, #root { overflow-x: hidden; max-width: 100vw; }
+
+      /* Sidebar responsive — collapses to icon-only on small screens */
+      @media (max-width: 900px) {
+        .sidebar-expanded { width: 64px !important; }
+        .sidebar-label    { display: none !important; }
+        .sidebar-logo-text { display: none !important; }
+        .main-content-offset { padding-left: 64px !important; }
+      }
+
+      /* Stack kanban columns on narrow screens */
+      @media (max-width: 768px) {
+        .kanban-board {
+          flex-direction: column !important;
+          overflow-x: unset !important;
+        }
+        .kanban-col {
+          min-width: unset !important;
+          width: 100% !important;
+        }
+      }
+
+      /* Header adjustments */
+      @media (max-width: 768px) {
+        .page-header-row {
+          flex-wrap: wrap !important;
+          gap: 10px !important;
+        }
+        .page-header-row .header-actions {
+          width: 100% !important;
+          justify-content: flex-start !important;
+        }
+      }
+
+      /* Cards/grids responsive */
+      @media (max-width: 900px) {
+        .stats-grid-4 {
+          grid-template-columns: repeat(2, 1fr) !important;
+        }
+      }
+      @media (max-width: 540px) {
+        .stats-grid-4 {
+          grid-template-columns: 1fr !important;
+        }
+      }
     </style>
   </head>
   <body>
