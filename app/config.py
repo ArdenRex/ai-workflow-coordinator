@@ -80,7 +80,7 @@ class Settings(BaseSettings):
         description="Lemon Squeezy Variant ID for the $20/month subscription.",
     )
     lemonsqueezy_webhook_secret: str = Field(
-        default="acedengroup_webhook_secret_2024",
+        default="",
         description="Lemon Squeezy webhook signing secret.",
     )
     frontend_url: str = Field(
