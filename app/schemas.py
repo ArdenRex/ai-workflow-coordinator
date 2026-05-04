@@ -234,6 +234,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     remember_me: bool
+    role: str = "admin"   # "admin" or "freelancer" — used by dashboard to pick the right view
     user: UserResponse
 
 
