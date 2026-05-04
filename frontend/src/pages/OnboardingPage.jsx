@@ -18,7 +18,7 @@ const STYLES = `
     align-items: center;
     justify-content: center;
     font-family: 'Inter', system-ui, sans-serif;
-    padding: 24px;
+    padding: clamp(12px, 3vw, 24px);
     position: relative;
     overflow: hidden;
   }
@@ -47,7 +47,7 @@ const STYLES = `
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 24px;
-    padding: 40px;
+    padding: clamp(20px, 5vw, 40px);
     backdrop-filter: blur(20px);
     box-shadow: 0 24px 64px rgba(0,0,0,0.4);
     position: relative;
@@ -351,6 +351,18 @@ const STYLES = `
 
   /* Step slide animation */
   .ob-step { animation: stepIn 0.35s cubic-bezier(0.16,1,0.3,1) both; }
+
+
+  @media (max-width: 480px) {
+    .ob-card { border-radius: 16px; }
+    .ob-roles { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ob-title { font-size: 18px; }
+    .ob-input { height: 40px; font-size: 13px; }
+    .ob-btn-next, .ob-btn-back { height: 42px; font-size: 13px; }
+  }
+  @media (max-width: 360px) {
+    .ob-roles { grid-template-columns: 1fr; }
+  }
 
   @keyframes stepIn {
     from { opacity: 0; transform: translateX(20px); }
