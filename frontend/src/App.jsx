@@ -12,6 +12,19 @@ import AddToSlackButton from "./components/AddToSlackButton";
 // ── API base URL — env var with hardcoded fallback ───────────────────────────
 const BASE_URL = process.env.REACT_APP_API_URL || "https://ai-workflow-coordinator-api-production.up.railway.app";
 
+// ── Responsive window width hook ─────────────────────────────────────────────
+function useWindowWidth() {
+  const [w, setW] = React.useState(window.innerWidth);
+  React.useEffect(() => {
+    const handler = () => setW(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return w;
+}
+
+
+
 // ── Date formatting utility ───────────────────────────────────────────────────
 // Normalises "2026-04-30" and "2026-04-30T00:00:00[Z]" → local Date object.
 // When a timezone string (IANA, e.g. "Asia/Karachi") is supplied the date is
@@ -1132,10 +1145,15 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
   const roleLabel = { architect: "Architect", navigator: "Navigator", operator: "Operator", solo: "Solo" }[user?.role] || "Member";
   const roleColor = { architect: "#f59e0b", navigator: "#3b82f6", operator: "#10b981", solo: "#8b5cf6" }[user?.role] || "#8892b0";
 
+  const winW = useWindowWidth();
+  // Auto-collapse sidebar on narrow screens
+  const effectiveCollapsed = collapsed || winW < 900;
+  const sidebarW = effectiveCollapsed ? 64 : 228;
+
   return (
     <aside style={{
       position: "fixed", left: 0, top: 0, bottom: 0,
-      width: collapsed ? 64 : 228,
+      width: sidebarW,
       background: "var(--bg-sidebar)",
       borderRight: "1px solid var(--border-glass)",
       display: "flex", flexDirection: "column", zIndex: 50,
@@ -1148,7 +1166,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "var(--grad-primary)", opacity: 0.5 }} />
 
       {/* Logo */}
-      <div style={{ padding: collapsed ? "20px 14px" : "20px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid var(--border-glass)", position: "relative", flexShrink: 0 }}>
+      <div style={{ padding: effectiveCollapsed ? "20px 14px" : "20px 18px", display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid var(--border-glass)", position: "relative", flexShrink: 0 }}>
         <div style={{
           width: 34, height: 34, borderRadius: 10, flexShrink: 0,
           background: "var(--grad-primary)",
@@ -1158,7 +1176,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
           letterSpacing: "-0.02em",
         }}>Ω</div>
 
-        {!collapsed && (
+        {!effectiveCollapsed && (
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", lineHeight: 1.2 }}>AI Workflow</div>
             <div style={{ fontSize: 10, color: "var(--color-text-tertiary)", marginTop: 1, letterSpacing: "0.08em", textTransform: "uppercase" }}>Coordinator</div>
@@ -1174,7 +1192,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
         }}
           onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.09)"; e.currentTarget.style.color = "var(--color-text-primary)"; }}
           onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "var(--color-text-tertiary)"; }}
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={effectiveCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
             <path d={collapsed ? "M3 2l4 3-4 3" : "M7 2L3 5l4 3"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1183,10 +1201,10 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
       </div>
 
       {/* Nav groups */}
-      <nav style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: collapsed ? "10px 8px" : "10px 10px", display: "flex", flexDirection: "column", gap: 0 }}>
+      <nav style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: effectiveCollapsed ? "10px 8px" : "10px 10px", display: "flex", flexDirection: "column", gap: 0 }}>
         {NAV_GROUPS.map(group => (
           <div key={group.label} style={{ marginBottom: 4 }}>
-            {!collapsed && (
+            {!effectiveCollapsed && (
               <div style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--color-text-muted)", padding: "10px 8px 5px", fontFamily: "var(--font-display)" }}>
                 {group.label}
               </div>
@@ -1214,7 +1232,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
                   onClick={() => onNavChange(item.idx)}
                   onKeyDown={e => e.key === "Enter" && onNavChange(item.idx)}
                   style={{
-                    display: "flex", alignItems: "center", gap: collapsed ? 0 : 10,
+                    display: "flex", alignItems: "center", gap: effectiveCollapsed ? 0 : 10,
                     padding: collapsed ? "9px" : "8px 10px",
                     borderRadius: 10, cursor: "pointer",
                     justifyContent: collapsed ? "center" : "flex-start",
@@ -1248,13 +1266,13 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
                     {NAV_ICONS[item.icon]}
                   </span>
 
-                  {!collapsed && (
+                  {!effectiveCollapsed && (
                     <span style={{ flex: 1, fontSize: 13, fontWeight: isActive ? 600 : 400, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
                       {item.label}
                     </span>
                   )}
 
-                  {!collapsed && badgeValue !== null && (
+                  {!effectiveCollapsed && badgeValue !== null && (
                     <span style={{
                       minWidth: 20, height: 18, padding: "0 5px", borderRadius: 999,
                       fontSize: 10, fontWeight: 700, color: "#fff",
@@ -1279,7 +1297,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
       {/* User footer */}
       <div style={{ padding: collapsed ? "12px 8px" : "12px 10px", borderTop: "1px solid var(--border-glass)", flexShrink: 0 }}>
         <div style={{
-          display: "flex", alignItems: "center", gap: collapsed ? 0 : 10,
+          display: "flex", alignItems: "center", gap: effectiveCollapsed ? 0 : 10,
           padding: collapsed ? "8px" : "8px 10px",
           borderRadius: 10, background: "rgba(255,255,255,0.04)",
           border: "1px solid var(--border-glass)",
@@ -1295,7 +1313,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
             fontFamily: "var(--font-display)", fontSize: 11, fontWeight: 700, color: "#fff",
           }}>{initials}</div>
 
-          {!collapsed && (
+          {!effectiveCollapsed && (
             <>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", letterSpacing: "-0.01em" }}>
@@ -1408,14 +1426,14 @@ function OwnershipGraph() {
   const selectedNode = selected ? data?.nodes?.find(n => n.assignee === selected) : null;
 
   return (
-    <main className="page-enter" style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
+    <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24 }}>
 
       {/* Header */}
       <header style={{
         position: "sticky", top: 0, zIndex: 40, height: 64,
         background: "rgba(13,15,30,0.88)", backdropFilter: "blur(16px)",
         borderBottom: "1px solid var(--border-glass)",
-        padding: "0 28px", display: "flex", alignItems: "center", gap: 16,
+        padding: "0 clamp(12px, 2.5vw, 28px)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
         margin: "-28px -28px 0",
       }}>
         <div>
@@ -1766,7 +1784,7 @@ function TasksPage() {
         </button>
       </header>
 
-      <main style={{ flex:1, padding:"24px 28px 40px" }}>
+      <main style={{ flex:1, padding:"clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px" }}>
         {/* Flash messages */}
         {successMsg && (
           <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(34,211,168,0.12)", border:"1px solid rgba(34,211,168,0.3)", color:"#22d3a8", fontSize:13, fontWeight:600, marginBottom:16 }}>✓ {successMsg}</div>
@@ -2019,7 +2037,7 @@ function ReportsPage() {
         </div>
       </header>
 
-      <main className="page-enter" style={{ flex: 1, padding: "24px 28px 40px", display: "flex", flexDirection: "column", gap: 20 }}>
+      <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 20 }}>
 
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
@@ -2302,7 +2320,7 @@ function CompliancePage() {
         )}
       </header>
 
-      <main className="page-enter" style={{ flex: 1, padding: "24px 28px 40px", display: "flex", flexDirection: "column", gap: 20 }}>
+      <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 20 }}>
 
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
@@ -2595,7 +2613,7 @@ function KnowledgePage() {
         </button>
       </header>
 
-      <main style={{ flex: 1, padding: "24px 28px 40px", display: "flex", gap: 20 }}>
+      <main style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", gap: 20 }}>
 
         {/* Left — note grid */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -2863,7 +2881,7 @@ function SettingsPage() {
         </div>
       </header>
 
-      <main className="page-enter" style={{ flex: 1, padding: "24px 28px 40px", display: "flex", gap: 20, maxWidth: 900 }}>
+      <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", gap: 20, maxWidth: 900 }}>
 
         {/* Left sidebar tabs */}
         <div style={{ width: 180, flexShrink: 0, display: "flex", flexDirection: "column", gap: 3 }}>
@@ -3284,7 +3302,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
       </header>
 
       {/* Page body */}
-      <main className="page-enter" style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24 }}>
+      <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24 }}>
 
         {/* Hero row */}
         <div className="fade-up" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
@@ -3627,7 +3645,7 @@ function IntegrationsPage() {
   );
 
   return (
-    <main className="page-enter" style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
+    <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
 
       {/* Header */}
       <div>
@@ -3865,7 +3883,7 @@ function LocalePage() {
   );
 
   return (
-    <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 780 }}>
+    <main style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 780 }}>
 
       {/* Header */}
       <div>
@@ -4108,7 +4126,7 @@ function TeamsPage() {
   if (loading) return <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /></main>;
 
   return (
-    <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 820 }}>
+    <main style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 820 }}>
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Microsoft Teams</h1>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Connect your workspace to Microsoft Teams. Create tasks directly from Teams channels by mentioning the bot.</p>
@@ -4243,7 +4261,7 @@ function ApiPage() {
   if (loading) return <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /></main>;
 
   return (
-    <main style={{ flex: 1, padding: "28px 28px 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
+    <main style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Public API</h1>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
@@ -4714,6 +4732,8 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
 function AuthenticatedApp() {
   const { user, isOnboarded, token } = useAuth();
   const [activeNav, setActiveNav]     = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const winWidth = useWindowWidth();
   const [showOnboarding, setShowOnboarding] = useState(false);
   // Local override: set true once user finishes onboarding so we don't loop
   // back even if AuthContext hasn't re-fetched isOnboarded from the server yet.
@@ -4868,7 +4888,7 @@ function AuthenticatedApp() {
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 9000,
           background: billing.days_left === 0 ? "linear-gradient(90deg,#ef4444,#dc2626)" : "linear-gradient(90deg,#f59e0b,#d97706)",
-          padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: 16,
+          padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap",
           fontSize: 13, fontWeight: 600, color: "#fff",
         }}>
           <span>⏰ {billing.days_left === 0 ? "Your free trial expires today!" : `Your free trial ends in ${billing.days_left} day${billing.days_left === 1 ? "" : "s"}!`}</span>
@@ -4889,7 +4909,7 @@ function AuthenticatedApp() {
       <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
 
       <Sidebar activeNav={activeNav} onNavChange={setActiveNav} navBadges={navBadges} />
-      <div style={{ paddingLeft: 228, display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1 }}>
+      <div style={{ paddingLeft: winWidth < 900 ? 64 : (sidebarCollapsed ? 64 : 228), display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1, transition: "padding-left 0.25s cubic-bezier(0.4,0,0.2,1)", minWidth: 0, overflow: "hidden" }}>
         {activeNav === 0 ? (
           <Dashboard
             tasks={tasks} total={total} loading={loading} error={error}
