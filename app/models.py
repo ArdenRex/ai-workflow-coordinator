@@ -560,6 +560,39 @@ class Feedback(Base):
         return f"<Feedback id={self.id} type={self.type} status={self.status}>"
 
 
+# ── FreelancerRequest ─────────────────────────────────────────────────────────
+
+class FreelancerRequest(Base):
+    """
+    Holds pending / approved / denied access requests from freelancers.
+    When approved, a real User row is created and this record is kept for audit.
+    """
+    __tablename__ = "freelancer_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, unique=True, index=True)
+
+    # Hashed password submitted at request time — copied to User on approval
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # pending | approved | denied
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="pending", server_default="pending",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    approved_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    def __repr__(self) -> str:
+        return f"<FreelancerRequest id={self.id} email={self.email!r} status={self.status}>"
+
+
 # ── Migration helper ──────────────────────────────────────────────────────────
 MIGRATION_SQL = """
 -- Run this once in Railway Query tab if columns don't auto-migrate:
@@ -664,4 +697,18 @@ CREATE INDEX IF NOT EXISTS ix_feedback_status  ON feedback(status);
 -- Admin dashboard — workspace active toggle
 ALTER TABLE workspaces
     ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Freelancer access requests
+CREATE TABLE IF NOT EXISTS freelancer_requests (
+    id            SERIAL PRIMARY KEY,
+    name          VARCHAR(255) NOT NULL,
+    email         VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    status        VARCHAR(32)  NOT NULL DEFAULT 'pending',
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    approved_at   TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS ix_freelancer_requests_email  ON freelancer_requests(email);
+CREATE INDEX IF NOT EXISTS ix_freelancer_requests_status ON freelancer_requests(status);
 """
