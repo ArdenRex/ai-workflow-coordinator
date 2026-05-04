@@ -61,6 +61,58 @@ TRIAL_DAYS   = 7
 
 SLACK_USER_SCOPES = "identity.basic,identity.email,identity.avatar"
 
+# ── Disposable / temp email domains blocklist ─────────────────────────────────
+_BLOCKED_EMAIL_DOMAINS = {
+    "mailinator.com", "guerrillamail.com", "guerrillamail.net", "guerrillamail.org",
+    "guerrillamail.biz", "guerrillamail.de", "guerrillamailblock.com",
+    "sharklasers.com", "spam4.me", "grr.la",
+    "tempmail.com", "temp-mail.org", "temp-mail.io", "tempmail.net",
+    "throwaway.email", "throwam.com", "throwam.net",
+    "yopmail.com", "yopmail.fr",
+    "dispostable.com", "mailnull.com",
+    "trashmail.com", "trashmail.me", "trashmail.net", "trashmail.org",
+    "trashmail.at", "trashmail.io", "trashmail.xyz",
+    "fakeinbox.com", "fakeinbox.net", "maildrop.cc",
+    "spambox.us", "spambox.me", "spambox.info",
+    "discard.email", "discardmail.com", "discardmail.de",
+    "mailnesia.com", "mailexpire.com", "mailscrap.com",
+    "getonemail.com", "getonemail.net",
+    "tempinbox.com", "tempinbox.co.uk",
+    "temporaryemail.net", "temporaryemail.us",
+    "temporaryforwarding.com", "temporaryinbox.com",
+    "10minutemail.com", "10minutemail.net", "10minutemail.org",
+    "10minutemail.co.za", "10minutemail.de", "10minutemail.ru",
+    "20minutemail.com", "20minutemail.it",
+    "0-mail.com", "mailtemp.info", "mailtemp.net", "one-time.email",
+    "inboxbear.com", "mohmal.com", "spamgap.com", "tempr.email",
+    "anonbox.net", "ano-mail.net", "bugmenot.com",
+    "deadaddress.com", "deadletter.ga", "despam.it",
+    "dodgeit.com", "dodgemail.de", "dontreg.com",
+    "dump-email.info", "dumpmail.de", "dumpyemail.com",
+    "email60.com", "emaildienst.de", "emailigo.com",
+    "emailmiser.com", "emailto.de", "emailwarden.com",
+    "ephemail.net", "etranquil.com", "etranquil.net", "etranquil.org",
+    "wegwerfmail.de", "wegwerfmail.net", "wegwerfmail.org",
+    "zehnminutenmail.de", "spamtrap.ro", "spamfree24.org",
+    "spamfree.eu", "spam.la", "spamspot.com",
+    "mt2009.com", "mt2014.com", "neverbox.com",
+    "sendspamhere.com", "sharedmailbox.org",
+    "spamgob.com", "spamherelots.com", "spamhereplease.com",
+    "spamthisplease.com", "tempe-mail.com",
+    "digitalsanctuary.com", "dingbone.com",
+    "dontsendmespam.de", "dumpandfuck.com",
+}
+
+
+def _is_blocked_email(email: str) -> bool:
+    """Return True if the email domain is in the disposable-email blocklist."""
+    try:
+        domain = email.strip().lower().split("@", 1)[1]
+        return domain in _BLOCKED_EMAIL_DOMAINS
+    except IndexError:
+        return True  # malformed — block it
+
+
 # Cookie settings
 COOKIE_NAME     = "refresh_token"
 COOKIE_MAX_AGE  = 60 * 60 * 24 * 30   # 30 days in seconds
@@ -99,6 +151,13 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> Registe
     Creates a new user account with email + password.
     After this, the frontend should redirect to /onboarding.
     """
+    # Block disposable / temp email addresses
+    if _is_blocked_email(payload.email):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Temporary or disposable email addresses are not allowed. Please use a real email.",
+        )
+
     existing = crud.get_user_by_email(db, payload.email)
     if existing:
         raise HTTPException(
