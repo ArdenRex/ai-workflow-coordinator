@@ -19,6 +19,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 import httpx
+from pydantic import BaseModel
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.exc import IntegrityError
