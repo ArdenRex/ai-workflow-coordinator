@@ -32,7 +32,7 @@ from app.auth import (
     decode_token,
 )
 from app.database import get_db
-from app.models import User, UserRole
+from app.models import User, UserRole, FreelancerRequest
 from app.schemas import (
     LoginRequest,
     OnboardingRequest,
@@ -305,10 +305,14 @@ def login(
         user.id, user.email, payload.remember_me,
     )
 
+    # Determine role for dashboard routing
+    role = "freelancer" if user.subscription_status == "freelancer" else "admin"
+
     return TokenResponse(
         access_token=access_token,
         expires_in=expires_in,
         remember_me=payload.remember_me,
+        role=role,
         user=UserResponse.model_validate(user),
     )
 
@@ -384,6 +388,122 @@ def refresh_access_token(
         remember_me=True,
         user=UserResponse.model_validate(user),
     )
+
+
+# ── Freelancer: Request dashboard access ──────────────────────────────────────
+
+import threading
+import httpx as _httpx
+
+_RESEND_API_KEY   = os.getenv("RESEND_API_KEY", "")
+_ALERT_EMAIL      = os.getenv("FEEDBACK_ALERT_EMAIL", "")
+_FROM_EMAIL       = os.getenv("FEEDBACK_FROM_EMAIL", "AI Workflow <onboarding@resend.dev>")
+
+
+class FreelancerAccessRequest(BaseModel):
+    name:     str
+    email:    str
+    password: str
+
+
+def _notify_admin_of_request(name: str, email: str) -> None:
+    """Fire-and-forget: send Resend email to admin when a freelancer requests access."""
+    if not _RESEND_API_KEY or not _ALERT_EMAIL:
+        logger.info("Resend not configured — skipping freelancer request notification.")
+        return
+
+    def _send():
+        try:
+            html = f"""
+            <html><body style="font-family:sans-serif;background:#f5f5f5;padding:24px;">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                <div style="background:#1e293b;padding:20px 24px;color:#fff;">
+                  <h2 style="margin:0;font-size:18px;">🔑 New Freelancer Access Request</h2>
+                  <p style="margin:4px 0 0;opacity:0.6;font-size:13px;">AI Workflow Coordinator — Admin Dashboard</p>
+                </div>
+                <div style="padding:24px;">
+                  <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                    <tr><td style="padding:8px 0;color:#64748b;width:100px;">Name</td><td style="padding:8px 0;font-weight:600;">{name}</td></tr>
+                    <tr><td style="padding:8px 0;color:#64748b;">Email</td><td style="padding:8px 0;">{email}</td></tr>
+                  </table>
+                  <p style="margin-top:20px;font-size:13px;color:#64748b;">
+                    Go to the <strong>Freelancer Access</strong> tab in your admin dashboard to approve or deny this request.
+                  </p>
+                </div>
+              </div>
+            </body></html>
+            """
+            resp = _httpx.post(
+                "https://api.resend.com/emails",
+                headers={"Authorization": f"Bearer {_RESEND_API_KEY}", "Content-Type": "application/json"},
+                json={
+                    "from":    _FROM_EMAIL,
+                    "to":      [_ALERT_EMAIL],
+                    "subject": f"🔑 Freelancer access request from {name}",
+                    "html":    html,
+                },
+                timeout=10,
+            )
+            if resp.status_code >= 400:
+                logger.warning("Resend freelancer notification failed: %s", resp.text)
+            else:
+                logger.info("Freelancer access notification sent to %s", _ALERT_EMAIL)
+        except Exception as exc:
+            logger.warning("Could not send freelancer notification email: %s", exc)
+
+    threading.Thread(target=_send, daemon=True).start()
+
+
+@router.post(
+    "/request-freelancer-access",
+    status_code=status.HTTP_201_CREATED,
+    summary="Freelancer submits an access request",
+)
+def request_freelancer_access(
+    payload: FreelancerAccessRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Freelancer fills in name + email + password on the dashboard.
+    Saves a pending FreelancerRequest row and emails the admin.
+    No user account is created yet — admin must approve first.
+    """
+    from app.crud import hash_password
+
+    if len(payload.password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Password must be at least 6 characters.",
+        )
+
+    # Block if already submitted or already a user
+    existing_req = db.query(FreelancerRequest).filter_by(email=payload.email.lower()).first()
+    if existing_req:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A request from this email already exists. Please wait for admin approval.",
+        )
+
+    existing_user = crud.get_user_by_email(db, payload.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists. Please log in instead.",
+        )
+
+    req = FreelancerRequest(
+        name=payload.name.strip(),
+        email=payload.email.strip().lower(),
+        password_hash=hash_password(payload.password),
+        status="pending",
+    )
+    db.add(req)
+    db.commit()
+
+    logger.info("Freelancer access request created: email=%s", req.email)
+    _notify_admin_of_request(req.name, req.email)
+
+    return {"message": "Access request submitted. The admin will review and notify you."}
 
 
 # ── Slack OAuth Login ─────────────────────────────────────────────────────────
