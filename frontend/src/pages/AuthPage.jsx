@@ -16,7 +16,7 @@ const STYLES = `
     align-items: center;
     justify-content: center;
     font-family: 'Inter', system-ui, sans-serif;
-    padding: 24px;
+    padding: clamp(12px, 3vw, 24px);
     position: relative;
     overflow: hidden;
   }
@@ -45,7 +45,7 @@ const STYLES = `
     background: rgba(255,255,255,0.03);
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 24px;
-    padding: 40px;
+    padding: clamp(20px, 5vw, 40px);
     backdrop-filter: blur(20px);
     box-shadow: 0 24px 64px rgba(0,0,0,0.4);
     position: relative;
@@ -294,6 +294,15 @@ const STYLES = `
     animation: shake 0.3s ease;
   }
 
+
+  @media (max-width: 480px) {
+    .auth-card {
+      border-radius: 16px;
+    }
+    .auth-title { font-size: 20px; }
+    .auth-input { height: 40px; font-size: 13px; }
+    .auth-btn, .auth-slack-btn { height: 42px; font-size: 13px; }
+  }
   @keyframes shake {
     0%,100% { transform: translateX(0); }
     25%      { transform: translateX(-6px); }
