@@ -186,6 +186,88 @@ def get_portal(
 
 # ── Webhook ───────────────────────────────────────────────────────────────────
 
+
+# ── Cancel subscription ───────────────────────────────────────────────────────
+
+@router.post(
+    "/cancel",
+    summary="Cancel the current user's active Lemon Squeezy subscription",
+)
+def cancel_subscription(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Cancels the user's active subscription via the Lemon Squeezy API.
+    The subscription remains active until the end of the billing period,
+    then LS fires subscription_cancelled which sets status = 'cancelled'.
+    In test / dev mode (no LS key) we immediately mark status = 'cancelled'.
+    """
+    settings = get_settings()
+
+    if not current_user.ls_subscription_id:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="No active subscription found.",
+        )
+
+    if current_user.subscription_status in ("cancelled", "exempt"):
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Subscription is already cancelled or not applicable.",
+        )
+
+    # ── Test / dev mode ───────────────────────────────────────────────────────
+    if not settings.lemonsqueezy_api_key:
+        logger.warning("Lemon Squeezy not configured — simulating cancellation in test mode")
+        try:
+            current_user.subscription_status = "cancelled"
+            db.commit()
+            db.refresh(current_user)
+            logger.info("Test mode: user_id=%d subscription cancelled", current_user.id)
+        except Exception as exc:
+            db.rollback()
+            logger.warning("Test mode cancel DB update failed: %s", exc)
+        return {"cancelled": True, "test_mode": True, "message": "Subscription cancelled (test mode)."}
+
+    # ── Live mode — call Lemon Squeezy DELETE /subscriptions/{id} ─────────────
+    try:
+        response = httpx.delete(
+            f"{LS_API_BASE}/subscriptions/{current_user.ls_subscription_id}",
+            headers=_ls_headers(),
+            timeout=15,
+        )
+
+        if response.status_code not in (200, 204):
+            logger.error(
+                "LS cancel failed: %d %s", response.status_code, response.text
+            )
+            raise HTTPException(
+                status_code=http_status.HTTP_502_BAD_GATEWAY,
+                detail="Payment provider error. Please try again or contact support.",
+            )
+
+        logger.info(
+            "Subscription cancelled via LS for user_id=%d sub_id=%s",
+            current_user.id, current_user.ls_subscription_id,
+        )
+        # LS will fire subscription_cancelled webhook which updates the DB.
+        return {
+            "cancelled": True,
+            "test_mode": False,
+            "message": "Your subscription has been cancelled. Access continues until the end of the billing period.",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Cancel subscription error: %s", exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not cancel subscription. Please try again.",
+        )
+
+
 @router.post(
     "/webhook",
     summary="Lemon Squeezy webhook — handles subscription lifecycle events",
