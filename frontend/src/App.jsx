@@ -2792,6 +2792,60 @@ function SettingsPage() {
     catch { return { email_overdue: true, email_daily: true, slack_mentions: true, browser_push: false }; }
   });
 
+  // Billing state
+  const [billingStatus, setBillingStatus] = useState(null);   // null=not loaded
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [cancelConfirm, setCancelConfirm] = useState(false);  // show confirm modal
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelDone, setCancelDone] = useState(false);
+
+  // Load billing status when billing tab is opened
+  const loadBillingStatus = async () => {
+    if (billingStatus) return; // already loaded
+    setBillingLoading(true);
+    try {
+      const r = await fetch(`${API}/auth/billing-status`, { headers: hdrs });
+      const d = await r.json();
+      setBillingStatus(d);
+    } catch (e) {
+      setBillingStatus({ status: "unknown", error: true });
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    setCancelLoading(true);
+    try {
+      const r = await fetch(`${API}/billing/cancel`, { method: "POST", headers: hdrs });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || "Could not cancel. Please try again.");
+      setCancelConfirm(false);
+      setCancelDone(true);
+      setBillingStatus(prev => ({ ...prev, status: "cancelled" }));
+      flash("Subscription cancelled. You'll retain access until the end of the billing period.");
+    } catch (e) {
+      setCancelConfirm(false);
+      flash(e.message, true);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const goToPortal = async () => {
+    setSaving(true);
+    try {
+      const r = await fetch(`${API}/billing/portal`, { headers: hdrs });
+      const d = await r.json();
+      if (d.portal_url) window.open(d.portal_url, "_blank");
+      else flash("Portal unavailable. Please contact support.", true);
+    } catch (e) {
+      flash("Could not open billing portal.", true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const flash = (msg, isErr) => {
     if (isErr) { setError(msg); setTimeout(() => setError(null), 4000); }
     else       { setSuccess(msg); setTimeout(() => setSuccess(null), 3000); }
@@ -2841,6 +2895,7 @@ function SettingsPage() {
     { key: "security",      label: "Security",        icon: "🔒" },
     { key: "workspace",     label: "Workspace",       icon: "🏢" },
     { key: "notifications", label: "Notifications",   icon: "🔔" },
+    { key: "billing",       label: "Billing",         icon: "💳" },
     { key: "danger",        label: "Danger Zone",     icon: "⚠️" },
   ];
 
@@ -2886,7 +2941,7 @@ function SettingsPage() {
         {/* Left sidebar tabs */}
         <div style={{ width: 180, flexShrink: 0, display: "flex", flexDirection: "column", gap: 3 }}>
           {TABS.map(tab => (
-            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            <button key={tab.key} onClick={() => { setActiveTab(tab.key); if (tab.key === "billing") loadBillingStatus(); }}
               style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "none", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: activeTab === tab.key ? 600 : 400, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
                 background: activeTab === tab.key ? "rgba(59,130,246,0.14)" : "transparent",
                 color: activeTab === tab.key ? "#e0eaff" : "var(--color-text-secondary)",
@@ -3068,6 +3123,132 @@ function SettingsPage() {
                 </button>
               </div>
             </div>
+          )}
+
+          {/* ── BILLING ── */}
+          {activeTab === "billing" && (
+            <>
+              {/* Cancel confirmation modal */}
+              {cancelConfirm && (
+                <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+                  <div style={{ background: "linear-gradient(160deg,#14162e,#0e1124)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 20, padding: "32px 36px", maxWidth: 420, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(248,113,113,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 18 }}>⚠️</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f3fc", marginBottom: 10, fontFamily: "var(--font-display)" }}>Cancel your subscription?</div>
+                    <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: 24 }}>
+                      Your access will continue until the end of the current billing period. After that, your account will be locked. You can resubscribe anytime.
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={() => setCancelConfirm(false)} disabled={cancelLoading}
+                        style={{ flex: 1, height: 42, borderRadius: 10, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                        Keep Subscription
+                      </button>
+                      <button onClick={handleCancelSubscription} disabled={cancelLoading}
+                        style={{ flex: 1, height: 42, borderRadius: 10, border: "none", background: cancelLoading ? "rgba(248,113,113,0.4)" : "#f87171", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: cancelLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                        {cancelLoading
+                          ? <><span style={{ width: 13, height: 13, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /> Cancelling…</>
+                          : "Yes, Cancel"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", borderRadius: "var(--radius-lg)", padding: "22px 24px", marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-glass)", letterSpacing: "-0.01em", fontFamily: "var(--font-display)" }}>
+                  Subscription & Billing
+                </div>
+
+                {billingLoading && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--color-text-tertiary)", fontSize: 13, padding: "20px 0" }}>
+                    <span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+                    Loading billing status…
+                  </div>
+                )}
+
+                {!billingLoading && billingStatus && (() => {
+                  const STATUS_INFO = {
+                    active:    { label: "Active",    color: "#22d3a8", bg: "rgba(34,211,168,0.1)",  border: "rgba(34,211,168,0.25)",  icon: "✅" },
+                    trialing:  { label: "Trial",     color: "#f59e0b", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)",  icon: "⏱" },
+                    past_due:  { label: "Past Due",  color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)", icon: "⚠️" },
+                    cancelled: { label: "Cancelled", color: "#9ca3af", bg: "rgba(156,163,175,0.1)", border: "rgba(156,163,175,0.2)",  icon: "✕" },
+                    exempt:    { label: "Admin",     color: "#a78bfa", bg: "rgba(167,139,250,0.1)", border: "rgba(167,139,250,0.25)", icon: "🛡" },
+                    unknown:   { label: "Unknown",   color: "#9ca3af", bg: "rgba(156,163,175,0.1)", border: "rgba(156,163,175,0.2)",  icon: "?" },
+                  };
+                  const st = billingStatus.status || "unknown";
+                  const info = STATUS_INFO[st] || STATUS_INFO.unknown;
+                  const isActive = st === "active";
+                  const isTrialing = st === "trialing";
+                  const isCancelled = st === "cancelled" || cancelDone;
+                  const canCancel = (isActive || isTrialing) && !cancelDone;
+
+                  return (
+                    <>
+                      {/* Status badge */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderRadius: 12, background: info.bg, border: `1px solid ${info.border}`, marginBottom: 20 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 20 }}>{info.icon}</span>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: info.color }}>Subscription {info.label}</div>
+                            {billingStatus.days_left !== undefined && isTrialing && (
+                              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>{billingStatus.days_left} days left in trial</div>
+                            )}
+                            {isCancelled && !cancelDone && (
+                              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Your access has ended. Resubscribe below.</div>
+                            )}
+                            {cancelDone && (
+                              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Cancellation confirmed. Access continues until end of billing period.</div>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 11, padding: "4px 12px", borderRadius: 999, background: info.border, color: info.color, fontWeight: 700, border: `1px solid ${info.border}` }}>{info.label}</div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Manage payment & invoices</div>
+                            <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Update card, view billing history via Lemon Squeezy portal</div>
+                          </div>
+                          <button onClick={goToPortal} disabled={saving} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                            {saving ? "Opening…" : "Open Portal →"}
+                          </button>
+                        </div>
+
+                        {canCancel && (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "#f87171" }}>Cancel subscription</div>
+                              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>You'll keep access until the end of the current billing period</div>
+                            </div>
+                            <button onClick={() => setCancelConfirm(true)}
+                              style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.4)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                              Cancel Plan
+                            </button>
+                          </div>
+                        )}
+
+                        {isCancelled && (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Reactivate subscription</div>
+                              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Restore access by subscribing again</div>
+                            </div>
+                            <button onClick={async () => {
+                              const r = await fetch(`${API}/billing/checkout`, { method: "POST", headers: hdrs });
+                              const d = await r.json();
+                              if (d.checkout_url) window.location.href = d.checkout_url;
+                            }} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                              Resubscribe →
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </>
           )}
 
           {/* ── DANGER ZONE ── */}
