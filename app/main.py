@@ -91,13 +91,14 @@ _extra       = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 _frontend    = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
 _backend     = os.getenv("BACKEND_URL",  "").strip().rstrip("/")
 
+# Build specific origin list (wildcards '*' are not allowed when allow_credentials=True)
 ALLOWED_ORIGINS: list[str] = list(filter(None, [_frontend, _backend, *_extra]))
 logger.info("CORS allowed origins: %s", ALLOWED_ORIGINS)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins     = ["*"],
-    allow_credentials = False,
+    allow_origins     = ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["*"],
+    allow_credentials = True,  # Required to allow the refresh_token cookie
     allow_methods     = ["*"],
     allow_headers     = ["*"],
 )
