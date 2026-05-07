@@ -5126,6 +5126,149 @@ function AuthenticatedApp() {
 }
 
 // ── Router — decides which page to show ──────────────────────────────────────
+
+// ── Freelancer Dashboard ───────────────────────────────────────────────────────
+function FreelancerDashboard() {
+  const { user, token, logout } = useAuth();
+  const API = BASE_URL;
+  const hdrs = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  const [stats, setStats]       = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
+  const [copied, setCopied]     = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/referral/my-stats`, { headers: hdrs })
+      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then(d => setStats(d))
+      .catch(() => setError("Could not load your stats. Please refresh."))
+      .finally(() => setLoading(false));
+  }, []);  // eslint-disable-line
+
+  const copyLink = () => {
+    if (!stats?.referral_link) return;
+    navigator.clipboard.writeText(stats.referral_link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const CARDS = stats ? [
+    { label: "Total Referred",  value: stats.total,     color: "#3b82f6", icon: "👥", bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)" },
+    { label: "On Trial",        value: stats.trialing,  color: "#f59e0b", icon: "⏱",  bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)" },
+    { label: "Paid",            value: stats.paid,      color: "#22d3a8", icon: "💰", bg: "rgba(34,211,168,0.1)",  border: "rgba(34,211,168,0.25)" },
+    { label: "Cancelled",       value: stats.cancelled, color: "#f87171", icon: "✕",  bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)" },
+  ] : [];
+
+  const convRate = stats && stats.total > 0
+    ? Math.round((stats.paid / stats.total) * 100)
+    : 0;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)", position: "relative" }}>
+      {/* Ambient background */}
+      <div style={{ position: "fixed", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "32px 32px", pointerEvents: "none", zIndex: 0 }} />
+      <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 860, margin: "0 auto", padding: "clamp(20px,4vw,48px) clamp(16px,3vw,32px)" }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36 }}>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "var(--color-text-primary)", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>
+              👋 Hi, {user?.name?.split(" ")[0] || "there"}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--color-text-tertiary)", marginTop: 4 }}>
+              Your referral dashboard — share your link and track every signup
+            </div>
+          </div>
+          <button onClick={logout} style={{ height: 36, padding: "0 16px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)", background: "transparent", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            Sign Out
+          </button>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171", fontSize: 13, marginBottom: 24 }}>
+            ⚠ {error}
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--color-text-tertiary)", fontSize: 13, padding: "40px 0" }}>
+            <span style={{ width: 18, height: 18, border: "2px solid rgba(255,255,255,0.1)", borderTopColor: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+            Loading your stats…
+          </div>
+        )}
+
+        {!loading && stats && (
+          <>
+            {/* Referral link card */}
+            <div style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.1))", border: "1px solid rgba(59,130,246,0.25)", borderRadius: 18, padding: "24px 28px", marginBottom: 28 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
+                🔗 Your Unique Referral Link
+              </div>
+              <div style={{ fontSize: 13, color: "var(--color-text-tertiary)", marginBottom: 14, lineHeight: 1.6 }}>
+                Share this link. Every user who signs up through it is automatically counted under your name.
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 200, padding: "10px 14px", background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontFamily: "monospace", fontSize: 13, color: "#a5b4fc", letterSpacing: "0.02em", wordBreak: "break-all" }}>
+                  {stats.referral_link}
+                </div>
+                <button onClick={copyLink}
+                  style={{ height: 42, padding: "0 20px", borderRadius: 10, border: "none", background: copied ? "rgba(34,211,168,0.2)" : "linear-gradient(135deg,#3b82f6,#8b5cf6)", color: copied ? "#22d3a8" : "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s", border: copied ? "1px solid rgba(34,211,168,0.4)" : "none" }}>
+                  {copied ? "✓ Copied!" : "Copy Link"}
+                </button>
+              </div>
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Your code:</span>
+                <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#a5b4fc", background: "rgba(99,102,241,0.15)", padding: "2px 10px", borderRadius: 6 }}>
+                  {stats.referral_code}
+                </span>
+              </div>
+            </div>
+
+            {/* Stats cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 28 }}>
+              {CARDS.map(card => (
+                <div key={card.label} style={{ background: card.bg, border: `1px solid ${card.border}`, borderRadius: 14, padding: "20px 20px 18px" }}>
+                  <div style={{ fontSize: 22, marginBottom: 8 }}>{card.icon}</div>
+                  <div style={{ fontSize: 30, fontWeight: 800, color: card.color, fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                    {card.value}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 6, fontWeight: 500 }}>
+                    {card.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Conversion rate bar */}
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", borderRadius: 14, padding: "20px 24px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>
+                  Trial → Paid Conversion
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: convRate >= 50 ? "#22d3a8" : convRate >= 25 ? "#f59e0b" : "#f87171", fontFamily: "var(--font-display)" }}>
+                  {convRate}%
+                </div>
+              </div>
+              <div style={{ height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${convRate}%`, borderRadius: 999, background: convRate >= 50 ? "linear-gradient(90deg,#22d3a8,#0ea5e9)" : convRate >= 25 ? "linear-gradient(90deg,#f59e0b,#ef4444)" : "#f87171", transition: "width 0.8s ease" }} />
+              </div>
+              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 10 }}>
+                {stats.paid} paid out of {stats.total} total referrals
+                {stats.total === 0 && " — share your link to get started!"}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function AppRouter() {
   const { isAuthenticated, loading, user } = useAuth();
 
@@ -5135,6 +5278,11 @@ function AppRouter() {
   // Super-admin → show admin dashboard, bypass all other pages
   if (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
     return <AdminDashboard />;
+  }
+
+  // Freelancer → show their personal referral dashboard
+  if (user?.subscription_status === "freelancer") {
+    return <FreelancerDashboard />;
   }
 
   return <AuthenticatedApp />;
