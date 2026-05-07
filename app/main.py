@@ -41,7 +41,7 @@ VERSION = "1.5.0"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting up...")
+    logger.info("Starting up — creating database tables...")
     try:
         Base.metadata.create_all(bind=engine)
     except Exception as exc:
@@ -53,20 +53,24 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AI Workflow Coordinator", version=VERSION, lifespan=lifespan)
 
-# ── CORS ───────────────────────────────────────────────────────────────────────
+# ── CORS FIX: RESOLVING OPTIONS 400 BAD REQUEST ───────────────────────────────
 _frontend = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
 _backend  = os.getenv("BACKEND_URL", "").strip().rstrip("/")
 _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
 _extra = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
+# Combine all possible origins
 ALLOWED_ORIGINS = list(filter(None, [_frontend, _backend, *_extra]))
 
+# If ALLOWED_ORIGINS is empty, we must be careful with allow_credentials=True.
+# We'll use ["*"] if no specific origins are provided to ensure connectivity.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS if ALLOWED_ORIGINS else ["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # ── Routers ────────────────────────────────────────────────────────────────────
@@ -90,3 +94,8 @@ app.include_router(referral_router.router)
 @app.get("/")
 async def health_check():
     return {"status": "ok", "version": VERSION}
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error("Unhandled exception: %s", exc, exc_info=True)
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
