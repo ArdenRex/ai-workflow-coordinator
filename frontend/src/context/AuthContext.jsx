@@ -160,7 +160,10 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async ({ name, email, password }) => {
     setError(null);
-    const res = await apiFetch("/auth/register", {
+    // Read referral code from URL (?ref=CODE) so it's tracked server-side
+    const refCode = new URLSearchParams(window.location.search).get("ref") || "";
+    const path = refCode ? `/auth/register?ref=${encodeURIComponent(refCode)}` : "/auth/register";
+    const res = await apiFetch(path, {
       method: "POST",
       body: JSON.stringify({ name, email, password }),
     });
