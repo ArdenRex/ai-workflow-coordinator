@@ -195,6 +195,12 @@ class User(Base):
     ls_customer_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     ls_subscription_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
 
+    # Segment 16 — Freelancer referral tracking
+    referred_by_code: Mapped[Optional[str]] = mapped_column(
+        String(32), nullable=True, index=True,
+        comment="Referral code of the freelancer who referred this user",
+    )
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
@@ -560,6 +566,41 @@ class Feedback(Base):
         return f"<Feedback id={self.id} type={self.type} status={self.status}>"
 
 
+
+# ── Freelancer (Segment 16) ───────────────────────────────────────────────────
+
+class Freelancer(Base):
+    """
+    Represents an approved freelancer who can refer new users via a unique link.
+    Each freelancer gets a unique referral_code; users who sign up via that link
+    have referred_by_code set to this code, enabling per-freelancer stats.
+    """
+    __tablename__ = "freelancers"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+
+    # Unique short code used in referral URLs, e.g. ?ref=ABC123
+    referral_code: Mapped[str] = mapped_column(
+        String(32), unique=True, nullable=False, index=True,
+        default=lambda: secrets.token_urlsafe(8),
+    )
+
+    # Optional display label (e.g. "John - Upwork")
+    label: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    def __repr__(self) -> str:
+        return f"<Freelancer id={self.id} email={self.email!r} code={self.referral_code!r}>"
+
+
 # ── FreelancerRequest ─────────────────────────────────────────────────────────
 
 class FreelancerRequest(Base):
@@ -711,4 +752,23 @@ CREATE TABLE IF NOT EXISTS freelancer_requests (
 
 CREATE INDEX IF NOT EXISTS ix_freelancer_requests_email  ON freelancer_requests(email);
 CREATE INDEX IF NOT EXISTS ix_freelancer_requests_status ON freelancer_requests(status);
+
+-- Segment 16 — Freelancer referral tracking
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS referred_by_code VARCHAR(32);
+
+CREATE INDEX IF NOT EXISTS ix_users_referred_by_code ON users(referred_by_code);
+
+CREATE TABLE IF NOT EXISTS freelancers (
+    id            SERIAL PRIMARY KEY,
+    name          VARCHAR(255) NOT NULL,
+    email         VARCHAR(255) NOT NULL UNIQUE,
+    referral_code VARCHAR(32)  NOT NULL UNIQUE,
+    label         VARCHAR(255),
+    is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_freelancers_email         ON freelancers(email);
+CREATE INDEX IF NOT EXISTS ix_freelancers_referral_code ON freelancers(referral_code);
 """
