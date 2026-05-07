@@ -33,7 +33,7 @@ from app.auth import (
     decode_token,
 )
 from app.database import get_db
-from app.models import User, UserRole, FreelancerRequest
+from app.models import User, UserRole, FreelancerRequest, Freelancer
 from app.schemas import (
     LoginRequest,
     OnboardingRequest,
@@ -147,7 +147,7 @@ def _clear_refresh_cookie(response: Response) -> None:
     status_code=status.HTTP_201_CREATED,
     summary="Create a new account",
 )
-def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> RegisterResponse:
+def register(payload: RegisterRequest, db: Session = Depends(get_db), ref: str = Query(None, description="Freelancer referral code")) -> RegisterResponse:
     """
     Creates a new user account with email + password.
     After this, the frontend should redirect to /onboarding.
@@ -182,6 +182,23 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> Registe
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists.",
         )
+
+    # ── Referral tracking ────────────────────────────────────────────────────
+    if ref:
+        freelancer = (
+            db.query(Freelancer)
+            .filter(Freelancer.referral_code == ref, Freelancer.is_active == True)
+            .first()
+        )
+        if freelancer:
+            user.referred_by_code = ref
+            try:
+                db.commit()
+                db.refresh(user)
+                logger.info("User id=%d referred by freelancer code=%s", user.id, ref)
+            except Exception as exc:
+                db.rollback()
+                logger.warning("Could not save referral code: %s", exc)
 
     logger.info("New user registered: id=%d email=%s", user.id, user.email)
 
