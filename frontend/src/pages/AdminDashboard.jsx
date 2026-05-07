@@ -7806,6 +7806,313 @@ function SystemHealthRadar({ m }) {
 }
 
 // ── MAIN DASHBOARD ────────────────────────────────────────────────────────────
+
+// ── FREELANCER PANEL ──────────────────────────────────────────────────────────
+function FreelancerPanel() {
+  const { dark } = useTheme();
+  const token = localStorage.getItem("access_token");
+  const hdrs  = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  const [freelancers, setFreelancers] = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [creating,    setCreating]    = useState(false);
+  const [period,      setPeriod]      = useState("monthly");
+  const [overview,    setOverview]    = useState(null);
+  const [ovLoading,   setOvLoading]   = useState(false);
+  const [form,        setForm]        = useState({ name: "", email: "", label: "" });
+  const [formErr,     setFormErr]     = useState("");
+  const [copied,      setCopied]      = useState(null); // freelancer id
+
+  const cyan   = dark ? "#00e5ff" : "#0088cc";
+  const green  = dark ? "#00ff9d" : "#009966";
+  const gold   = dark ? "#ffd060" : "#b87a00";
+  const red    = dark ? "#ff2d55" : "#cc2244";
+  const panelBg = dark ? "rgba(0,20,40,0.7)"   : "rgba(220,238,255,0.85)";
+  const border  = dark ? "rgba(0,229,255,0.12)" : "rgba(0,120,200,0.2)";
+  const rowBg   = dark ? "rgba(0,229,255,0.03)" : "rgba(0,120,200,0.04)";
+  const mutedC  = dark ? "rgba(180,220,255,0.45)" : "rgba(0,60,120,0.5)";
+  const textC   = dark ? "#dff6ff" : "#0a1a2e";
+  const inputBg = dark ? "rgba(0,229,255,0.05)"  : "rgba(0,120,200,0.07)";
+
+  const loadFreelancers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/referral/freelancers`, { headers: hdrs });
+      const d = await r.json();
+      setFreelancers(Array.isArray(d) ? d : []);
+    } catch { setFreelancers([]); }
+    finally { setLoading(false); }
+  }, []); // eslint-disable-line
+
+  const loadOverview = useCallback(async (p) => {
+    setOvLoading(true);
+    try {
+      const r = await fetch(`${API}/referral/overview?period=${p}`, { headers: hdrs });
+      const d = await r.json();
+      setOverview(d);
+    } catch { setOverview(null); }
+    finally { setOvLoading(false); }
+  }, []); // eslint-disable-line
+
+  useEffect(() => { loadFreelancers(); }, [loadFreelancers]);
+  useEffect(() => { loadOverview(period); }, [period, loadOverview]);
+
+  const createFreelancer = async () => {
+    setFormErr("");
+    if (!form.name.trim() || !form.email.trim()) { setFormErr("Name and email are required."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) { setFormErr("Enter a valid email."); return; }
+    setCreating(true);
+    try {
+      const r = await fetch(`${API}/referral/freelancers`, {
+        method: "POST", headers: hdrs,
+        body: JSON.stringify({ name: form.name.trim(), email: form.email.trim(), label: form.label.trim() || null }),
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || "Failed to create");
+      setForm({ name: "", email: "", label: "" });
+      await loadFreelancers();
+      await loadOverview(period);
+    } catch (e) { setFormErr(e.message); }
+    finally { setCreating(false); }
+  };
+
+  const deactivate = async (id, name) => {
+    if (!window.confirm(`Deactivate ${name}? Their referral link will stop working.`)) return;
+    await fetch(`${API}/referral/freelancers/${id}`, { method: "DELETE", headers: hdrs });
+    await loadFreelancers();
+    await loadOverview(period);
+  };
+
+  const copyLink = (f) => {
+    navigator.clipboard.writeText(f.referral_link);
+    setCopied(f.id);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const totalReferred = freelancers.reduce((s, f) => s + (f.total || 0), 0);
+  const totalPaid     = freelancers.reduce((s, f) => s + (f.paid || 0), 0);
+  const totalTrial    = freelancers.reduce((s, f) => s + (f.trialing || 0), 0);
+  const totalCancelled= freelancers.reduce((s, f) => s + (f.cancelled || 0), 0);
+
+  const sectionStyle = {
+    background: panelBg,
+    border: `1px solid ${border}`,
+    borderRadius: 14,
+    padding: "22px 26px",
+    marginBottom: 18,
+    backdropFilter: "blur(12px)",
+  };
+
+  const inputStyle = {
+    flex: 1, minWidth: 120, height: 36,
+    padding: "0 12px",
+    background: inputBg,
+    border: `1px solid ${border}`,
+    borderRadius: 8,
+    fontFamily: "inherit", fontSize: 13,
+    color: textC, outline: "none",
+  };
+
+  const PERIOD_LABELS = { weekly: "7 days", monthly: "30 days", quarterly: "90 days" };
+
+  return (
+    <div>
+      <div className="section-heading">Freelancer Network</div>
+
+      {/* ── Summary stats ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px,1fr))", gap: 12, marginBottom: 18 }}>
+        {[
+          { label: "Total Referred",  val: totalReferred,  color: cyan  },
+          { label: "On Trial",        val: totalTrial,     color: gold  },
+          { label: "Paid Users",      val: totalPaid,      color: green },
+          { label: "Cancelled",       val: totalCancelled, color: red   },
+        ].map(s => (
+          <div key={s.label} style={{ ...sectionStyle, marginBottom: 0, textAlign: "center", padding: "18px 14px" }}>
+            <div style={{ fontSize: 32, fontWeight: 800, color: s.color, fontFamily: "monospace", letterSpacing: "-0.03em" }}>{s.val}</div>
+            <div style={{ fontSize: 11, color: mutedC, marginTop: 6, textTransform: "uppercase", letterSpacing: "0.07em" }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Add freelancer form ── */}
+      <div style={sectionStyle}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: cyan, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 14, fontFamily: "monospace" }}>
+          ⊕ Add New Freelancer
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <input value={form.name}  onChange={e => setForm(f => ({...f, name:  e.target.value}))} placeholder="Full name *"    style={inputStyle} />
+          <input value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))} placeholder="Email *"         style={inputStyle} type="email" />
+          <input value={form.label} onChange={e => setForm(f => ({...f, label: e.target.value}))} placeholder="Label (optional, e.g. Upwork)" style={inputStyle} />
+          <button onClick={createFreelancer} disabled={creating} style={{
+            height: 36, padding: "0 20px", borderRadius: 8, border: "none",
+            background: creating ? "rgba(0,229,255,0.2)" : `linear-gradient(135deg, ${cyan}, #8b5cf6)`,
+            color: "#fff", fontFamily: "inherit", fontSize: 13, fontWeight: 700,
+            cursor: creating ? "not-allowed" : "pointer", whiteSpace: "nowrap",
+          }}>
+            {creating ? "Creating…" : "Generate Link"}
+          </button>
+        </div>
+        {formErr && <div style={{ marginTop: 10, fontSize: 12, color: red }}>{formErr}</div>}
+      </div>
+
+      {/* ── Freelancer table ── */}
+      <div style={sectionStyle}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: cyan, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 16, fontFamily: "monospace" }}>
+          ◈ All Freelancers — All-time Stats
+        </div>
+
+        {loading ? (
+          <div style={{ color: mutedC, fontSize: 13, padding: "20px 0", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ width: 14, height: 14, border: `2px solid ${border}`, borderTopColor: cyan, borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+            Loading freelancers…
+          </div>
+        ) : freelancers.length === 0 ? (
+          <div style={{ color: mutedC, fontSize: 13, padding: "16px 0" }}>No freelancers yet — add one above.</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${border}` }}>
+                  {["Freelancer", "Referral Link", "Total", "Trial", "Paid", "Cancelled", "Conv%", "Status", ""].map(h => (
+                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, color: mutedC, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {freelancers.map(f => {
+                  const conv = f.total > 0 ? Math.round((f.paid / f.total) * 100) : 0;
+                  return (
+                    <tr key={f.id} style={{ borderBottom: `1px solid ${border}`, background: rowBg }}>
+                      <td style={{ padding: "12px 12px" }}>
+                        <div style={{ fontWeight: 700, color: textC }}>{f.name}</div>
+                        <div style={{ fontSize: 11, color: mutedC, marginTop: 2 }}>{f.email}</div>
+                        {f.label && <div style={{ fontSize: 10, color: cyan, marginTop: 2, fontFamily: "monospace" }}>{f.label}</div>}
+                      </td>
+                      <td style={{ padding: "12px 12px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontFamily: "monospace", fontSize: 11, color: cyan, background: "rgba(0,229,255,0.08)", padding: "3px 8px", borderRadius: 5, border: `1px solid ${border}` }}>
+                            {f.referral_code}
+                          </span>
+                          <button onClick={() => copyLink(f)} style={{
+                            padding: "3px 10px", borderRadius: 5, border: `1px solid ${border}`,
+                            background: copied === f.id ? "rgba(0,255,157,0.12)" : "rgba(0,229,255,0.07)",
+                            color: copied === f.id ? green : cyan,
+                            fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+                          }}>
+                            {copied === f.id ? "✓ Copied" : "Copy Link"}
+                          </button>
+                        </div>
+                      </td>
+                      <td style={{ padding: "12px 12px", textAlign: "center", fontWeight: 700, color: textC, fontFamily: "monospace" }}>{f.total}</td>
+                      <td style={{ padding: "12px 12px", textAlign: "center", color: gold,  fontFamily: "monospace", fontWeight: 600 }}>{f.trialing}</td>
+                      <td style={{ padding: "12px 12px", textAlign: "center", color: green, fontFamily: "monospace", fontWeight: 600 }}>{f.paid}</td>
+                      <td style={{ padding: "12px 12px", textAlign: "center", color: red,   fontFamily: "monospace", fontWeight: 600 }}>{f.cancelled}</td>
+                      <td style={{ padding: "12px 12px", textAlign: "center" }}>
+                        <span style={{ color: conv >= 50 ? green : conv >= 20 ? gold : red, fontFamily: "monospace", fontWeight: 700 }}>{conv}%</span>
+                      </td>
+                      <td style={{ padding: "12px 12px" }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 4, fontFamily: "monospace",
+                          background: f.is_active ? "rgba(0,255,157,0.1)" : "rgba(255,45,85,0.1)",
+                          color: f.is_active ? green : red,
+                          border: `1px solid ${f.is_active ? "rgba(0,255,157,0.25)" : "rgba(255,45,85,0.25)"}`,
+                        }}>
+                          {f.is_active ? "ACTIVE" : "INACTIVE"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "12px 12px" }}>
+                        {f.is_active && (
+                          <button onClick={() => deactivate(f.id, f.name)} style={{
+                            padding: "3px 10px", borderRadius: 5, border: `1px solid rgba(255,45,85,0.3)`,
+                            background: "rgba(255,45,85,0.07)", color: red,
+                            fontSize: 11, fontWeight: 600, cursor: "pointer",
+                          }}>
+                            Deactivate
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Period breakdown ── */}
+      <div style={sectionStyle}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: cyan, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: "monospace" }}>
+            ◎ Performance — Last {PERIOD_LABELS[period]}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {["weekly", "monthly", "quarterly"].map(p => (
+              <button key={p} onClick={() => setPeriod(p)} style={{
+                padding: "4px 14px", borderRadius: 6,
+                border: `1px solid ${period === p ? cyan : border}`,
+                background: period === p ? "rgba(0,229,255,0.12)" : "transparent",
+                color: period === p ? cyan : mutedC,
+                fontFamily: "monospace", fontSize: 11, fontWeight: 700,
+                cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em",
+              }}>
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {ovLoading ? (
+          <div style={{ color: mutedC, fontSize: 13, display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ width: 14, height: 14, border: `2px solid ${border}`, borderTopColor: cyan, borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+            Loading…
+          </div>
+        ) : !overview?.rows?.length ? (
+          <div style={{ color: mutedC, fontSize: 13 }}>No referral activity in this period.</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${border}` }}>
+                  {["Freelancer", "Total", "Trial", "Paid", "Cancelled", "Conv%"].map(h => (
+                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, color: mutedC, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {overview.rows.map(row => {
+                  const conv = row.total > 0 ? Math.round((row.paid / row.total) * 100) : 0;
+                  return (
+                    <tr key={row.freelancer_id} style={{ borderBottom: `1px solid ${border}`, background: rowBg }}>
+                      <td style={{ padding: "10px 12px" }}>
+                        <div style={{ fontWeight: 700, color: textC }}>{row.freelancer_name}</div>
+                        {row.label && <div style={{ fontSize: 10, color: cyan, marginTop: 1, fontFamily: "monospace" }}>{row.label}</div>}
+                        {!row.is_active && <div style={{ fontSize: 10, color: red, marginTop: 1 }}>INACTIVE</div>}
+                      </td>
+                      <td style={{ padding: "10px 12px", textAlign: "center", fontWeight: 700, color: textC, fontFamily: "monospace" }}>{row.total}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "center", color: gold,  fontFamily: "monospace", fontWeight: 600 }}>{row.trialing}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "center", color: green, fontFamily: "monospace", fontWeight: 600 }}>{row.paid}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "center", color: red,   fontFamily: "monospace", fontWeight: 600 }}>{row.cancelled}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden", minWidth: 60 }}>
+                            <div style={{ height: "100%", width: `${conv}%`, background: conv >= 50 ? green : conv >= 20 ? gold : red, borderRadius: 999, transition: "width 0.6s ease" }} />
+                          </div>
+                          <span style={{ color: conv >= 50 ? green : conv >= 20 ? gold : red, fontFamily: "monospace", fontWeight: 700, fontSize: 12, minWidth: 32 }}>{conv}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("access_token"));
   const [tab, setTab] = useState("overview");
@@ -7849,7 +8156,7 @@ export default function AdminDashboard() {
       if (e.key === "Escape") { setPaletteOpen(false); setExportOpen(false); setCheatsheetOpen(false); }
       // Tab shortcuts 1-5
       if (!e.metaKey && !e.ctrlKey && !e.shiftKey && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
-        const tabMap = { "1": "overview", "2": "revenue", "3": "users", "4": "workspaces", "5": "feedback" };
+        const tabMap = { "1": "overview", "2": "revenue", "3": "users", "4": "workspaces", "5": "feedback", "6": "freelancers" };
         if (tabMap[e.key]) setTab(tabMap[e.key]);
       }
     };
@@ -7863,11 +8170,12 @@ export default function AdminDashboard() {
   const dateStr = time.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 
   const TABS = [
-    { id: "overview",   label: "OVERVIEW",   icon: "◈" },
-    { id: "revenue",    label: "REVENUE",    icon: "◎" },
-    { id: "users",      label: "USERS",      icon: "⬡", count: m?.users?.total },
-    { id: "workspaces", label: "WORKSPACES", icon: "⊞" },
-    { id: "feedback",   label: "FEEDBACK",   icon: "◆" },
+    { id: "overview",    label: "OVERVIEW",    icon: "◈" },
+    { id: "revenue",     label: "REVENUE",     icon: "◎" },
+    { id: "users",       label: "USERS",       icon: "⬡", count: m?.users?.total },
+    { id: "workspaces",  label: "WORKSPACES",  icon: "⊞" },
+    { id: "feedback",    label: "FEEDBACK",    icon: "◆" },
+    { id: "freelancers", label: "FREELANCERS", icon: "⬢" },
   ];
 
   const isRev = displayTab === "revenue";
@@ -9549,6 +9857,10 @@ export default function AdminDashboard() {
               <div className="section-heading">Incoming Transmissions</div>
               <FeedbackTable />
             </div>
+          )}
+
+          {displayTab === "freelancers" && (
+            <FreelancerPanel />
           )}
 
           </div>{/* end tab transition wrapper */}
