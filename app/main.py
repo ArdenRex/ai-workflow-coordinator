@@ -40,6 +40,7 @@ from app.routers import public_api as public_api_router
 from app.routers import feedback as feedback_router
 from app.routers import billing as billing_router
 from app.routers import admin as admin_router
+from app.routers import referral as referral_router
 from app.routers.tasks import share_router
 from app.scheduler import start_scheduler, stop_scheduler
 
@@ -117,6 +118,7 @@ app.include_router(public_api_router.router)            # /api/v1/*
 app.include_router(feedback_router.router)              # /feedback/*
 app.include_router(billing_router.router)               # /billing/*
 app.include_router(admin_router.router)                 # /admin/*
+app.include_router(referral_router.router)              # /referral/*
 
 
 # ── Global exception handler ───────────────────────────────────────────────────
