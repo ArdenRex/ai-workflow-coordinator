@@ -588,6 +588,11 @@ class Freelancer(Base):
         default=lambda: secrets.token_urlsafe(8),
     )
 
+    # URL-friendly slug derived from name, used in /invite/:slug links
+    slug: Mapped[Optional[str]] = mapped_column(
+        String(255), unique=True, nullable=True, index=True,
+    )
+
     # Optional display label (e.g. "John - Upwork")
     label: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
