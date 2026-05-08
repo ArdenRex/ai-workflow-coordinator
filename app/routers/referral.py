@@ -19,6 +19,7 @@ ADMIN only:
 
 import logging
 import os
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -79,6 +80,8 @@ class FreelancerOut(BaseModel):
     email:         str
     referral_code: str
     referral_link: str
+    invite_link:   str = ""
+    slug:          Optional[str] = None
     label:         Optional[str]
     is_active:     bool
     created_at:    datetime
@@ -119,6 +122,15 @@ class OverviewOut(BaseModel):
 
 def _make_link(code: str) -> str:
     return f"{FRONTEND_URL}/register?ref={code}"
+
+
+def _make_slug(name: str) -> str:
+    """Convert a freelancer name to a URL-friendly slug. e.g. 'John Doe' → 'john-doe'"""
+    slug = name.strip().lower()
+    slug = re.sub(r"[^\w\s-]", "", slug)
+    slug = re.sub(r"[\s_]+", "-", slug)
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    return slug
 
 
 def _stats_for_code(db: Session, code: str) -> dict:
@@ -172,12 +184,15 @@ def _stats_for_code_since(db: Session, code: str, since: datetime) -> dict:
 
 def _freelancer_out(f: Freelancer, db: Session) -> FreelancerOut:
     stats = _stats_for_code(db, f.referral_code)
+    slug = f.slug or _make_slug(f.name)
     return FreelancerOut(
         id=f.id,
         name=f.name,
         email=f.email,
         referral_code=f.referral_code,
         referral_link=_make_link(f.referral_code),
+        invite_link=f"{FRONTEND_URL}/invite/{slug}",
+        slug=slug,
         label=f.label,
         is_active=f.is_active,
         created_at=f.created_at,
@@ -200,6 +215,32 @@ def resolve_referral_code(code: str, db: Session = Depends(get_db)) -> ResolveOu
     freelancer = (
         db.query(Freelancer)
         .filter(Freelancer.referral_code == code, Freelancer.is_active == True)
+        .first()
+    )
+    if not freelancer:
+        return ResolveOut(valid=False)
+    return ResolveOut(
+        valid=True,
+        freelancer_id=freelancer.id,
+        name=freelancer.name,
+        referral_code=freelancer.referral_code,
+    )
+
+
+@router.get(
+    "/resolve-slug/{slug}",
+    response_model=ResolveOut,
+    summary="Resolve an /invite/:slug link to a referral code (public)",
+)
+def resolve_referral_slug(slug: str, db: Session = Depends(get_db)) -> ResolveOut:
+    """
+    Frontend calls this when a user lands on /invite/john-doe.
+    Looks up the freelancer by slug and returns their referral code
+    so the frontend can redirect to /register?ref=CODE.
+    """
+    freelancer = (
+        db.query(Freelancer)
+        .filter(Freelancer.slug == slug, Freelancer.is_active == True)
         .first()
     )
     if not freelancer:
@@ -294,10 +335,19 @@ def create_freelancer(
     while db.query(Freelancer).filter(Freelancer.referral_code == code).first():
         code = secrets.token_urlsafe(6).upper()[:8]
 
+    # Generate a URL-friendly slug from the name, ensure uniqueness
+    base_slug = _make_slug(payload.name)
+    slug = base_slug
+    counter = 2
+    while db.query(Freelancer).filter(Freelancer.slug == slug).first():
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+
     freelancer = Freelancer(
         name=payload.name.strip(),
         email=payload.email.strip().lower(),
         referral_code=code,
+        slug=slug,
         label=payload.label,
         is_active=True,
     )
