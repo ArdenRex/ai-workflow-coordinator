@@ -5269,8 +5269,78 @@ function FreelancerDashboard() {
   );
 }
 
+// ── Invite landing page — /invite/:slug ──────────────────────────────────────
+function InvitePage() {
+  const slug = window.location.pathname.replace(/^\/invite\/?/, "").trim();
+  const API  = BASE_URL;
+
+  const [status, setStatus] = React.useState("loading"); // loading | found | notfound
+  const [name,   setName]   = React.useState("");
+
+  React.useEffect(() => {
+    if (!slug) { setStatus("notfound"); return; }
+    fetch(`${API}/referral/resolve-slug/${encodeURIComponent(slug)}`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => {
+        if (d.valid) {
+          setName(d.name);
+          setStatus("found");
+          // Redirect to register with the referral code after a short delay
+          setTimeout(() => {
+            window.location.href = `/?ref=${encodeURIComponent(d.referral_code)}`;
+          }, 1800);
+        } else {
+          setStatus("notfound");
+        }
+      })
+      .catch(() => setStatus("notfound"));
+  }, [slug]);
+
+  const containerStyle = {
+    minHeight: "100vh", display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center",
+    background: "linear-gradient(135deg, #020812 0%, #040f1e 100%)",
+    fontFamily: "'Share Tech Mono', monospace",
+  };
+
+  if (status === "loading") return (
+    <div style={containerStyle}>
+      <div style={{ fontSize: 13, color: "rgba(0,229,255,0.5)", letterSpacing: "0.2em" }}>RESOLVING INVITE…</div>
+    </div>
+  );
+
+  if (status === "notfound") return (
+    <div style={containerStyle}>
+      <div style={{ fontSize: 22, color: "#ff2d55", marginBottom: 12 }}>✕</div>
+      <div style={{ fontSize: 13, color: "rgba(255,45,85,0.8)", letterSpacing: "0.15em" }}>INVITE LINK NOT FOUND</div>
+      <a href="/" style={{ marginTop: 20, fontSize: 11, color: "rgba(0,229,255,0.5)", textDecoration: "none", letterSpacing: "0.1em" }}>← GO HOME</a>
+    </div>
+  );
+
+  return (
+    <div style={containerStyle}>
+      <div style={{ textAlign: "center", padding: 40, border: "1px solid rgba(0,229,255,0.2)", borderRadius: 8, background: "rgba(0,229,255,0.03)", maxWidth: 360 }}>
+        <div style={{ fontSize: 28, marginBottom: 10 }}>◈</div>
+        <div style={{ fontSize: 11, color: "rgba(0,229,255,0.4)", letterSpacing: "0.2em", marginBottom: 16 }}>YOU WERE INVITED BY</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#00e5ff", letterSpacing: "0.05em", marginBottom: 20, fontFamily: "'Orbitron', monospace" }}>{name}</div>
+        <div style={{ fontSize: 11, color: "rgba(0,229,255,0.5)", letterSpacing: "0.12em" }}>Redirecting to registration…</div>
+        <div style={{ marginTop: 16, height: 2, background: "rgba(0,229,255,0.1)", borderRadius: 1, overflow: "hidden" }}>
+          <div style={{ height: "100%", background: "#00e5ff", animation: "invite-progress 1.8s linear forwards" }} />
+        </div>
+        <style>{`@keyframes invite-progress { from { width: 0% } to { width: 100% } }`}</style>
+        <a href={`/?ref=${slug}`} style={{ display: "block", marginTop: 14, fontSize: 10, color: "rgba(0,229,255,0.3)", textDecoration: "none" }}>Click here if not redirected</a>
+      </div>
+    </div>
+  );
+}
+
 function AppRouter() {
   const { isAuthenticated, loading, user } = useAuth();
+
+  // Handle /invite/:slug before auth check — public route
+  if (window.location.pathname.startsWith("/invite/")) {
+    return <InvitePage />;
+  }
 
   if (loading) return <AppLoader />;
   if (!isAuthenticated) return <AuthPage />;
