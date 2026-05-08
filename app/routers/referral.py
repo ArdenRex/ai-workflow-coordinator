@@ -24,7 +24,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func, case
 from sqlalchemy.orm import Session
@@ -107,6 +107,7 @@ class MyStatsOut(BaseModel):
     name:          str
     referral_code: str
     referral_link: str
+    invite_link:   str = ""   # populated by my-stats-by-code; empty for JWT route
     total:         int
     trialing:      int
     paid:          int
@@ -252,6 +253,48 @@ def resolve_referral_slug(slug: str, db: Session = Depends(get_db)) -> ResolveOu
         referral_code=freelancer.referral_code,
     )
 
+
+
+# ── FREELANCER DASHBOARD: stats by referral_code (no JWT needed) ─────────────
+#
+# The freelancer dashboard (separate Vercel deployment) authenticates using
+# only a slug + local password. It never creates a User account so it cannot
+# get a JWT. This endpoint lets the dashboard fetch stats by passing the
+# referral_code directly as the Bearer token — read-only, no mutations.
+
+@router.get(
+    "/my-stats-by-code",
+    response_model=MyStatsOut,
+    summary="Freelancer dashboard — fetch own stats using referral_code as Bearer token",
+)
+def my_stats_by_code(
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+) -> MyStatsOut:
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authorization header.")
+    code = authorization.split(" ", 1)[1].strip()
+    if not code:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Empty referral code.")
+
+    freelancer = (
+        db.query(Freelancer)
+        .filter(Freelancer.referral_code == code, Freelancer.is_active == True)
+        .first()
+    )
+    if not freelancer:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or inactive referral code.")
+
+    stats = _stats_for_code(db, freelancer.referral_code)
+    slug = freelancer.slug or _make_slug(freelancer.name)
+    return MyStatsOut(
+        freelancer_id=freelancer.id,
+        name=freelancer.name,
+        referral_code=freelancer.referral_code,
+        referral_link=_make_link(freelancer.referral_code),
+        invite_link=f"{FRONTEND_URL}/invite/{slug}",
+        **stats,
+    )
 
 # ── FREELANCER: my own stats ──────────────────────────────────────────────────
 
