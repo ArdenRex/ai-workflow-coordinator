@@ -1930,7 +1930,7 @@ function RoleChip({ role }) {
   );
 }
 
-function UsersTable({ showToast, onUserClick, refetchMetrics }) {
+function UsersTable({ showToast, onUserClick }) {
   const { data, loading, refetch } = useAdminFetch("/admin/users?limit=100");
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -1975,15 +1975,6 @@ function UsersTable({ showToast, onUserClick, refetchMetrics }) {
     a.href = url; a.download = `arcane_users_${selected.size}.csv`; a.click();
     URL.revokeObjectURL(url);
     showToast?.(`Exported ${selected.size} agent records`, "success");
-  };
-
-  const handleDeleteUser = async (id, name) => {
-    if (!window.confirm(`Permanently delete agent "${name || "this user"}"? This action cannot be undone.`)) return;
-    const token = localStorage.getItem("access_token");
-    await fetch(`${API}/admin/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-    refetch();
-    refetchMetrics?.();
-    showToast?.(`${name || "User"} permanently deleted`, "error");
   };
 
   const toggleSelect = (id) => {
@@ -2270,52 +2261,31 @@ function UsersTable({ showToast, onUserClick, refetchMetrics }) {
                         ♛ PROTECTED
                       </div>
                     ) : (
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <button onClick={() => handleToggleActive(u.id, u.is_active, u.name)}
-                          style={{
-                            display: "inline-flex", alignItems: "center", gap: 6,
-                            fontSize: 7, fontWeight: 700, padding: "5px 12px",
-                            border: "none", cursor: "pointer",
-                            fontFamily: "'Share Tech Mono', monospace",
-                            letterSpacing: "0.12em",
-                            background: u.is_active
-                              ? "linear-gradient(135deg, rgba(0,255,157,0.1) 0%, rgba(0,255,157,0.04) 100%)"
-                              : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
-                            color: u.is_active ? "#00ff9d" : "#ff2d55",
-                            border: `1px solid ${u.is_active ? "rgba(0,255,157,0.4)" : "rgba(255,45,85,0.4)"}`,
-                            borderRadius: 3,
-                            clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
-                            boxShadow: u.is_active
-                              ? "0 0 14px rgba(0,255,157,0.15), inset 0 1px 0 rgba(255,255,255,0.07)"
-                              : "0 0 14px rgba(255,45,85,0.15), inset 0 1px 0 rgba(255,255,255,0.07)",
-                            transition: "all 0.2s",
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
-                        >
-                          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", boxShadow: "0 0 6px currentColor", animation: u.is_active ? "pulse-glow 1.5s infinite" : "none" }} />
-                          {u.is_active ? "ONLINE" : "OFFLINE"}
-                        </button>
-                        <button onClick={() => handleDeleteUser(u.id, u.name)}
-                          style={{
-                            display: "inline-flex", alignItems: "center", gap: 5,
-                            fontSize: 7, fontWeight: 700, padding: "5px 10px",
-                            cursor: "pointer", fontFamily: "'Share Tech Mono', monospace",
-                            letterSpacing: "0.12em",
-                            background: "linear-gradient(135deg, rgba(255,45,85,0.08) 0%, rgba(255,45,85,0.03) 100%)",
-                            color: "#ff2d55",
-                            border: "1px solid rgba(255,45,85,0.35)",
-                            borderRadius: 3,
-                            clipPath: "polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%)",
-                            boxShadow: "0 0 10px rgba(255,45,85,0.1)",
-                            transition: "all 0.2s",
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.2) 0%, rgba(255,45,85,0.08) 100%)"; e.currentTarget.style.boxShadow = "0 0 18px rgba(255,45,85,0.3)"; e.currentTarget.style.transform = "scale(1.05)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.08) 0%, rgba(255,45,85,0.03) 100%)"; e.currentTarget.style.boxShadow = "0 0 10px rgba(255,45,85,0.1)"; e.currentTarget.style.transform = "scale(1)"; }}
-                        >
-                          ✕ DELETE
-                        </button>
-                      </div>
+                      <button onClick={() => handleToggleActive(u.id, u.is_active, u.name)}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          fontSize: 7, fontWeight: 700, padding: "5px 12px",
+                          border: "none", cursor: "pointer",
+                          fontFamily: "'Share Tech Mono', monospace",
+                          letterSpacing: "0.12em",
+                          background: u.is_active
+                            ? "linear-gradient(135deg, rgba(0,255,157,0.1) 0%, rgba(0,255,157,0.04) 100%)"
+                            : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
+                          color: u.is_active ? "#00ff9d" : "#ff2d55",
+                          border: `1px solid ${u.is_active ? "rgba(0,255,157,0.4)" : "rgba(255,45,85,0.4)"}`,
+                          borderRadius: 3,
+                          clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                          boxShadow: u.is_active
+                            ? "0 0 14px rgba(0,255,157,0.15), inset 0 1px 0 rgba(255,255,255,0.07)"
+                            : "0 0 14px rgba(255,45,85,0.15), inset 0 1px 0 rgba(255,255,255,0.07)",
+                          transition: "all 0.2s",
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+                      >
+                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", boxShadow: "0 0 6px currentColor", animation: u.is_active ? "pulse-glow 1.5s infinite" : "none" }} />
+                        {u.is_active ? "ONLINE" : "OFFLINE"}
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -2355,7 +2325,7 @@ function WorkspaceHealthBar({ members, tasks, isActive }) {
   );
 }
 
-function WorkspacesTable({ showToast, refetchMetrics }) {
+function WorkspacesTable({ showToast }) {
   const { data, loading, refetch } = useAdminFetch("/admin/workspaces?limit=100");
   const [hovRow, setHovRow] = useState(null);
   const [search, setSearch] = useState("");
@@ -2365,15 +2335,6 @@ function WorkspacesTable({ showToast, refetchMetrics }) {
     await fetch(`${API}/admin/workspaces/${wsId}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ is_active: !cur }) });
     refetch();
     showToast?.(!cur ? `${name} activated` : `${name} suspended`, !cur ? "success" : "warning");
-  };
-
-  const handleDeleteWorkspace = async (wsId, name) => {
-    if (!window.confirm(`Permanently delete workspace "${name}"? This will remove all associated data and cannot be undone.`)) return;
-    const token = localStorage.getItem("access_token");
-    await fetch(`${API}/admin/workspaces/${wsId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-    refetch();
-    refetchMetrics?.();
-    showToast?.(`Workspace "${name}" permanently deleted`, "error");
   };
 
   if (loading) return <HoloLoader />;
@@ -2526,50 +2487,29 @@ function WorkspacesTable({ showToast, refetchMetrics }) {
                         ♛ PROTECTED
                       </div>
                     ) : (
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <button onClick={() => handleToggle(ws.id, isActive, ws.name)}
-                          style={{
-                            display: "inline-flex", alignItems: "center", gap: 6,
-                            fontSize: 7, fontWeight: 700, padding: "5px 12px",
-                            cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
-                            background: isActive
-                              ? "linear-gradient(135deg, rgba(191,95,255,0.12) 0%, rgba(191,95,255,0.04) 100%)"
-                              : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
-                            color: isActive ? "#bf5fff" : "#ff2d55",
-                            border: `1px solid ${isActive ? "rgba(191,95,255,0.4)" : "rgba(255,45,85,0.4)"}`,
-                            borderRadius: 3,
-                            clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
-                            boxShadow: isActive
-                              ? "0 0 14px rgba(191,95,255,0.15)"
-                              : "0 0 14px rgba(255,45,85,0.15)",
-                            transition: "all 0.2s",
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
-                        >
-                          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", animation: isActive ? "pulse-glow 1.5s infinite" : "none" }} />
-                          {isActive ? "ACTIVE" : "HALTED"}
-                        </button>
-                        <button onClick={() => handleDeleteWorkspace(ws.id, ws.name)}
-                          style={{
-                            display: "inline-flex", alignItems: "center", gap: 5,
-                            fontSize: 7, fontWeight: 700, padding: "5px 10px",
-                            cursor: "pointer", fontFamily: "'Share Tech Mono', monospace",
-                            letterSpacing: "0.12em",
-                            background: "linear-gradient(135deg, rgba(255,45,85,0.08) 0%, rgba(255,45,85,0.03) 100%)",
-                            color: "#ff2d55",
-                            border: "1px solid rgba(255,45,85,0.35)",
-                            borderRadius: 3,
-                            clipPath: "polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 0 100%)",
-                            boxShadow: "0 0 10px rgba(255,45,85,0.1)",
-                            transition: "all 0.2s",
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.2) 0%, rgba(255,45,85,0.08) 100%)"; e.currentTarget.style.boxShadow = "0 0 18px rgba(255,45,85,0.3)"; e.currentTarget.style.transform = "scale(1.05)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.08) 0%, rgba(255,45,85,0.03) 100%)"; e.currentTarget.style.boxShadow = "0 0 10px rgba(255,45,85,0.1)"; e.currentTarget.style.transform = "scale(1)"; }}
-                        >
-                          ✕ DELETE
-                        </button>
-                      </div>
+                      <button onClick={() => handleToggle(ws.id, isActive, ws.name)}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          fontSize: 7, fontWeight: 700, padding: "5px 12px",
+                          cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
+                          background: isActive
+                            ? "linear-gradient(135deg, rgba(191,95,255,0.12) 0%, rgba(191,95,255,0.04) 100%)"
+                            : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
+                          color: isActive ? "#bf5fff" : "#ff2d55",
+                          border: `1px solid ${isActive ? "rgba(191,95,255,0.4)" : "rgba(255,45,85,0.4)"}`,
+                          borderRadius: 3,
+                          clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                          boxShadow: isActive
+                            ? "0 0 14px rgba(191,95,255,0.15)"
+                            : "0 0 14px rgba(255,45,85,0.15)",
+                          transition: "all 0.2s",
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
+                        onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+                      >
+                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", animation: isActive ? "pulse-glow 1.5s infinite" : "none" }} />
+                        {isActive ? "ACTIVE" : "HALTED"}
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -2833,6 +2773,400 @@ function FeedbackCard({ f, isExpanded, onToggle }) {
             {timeAgo(f.created_at)}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── FREELANCER PANEL ──────────────────────────────────────────────────────────
+function FreelancerPanel({ showToast }) {
+  const { dark } = useTheme();
+  const { data, loading, refetch } = useAdminFetch("/referral/freelancers");
+
+  // Create-freelancer form state
+  const [showForm, setShowForm]   = useState(false);
+  const [formName, setFormName]   = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formSaving, setFormSaving] = useState(false);
+
+  // Table state
+  const [search, setSearch]       = useState("");
+  const [filterActive, setFilterActive] = useState("all"); // all | active | inactive
+  const [sortBy, setSortBy]       = useState("created"); // created | name | paid
+  const [expandedId, setExpandedId] = useState(null);
+  const [copiedId, setCopiedId]   = useState(null);
+
+  const FRONTEND_URL = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
+
+  const freelancers = data || [];
+
+  const filtered = freelancers
+    .filter(f => {
+      const q = search.toLowerCase();
+      const matchQ = !q || f.name.toLowerCase().includes(q) || f.email.toLowerCase().includes(q);
+      const matchActive =
+        filterActive === "all" ? true :
+        filterActive === "active" ? f.is_active :
+        !f.is_active;
+      return matchQ && matchActive;
+    })
+    .sort((a, b) => {
+      if (sortBy === "name")    return a.name.localeCompare(b.name);
+      if (sortBy === "paid")    return (b.paid || 0) - (a.paid || 0);
+      if (sortBy === "total")   return (b.total || 0) - (a.total || 0);
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+  const stats = {
+    total:    freelancers.length,
+    active:   freelancers.filter(f => f.is_active).length,
+    totalPaid: freelancers.reduce((s, f) => s + (f.paid || 0), 0),
+  };
+
+  // Build the /invite/:slug link from the freelancer name
+  function makeInviteLink(f) {
+    const slug = f.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    return `${FRONTEND_URL}/invite/${slug}`;
+  }
+
+  async function handleCreate(e) {
+    e.preventDefault();
+    if (!formName.trim() || !formEmail.trim()) return;
+    setFormSaving(true);
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch(`${API}/referral/freelancers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: formName.trim(), email: formEmail.trim() }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.detail || "Failed to create freelancer");
+      showToast?.(`✦ ${formName} added — link ready`, "success");
+      setFormName(""); setFormEmail(""); setShowForm(false);
+      refetch();
+    } catch (err) {
+      showToast?.(err.message, "error");
+    } finally {
+      setFormSaving(false);
+    }
+  }
+
+  async function handleToggleActive(f) {
+    const token = localStorage.getItem("access_token");
+    await fetch(`${API}/referral/freelancers/${f.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ is_active: !f.is_active }),
+    });
+    showToast?.(`${f.name} ${!f.is_active ? "activated" : "deactivated"}`, "info");
+    refetch();
+  }
+
+  function copyLink(f) {
+    const link = makeInviteLink(f);
+    navigator.clipboard.writeText(link);
+    setCopiedId(f.id);
+    showToast?.("Link copied!", "success");
+    setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  if (loading) return <HoloLoader />;
+
+  const cyan   = dark ? "0,229,255"  : "0,120,200";
+  const purple = "168,85,247";
+  const gold   = "255,208,96";
+  const green  = "0,255,157";
+  const red    = "255,45,85";
+
+  const inputStyle = {
+    background: dark ? "rgba(0,229,255,0.04)" : "rgba(0,120,200,0.06)",
+    border: `1px solid rgba(${cyan},0.18)`,
+    borderRadius: 3, padding: "7px 12px",
+    color: dark ? "rgba(180,230,255,0.85)" : "#0a1a2e",
+    fontSize: 11, fontFamily: "'Share Tech Mono', monospace",
+    outline: "none", width: "100%", boxSizing: "border-box",
+  };
+
+  const btnStyle = (active, color = cyan) => ({
+    background: active ? `rgba(${color},0.12)` : "transparent",
+    border: `1px solid rgba(${color},${active ? "0.45" : "0.15"})`,
+    borderRadius: 3, padding: "5px 12px",
+    color: active ? `rgba(${color},0.95)` : `rgba(${color},0.45)`,
+    fontSize: 9, fontFamily: "'Share Tech Mono', monospace",
+    letterSpacing: "0.15em", textTransform: "uppercase",
+    cursor: "pointer", transition: "all 0.2s",
+  });
+
+  return (
+    <div>
+      {/* ── Stat strip ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 18 }}>
+        {[
+          { label: "Total Freelancers", val: stats.total,     color: purple, icon: "◈" },
+          { label: "Active",            val: stats.active,    color: green,  icon: "✦" },
+          { label: "Total Paid Users",  val: stats.totalPaid, color: gold,   icon: "◎" },
+        ].map(s => (
+          <div key={s.label} className="stat-item" style={{
+            background: dark
+              ? "linear-gradient(160deg,rgba(0,4,18,0.97) 0%,rgba(0,10,28,0.93) 100%)"
+              : "linear-gradient(160deg,rgba(225,240,255,0.99) 0%,rgba(210,232,252,0.96) 100%)",
+            border: `1px solid rgba(${s.color},0.22)`,
+            borderRadius: 6, padding: "14px 16px",
+            clipPath: "polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%)",
+            position: "relative", overflow: "hidden",
+          }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg,transparent,rgba(${s.color},0.5),transparent)` }} />
+            <div style={{ fontSize: 8, color: `rgba(${s.color},0.5)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono',monospace", marginBottom: 6 }}>
+              {s.icon} {s.label}
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: `rgba(${s.color},0.95)`, fontFamily: "'Orbitron',monospace", textShadow: `0 0 14px rgba(${s.color},0.4)` }}>
+              {s.val}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Create Freelancer Form ── */}
+      <div style={{ marginBottom: 16 }}>
+        {!showForm ? (
+          <button
+            onClick={() => setShowForm(true)}
+            style={{
+              background: `rgba(${purple},0.08)`, border: `1px solid rgba(${purple},0.35)`,
+              borderRadius: 4, padding: "9px 20px", cursor: "pointer",
+              color: `rgba(${purple},0.9)`, fontSize: 10,
+              fontFamily: "'Share Tech Mono',monospace", letterSpacing: "0.2em",
+              textTransform: "uppercase", transition: "all 0.2s",
+              display: "flex", alignItems: "center", gap: 8,
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = `rgba(${purple},0.14)`}
+            onMouseLeave={e => e.currentTarget.style.background = `rgba(${purple},0.08)`}
+          >
+            <span style={{ fontSize: 14 }}>+</span> Add New Freelancer
+          </button>
+        ) : (
+          <div style={{
+            background: dark ? "rgba(0,4,18,0.97)" : "rgba(220,235,255,0.95)",
+            border: `1px solid rgba(${purple},0.3)`,
+            borderRadius: 6, padding: "18px 20px",
+            clipPath: "polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,0 100%)",
+            position: "relative",
+          }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg,transparent,rgba(${purple},0.6),transparent)` }} />
+            <div style={{ fontSize: 9, color: `rgba(${purple},0.6)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono',monospace", marginBottom: 14 }}>
+              ◈ NEW FREELANCER — LINK WILL BE GENERATED AUTOMATICALLY
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 8, color: `rgba(${purple},0.45)`, letterSpacing: "0.15em", fontFamily: "'Share Tech Mono',monospace", marginBottom: 5 }}>FULL NAME</div>
+                <input
+                  placeholder="e.g. John Doe"
+                  value={formName}
+                  onChange={e => setFormName(e.target.value)}
+                  style={{ ...inputStyle, border: `1px solid rgba(${purple},0.25)` }}
+                  autoFocus
+                />
+                {formName && (
+                  <div style={{ marginTop: 5, fontSize: 9, color: `rgba(${purple},0.5)`, fontFamily: "'Share Tech Mono',monospace", letterSpacing: "0.05em" }}>
+                    Link: {window.location.origin}/invite/{formName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "")}
+                  </div>
+                )}
+              </div>
+              <div>
+                <div style={{ fontSize: 8, color: `rgba(${purple},0.45)`, letterSpacing: "0.15em", fontFamily: "'Share Tech Mono',monospace", marginBottom: 5 }}>EMAIL ADDRESS</div>
+                <input
+                  placeholder="john@example.com"
+                  value={formEmail}
+                  onChange={e => setFormEmail(e.target.value)}
+                  style={{ ...inputStyle, border: `1px solid rgba(${purple},0.25)` }}
+                  type="email"
+                />
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={handleCreate}
+                disabled={formSaving || !formName.trim() || !formEmail.trim()}
+                style={{
+                  ...btnStyle(true, purple),
+                  padding: "8px 20px", fontSize: 10,
+                  opacity: (formSaving || !formName.trim() || !formEmail.trim()) ? 0.5 : 1,
+                }}
+              >
+                {formSaving ? "CREATING…" : "✦ CREATE & GENERATE LINK"}
+              </button>
+              <button onClick={() => { setShowForm(false); setFormName(""); setFormEmail(""); }} style={btnStyle(false)}>
+                CANCEL
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── Controls ── */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ flex: 1, minWidth: 180, position: "relative" }}>
+          <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 11, color: `rgba(${cyan},0.4)` }}>⌕</span>
+          <input placeholder="Search name or email…" value={search} onChange={e => setSearch(e.target.value)} style={{ ...inputStyle, paddingLeft: 28 }} />
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {["all", "active", "inactive"].map(f => (
+            <button key={f} style={btnStyle(filterActive === f)} onClick={() => setFilterActive(f)}>{f}</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <span style={{ fontSize: 8, color: `rgba(${cyan},0.3)`, fontFamily: "'Share Tech Mono',monospace", letterSpacing: "0.15em", alignSelf: "center" }}>SORT</span>
+          {[["created","newest"],["name","name"],["paid","paid"],["total","total"]].map(([k,l]) => (
+            <button key={k} style={btnStyle(sortBy === k, gold)} onClick={() => setSortBy(k)}>{l}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Table ── */}
+      <div style={{
+        background: dark ? "rgba(0,4,18,0.97)" : "rgba(220,238,255,0.88)",
+        border: `1px solid rgba(${cyan},0.15)`,
+        borderRadius: 6, overflow: "hidden",
+        clipPath: "polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%)",
+      }}>
+        {/* Header */}
+        <div style={{
+          display: "grid", gridTemplateColumns: "1.8fr 1.8fr 80px 80px 80px 100px 36px",
+          padding: "10px 18px", gap: 8,
+          borderBottom: `1px solid rgba(${cyan},0.1)`,
+          background: dark ? `rgba(${cyan},0.03)` : `rgba(${cyan},0.06)`,
+        }}>
+          {["Name","Email","Total","Trial","Paid","Invite Link",""].map((h, i) => (
+            <div key={i} style={{ fontSize: 7, color: `rgba(${cyan},0.35)`, textTransform: "uppercase", letterSpacing: "0.2em", fontFamily: "'Share Tech Mono',monospace" }}>{h}</div>
+          ))}
+        </div>
+
+        {filtered.length === 0 && (
+          <div style={{ padding: "40px 18px", textAlign: "center", fontSize: 11, color: `rgba(${cyan},0.25)`, fontFamily: "'Share Tech Mono',monospace", letterSpacing: "0.1em" }}>
+            NO FREELANCERS IN REGISTRY — ADD ONE ABOVE
+          </div>
+        )}
+
+        {filtered.map((f, i) => {
+          const isExpanded = expandedId === f.id;
+          const isCopied   = copiedId === f.id;
+          const activeColor = f.is_active ? green : red;
+          const inviteLink  = makeInviteLink(f);
+
+          return (
+            <div key={f.id}>
+              <div
+                className="holo-table-row"
+                style={{
+                  display: "grid", gridTemplateColumns: "1.8fr 1.8fr 80px 80px 80px 100px 36px",
+                  padding: "11px 18px", gap: 8,
+                  borderBottom: `1px solid rgba(${cyan},0.05)`,
+                  transition: "background 0.15s",
+                  background: isExpanded ? `rgba(${cyan},0.05)` : "transparent",
+                  opacity: f.is_active ? 1 : 0.55,
+                }}
+                onMouseEnter={e => !isExpanded && (e.currentTarget.style.background = `rgba(${cyan},0.03)`)}
+                onMouseLeave={e => !isExpanded && (e.currentTarget.style.background = "transparent")}
+              >
+                {/* Name */}
+                <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: `rgba(${activeColor},0.9)`, boxShadow: `0 0 7px rgba(${activeColor},0.7)`, flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, color: dark ? "rgba(180,230,255,0.85)" : "#0a1a2e", fontFamily: "'Share Tech Mono',monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {f.name}
+                  </span>
+                </div>
+                {/* Email */}
+                <div style={{ fontSize: 10, color: `rgba(${cyan},0.5)`, fontFamily: "'Share Tech Mono',monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", alignSelf: "center" }}>
+                  {f.email}
+                </div>
+                {/* Stats */}
+                <div style={{ fontSize: 13, fontWeight: 700, color: `rgba(${cyan},0.8)`, fontFamily: "'Orbitron',monospace", alignSelf: "center" }}>{f.total ?? 0}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: `rgba(${gold},0.8)`, fontFamily: "'Orbitron',monospace", alignSelf: "center" }}>{f.trialing ?? 0}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: `rgba(${green},0.9)`, fontFamily: "'Orbitron',monospace", textShadow: `0 0 10px rgba(${green},0.4)`, alignSelf: "center" }}>{f.paid ?? 0}</div>
+                {/* Copy link button */}
+                <button
+                  onClick={() => copyLink(f)}
+                  title={inviteLink}
+                  style={{
+                    background: isCopied ? `rgba(${green},0.12)` : `rgba(${cyan},0.06)`,
+                    border: `1px solid rgba(${isCopied ? green : cyan},0.3)`,
+                    borderRadius: 3, padding: "4px 8px", cursor: "pointer",
+                    color: isCopied ? `rgba(${green},0.9)` : `rgba(${cyan},0.6)`,
+                    fontSize: 8, fontFamily: "'Share Tech Mono',monospace",
+                    letterSpacing: "0.1em", transition: "all 0.2s", alignSelf: "center",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}
+                >
+                  {isCopied ? "✓ COPIED" : "⎘ COPY LINK"}
+                </button>
+                {/* Expand toggle */}
+                <div
+                  onClick={() => setExpandedId(isExpanded ? null : f.id)}
+                  style={{ fontSize: 9, color: `rgba(${cyan},0.35)`, fontFamily: "'Share Tech Mono',monospace", cursor: "pointer", alignSelf: "center", userSelect: "none" }}
+                >
+                  {isExpanded ? "▲" : "▼"}
+                </div>
+              </div>
+
+              {/* Expanded row */}
+              {isExpanded && (
+                <div style={{
+                  padding: "14px 20px 16px",
+                  background: dark ? "rgba(0,229,255,0.02)" : "rgba(0,120,200,0.04)",
+                  borderBottom: `1px solid rgba(${cyan},0.08)`,
+                }}>
+                  {/* Full invite link display */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 8, color: `rgba(${purple},0.5)`, letterSpacing: "0.18em", fontFamily: "'Share Tech Mono',monospace", marginBottom: 6 }}>INVITE LINK (share with clients)</div>
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: dark ? "rgba(168,85,247,0.06)" : "rgba(168,85,247,0.08)",
+                      border: `1px solid rgba(${purple},0.2)`, borderRadius: 3, padding: "8px 12px",
+                    }}>
+                      <span style={{ fontSize: 10, color: `rgba(${purple},0.8)`, fontFamily: "'Share Tech Mono',monospace", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {inviteLink}
+                      </span>
+                      <button onClick={() => copyLink(f)} style={{ ...btnStyle(false, purple), padding: "4px 10px", fontSize: 8, flexShrink: 0 }}>
+                        {copiedId === f.id ? "✓ COPIED" : "⎘ COPY"}
+                      </button>
+                    </div>
+                  </div>
+                  {/* Detail grid */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+                    {[
+                      { label: "Referral Code", val: f.referral_code },
+                      { label: "Cancelled",     val: f.cancelled ?? 0 },
+                      { label: "Created",        val: new Date(f.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) },
+                      { label: "Status",         val: f.is_active ? "ACTIVE" : "INACTIVE" },
+                    ].map(d => (
+                      <div key={d.label}>
+                        <div style={{ fontSize: 7, color: `rgba(${cyan},0.3)`, letterSpacing: "0.18em", fontFamily: "'Share Tech Mono',monospace", marginBottom: 4 }}>{d.label}</div>
+                        <div style={{ fontSize: 11, color: dark ? "rgba(180,230,255,0.75)" : "#0a1a2e", fontFamily: "'Share Tech Mono',monospace" }}>{d.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Actions */}
+                  <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+                    <button onClick={() => handleToggleActive(f)} style={btnStyle(false, f.is_active ? red : green)}>
+                      {f.is_active ? "✕ Deactivate" : "✦ Activate"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footer */}
+      <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 8, color: `rgba(${cyan},0.3)`, fontFamily: "'Share Tech Mono',monospace", letterSpacing: "0.12em" }}>
+          {filtered.length} / {freelancers.length} FREELANCERS · REAL-TIME DATA
+        </span>
+        <span style={{ fontSize: 8, color: `rgba(${cyan},0.2)`, fontFamily: "'Share Tech Mono',monospace" }}>
+          {new Date().toISOString().slice(0, 19).replace("T", " ")} UTC
+        </span>
       </div>
     </div>
   );
@@ -7908,7 +8242,7 @@ export default function AdminDashboard() {
       if (e.key === "Escape") { setPaletteOpen(false); setExportOpen(false); setCheatsheetOpen(false); }
       // Tab shortcuts 1-5
       if (!e.metaKey && !e.ctrlKey && !e.shiftKey && document.activeElement.tagName !== "INPUT" && document.activeElement.tagName !== "TEXTAREA") {
-        const tabMap = { "1": "overview", "2": "revenue", "3": "users", "4": "workspaces", "5": "feedback" };
+        const tabMap = { "1": "overview", "2": "revenue", "3": "users", "4": "workspaces", "5": "freelancers", "6": "feedback" };
         if (tabMap[e.key]) setTab(tabMap[e.key]);
       }
     };
@@ -7922,11 +8256,12 @@ export default function AdminDashboard() {
   const dateStr = time.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 
   const TABS = [
-    { id: "overview",   label: "OVERVIEW",   icon: "◈" },
-    { id: "revenue",    label: "REVENUE",    icon: "◎" },
-    { id: "users",      label: "USERS",      icon: "⬡", count: m?.users?.total },
-    { id: "workspaces", label: "WORKSPACES", icon: "⊞" },
-    { id: "feedback",   label: "FEEDBACK",   icon: "◆" },
+    { id: "overview",    label: "OVERVIEW",    icon: "◈" },
+    { id: "revenue",     label: "REVENUE",     icon: "◎" },
+    { id: "users",       label: "USERS",       icon: "⬡", count: m?.users?.total },
+    { id: "workspaces",  label: "WORKSPACES",  icon: "⊞" },
+    { id: "freelancers", label: "FREELANCERS", icon: "◈" },
+    { id: "feedback",    label: "FEEDBACK",    icon: "◆" },
   ];
 
   const isRev = displayTab === "revenue";
@@ -9577,7 +9912,7 @@ export default function AdminDashboard() {
             <div>
               <div className="section-heading">User Registry</div>
               <HoloPanel accent="#00e5ff">
-                <UsersTable showToast={showToast} onUserClick={setDrawerUser} refetchMetrics={refetch} />
+                <UsersTable showToast={showToast} onUserClick={setDrawerUser} />
               </HoloPanel>
             </div>
           )}
@@ -9597,7 +9932,17 @@ export default function AdminDashboard() {
                 <WorkspaceHealthMapWrapper />
               </HoloPanel>
               <HoloPanel accent="#a855f7">
-                <WorkspacesTable showToast={showToast} refetchMetrics={refetch} />
+                <WorkspacesTable showToast={showToast} />
+              </HoloPanel>
+            </div>
+          )}
+
+          {/* ═══════════════ FREELANCERS TAB ═══════════════ */}
+          {displayTab === "freelancers" && (
+            <div>
+              <div className="section-heading">Freelancer Registry</div>
+              <HoloPanel accent="#a855f7">
+                <FreelancerPanel showToast={showToast} />
               </HoloPanel>
             </div>
           )}
