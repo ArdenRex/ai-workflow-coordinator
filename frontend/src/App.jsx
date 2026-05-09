@@ -120,7 +120,7 @@ const GLOBAL_STYLES = `
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
+    overflow-x: auto;
   }
 
   /* Scrollbar */
@@ -226,12 +226,12 @@ const GLOBAL_STYLES = `
 
   /* ── Page header ────────────────────── */
   .page-header {
-    position: sticky; top: 0; z-index: 40; height: 64px;
+    position: sticky; top: 0; z-index: 40; min-height: 56px;
     background: rgba(7,8,15,0.88);
     backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
     border-bottom: 1px solid rgba(255,255,255,0.055);
     box-shadow: 0 1px 0 rgba(59,130,246,0.07), 0 4px 20px rgba(0,0,0,0.25);
-    padding: 0 28px; display: flex; align-items: center; gap: 16;
+    padding: 10px clamp(12px, 2.5vw, 28px); display: flex; align-items: center; gap: 10; flex-wrap: wrap;
   }
 
   /* ── Section card ───────────────────── */
@@ -276,6 +276,8 @@ const GLOBAL_STYLES = `
     border-radius: var(--radius-xl);
     box-shadow: 0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(59,130,246,0.1);
     animation: scaleIn 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
+    max-width: calc(100vw - 32px);
+    width: 100%;
   }
 
   /* ── Status pill ────────────────────── */
@@ -1430,11 +1432,11 @@ function OwnershipGraph() {
 
       {/* Header */}
       <header style={{
-        position: "sticky", top: 0, zIndex: 40, height: 64,
+        position: "sticky", top: 0, zIndex: 40, minHeight: 56,
         background: "rgba(13,15,30,0.88)", backdropFilter: "blur(16px)",
         borderBottom: "1px solid var(--border-glass)",
-        padding: "0 clamp(12px, 2.5vw, 28px)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-        margin: "-28px -28px 0",
+        padding: "10px clamp(12px, 2.5vw, 28px)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+        margin: "0 calc(-1 * clamp(12px, 2.5vw, 28px))",
       }}>
         <div>
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Ownership Graph</div>
@@ -1752,7 +1754,7 @@ function TasksPage() {
   return (
     <>
       {/* Topbar */}
-      <header style={{ position:"sticky", top:0, zIndex:40, height:60, background:"rgba(13,15,30,0.88)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:"1px solid var(--border-glass)", padding:"0 28px", display:"flex", alignItems:"center", gap:14 }}>
+      <header style={{ position:"sticky", top:0, zIndex:40, minHeight:56, background:"rgba(13,15,30,0.88)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:"1px solid var(--border-glass)", padding:"10px clamp(12px,2.5vw,28px)", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
         <div>
           <div style={{ fontSize:15, fontWeight:700, color:"var(--color-text-primary)", letterSpacing:"-0.02em" }}>Tasks</div>
           <div style={{ fontSize:11, color:"var(--color-text-tertiary)" }}>{counts.all} total · {counts.in_progress} in progress</div>
@@ -1797,7 +1799,7 @@ function TasksPage() {
         )}
 
         {/* Summary cards */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:14, marginBottom:24 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(130px,1fr))", gap:14, marginBottom:24 }}>
           {[
             { label:"Total Tasks", value:counts.all, color:"#3b82f6" },
             { label:"To Do", value:counts.to_do, color:"#a78bfa" },
@@ -1814,8 +1816,9 @@ function TasksPage() {
 
         {/* Task table */}
         <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid var(--border-glass)", borderRadius:16, overflow:"hidden" }}>
+          <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
           {/* Table header */}
-          <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 100px 110px 130px 120px", gap:0, padding:"10px 18px", borderBottom:"1px solid var(--border-glass)", background:"rgba(255,255,255,0.03)" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 100px 110px 130px 120px", gap:0, padding:"10px 18px", borderBottom:"1px solid var(--border-glass)", background:"rgba(255,255,255,0.03)", minWidth:680 }}>
             {["Task", "Assignee", "Priority", "Status", "Deadline", "Actions"].map(h => (
               <div key={h} style={{ fontSize:11, fontWeight:700, color:"var(--color-text-tertiary)", textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</div>
             ))}
@@ -1838,7 +1841,7 @@ function TasksPage() {
               const st    = t.status || "to_do";
               const title = t.title || t.task_description || "Untitled";
               return (
-                <div key={t.id} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 100px 110px 130px 120px", gap:0, padding:"13px 18px", borderBottom: i < filtered.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems:"center", transition:"background 0.15s" }}
+                <div key={t.id} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 100px 110px 130px 120px", gap:0, padding:"13px 18px", minWidth:680, borderBottom: i < filtered.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems:"center", transition:"background 0.15s" }}
                   onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.03)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
@@ -1885,13 +1888,14 @@ function TasksPage() {
               );
             })
           )}
+          </div>{/* end scroll wrapper */}
         </div>
       </main>
 
       {/* Create / Edit Modal */}
       {showForm && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div className="modal-box" style={{ width: 500, padding: "30px 30px 26px" }}>
+          <div className="modal-box" style={{ width: "min(500px, 100%)", padding: "30px 30px 26px" }}>
             {/* Header */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
               <div>
@@ -1910,7 +1914,7 @@ function TasksPage() {
                 <label style={labelStyle}>Assignee</label>
                 <input value={form.assignee} onChange={e => setForm(f => ({...f, assignee: e.target.value}))} placeholder="username or name" className="field-input" style={{ height: 42 }} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px,1fr))", gap: 14 }}>
                 <div>
                   <label style={labelStyle}>Priority</label>
                   <select value={form.priority} onChange={e => setForm(f => ({...f, priority: e.target.value}))} className="field-input" style={{ height: 42, cursor: "pointer" }}>
@@ -2051,7 +2055,7 @@ function ReportsPage() {
         ) : (
           <>
             {/* KPI row */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 14 }}>
               {[
                 { label: "Total Tasks", value: tasks.length, sub: `${stats.inRange} in last ${range}d`, color: "#3b82f6" },
                 { label: "Completed", value: stats.byStatus.completed, sub: `${stats.completionRate}% completion rate`, color: "#22d3a8" },
@@ -2069,7 +2073,7 @@ function ReportsPage() {
             </div>
 
             {/* Charts row */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(280px,1fr))", gap: 18 }}>
 
               {/* Status breakdown */}
               <Card>
@@ -2177,7 +2181,8 @@ function ReportsPage() {
               {stats.leaderboard.length === 0 ? (
                 <div style={{ fontSize: 13, color: "var(--color-text-tertiary)", textAlign: "center", padding: "20px 0" }}>No assignee data yet</div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 0, minWidth: 420 }}>
                   {stats.leaderboard.map((person, i) => (
                     <div key={person.name} style={{ display: "grid", gridTemplateColumns: "28px 1fr 80px 80px 100px", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: i < stats.leaderboard.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? "#f59e0b" : i === 1 ? "#9ca3af" : i === 2 ? "#b45309" : "var(--color-text-tertiary)", textAlign: "center" }}>#{i + 1}</div>
@@ -2196,6 +2201,7 @@ function ReportsPage() {
                     </div>
                   ))}
                 </div>
+                </div>{/* end leaderboard scroll */}
               )}
             </Card>
           </>
@@ -2334,7 +2340,8 @@ function CompliancePage() {
         ) : (
           <>
             {/* Score cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 12 }}>
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(130px,1fr))", gap: 12, minWidth: 700 }}>
               {[
                 { label: "Overdue",          value: compliance.overdue.length,          color: compliance.overdue.length ? "#f87171" : "#22d3a8",  icon: "⏰" },
                 { label: "Unassigned",       value: compliance.unassigned.length,       color: compliance.unassigned.length ? "#f59e0b" : "#22d3a8", icon: "👤" },
@@ -2350,6 +2357,7 @@ function CompliancePage() {
                   <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{m.label}</div>
                 </div>
               ))}
+            </div>
             </div>
 
             {/* Compliance score bar */}
@@ -2383,10 +2391,10 @@ function CompliancePage() {
               </div>
 
               {/* Tab content */}
-              <div style={{ minHeight: 200 }}>
+              <div style={{ minHeight: 200, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
                 {/* Table header */}
                 {activeTab !== "audit" && (
-                  <div style={{ display: "grid", gridTemplateColumns: activeTab === "overdue" ? "2fr 1fr 100px 110px 120px" : "2fr 1fr 100px 110px", gap: 0, padding: "9px 18px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.02)" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: activeTab === "overdue" ? "2fr 1fr 100px 110px 120px" : "2fr 1fr 100px 110px", gap: 0, padding: "9px 18px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.02)", minWidth: activeTab === "overdue" ? 620 : 520 }}>
                     {["Task", "Assignee", "Priority", "Status", activeTab === "overdue" ? "Overdue" : null].filter(Boolean).map(h => (
                       <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.07em" }}>{h}</div>
                     ))}
@@ -2421,7 +2429,7 @@ function CompliancePage() {
                       const st  = t.status || "to_do";
                       const title = t.title || t.task_description || "Untitled";
                       return (
-                        <div key={t.id} style={{ display: "grid", gridTemplateColumns: activeTab === "overdue" ? "2fr 1fr 100px 110px 120px" : "2fr 1fr 100px 110px", gap: 0, padding: "12px 18px", borderBottom: i < currentList.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none", alignItems: "center" }}
+                        <div key={t.id} style={{ display: "grid", gridTemplateColumns: activeTab === "overdue" ? "2fr 1fr 100px 110px 120px" : "2fr 1fr 100px 110px", gap: 0, padding: "12px 18px", minWidth: activeTab === "overdue" ? 620 : 520, borderBottom: i < currentList.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none", alignItems: "center" }}
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                           <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }} title={title}>{title}</div>
@@ -2667,7 +2675,7 @@ function KnowledgePage() {
 
         {/* Right — note viewer */}
         {viewNote && (
-          <div style={{ width: 380, flexShrink: 0, background: "linear-gradient(160deg, rgba(20,22,46,0.95) 0%, rgba(14,17,36,0.98) 100%)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "var(--radius-xl)", padding: "24px 24px 20px", height: "fit-content", position: "sticky", top: 80, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+          <div style={{ width: "clamp(280px, 30vw, 380px)", flexShrink: 0, background: "linear-gradient(160deg, rgba(20,22,46,0.95) 0%, rgba(14,17,36,0.98) 100%)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "var(--radius-xl)", padding: "24px 24px 20px", height: "fit-content", position: "sticky", top: 80, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
             {/* Category top stripe */}
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: CAT_COLOR[viewNote.category] || "#3b82f6", borderRadius: "16px 16px 0 0" }} />
             <div className="glow-orb" style={{ top: -30, right: -30, width: 120, height: 120, background: CAT_COLOR[viewNote.category] || "#3b82f6", opacity: 0.06 }} />
@@ -2703,7 +2711,7 @@ function KnowledgePage() {
       {/* Create / Edit Modal */}
       {showForm && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
-          <div className="modal-box" style={{ width: 540, padding: "30px 30px 26px" }}>
+          <div className="modal-box" style={{ width: "min(540px, 100%)", padding: "30px 30px 26px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
               <div>
                 <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>{editNote ? "Edit Note" : "New Note"}</div>
@@ -2936,10 +2944,10 @@ function SettingsPage() {
         </div>
       </header>
 
-      <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", gap: 20, maxWidth: 900 }}>
+      <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", gap: 20, maxWidth: 900, flexWrap: "wrap" }}>
 
         {/* Left sidebar tabs */}
-        <div style={{ width: 180, flexShrink: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+        <div style={{ width: "clamp(120px, 20vw, 180px)", flexShrink: 0, display: "flex", flexDirection: "column", gap: 3 }}>
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => { setActiveTab(tab.key); if (tab.key === "billing") loadBillingStatus(); }}
               style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "none", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: activeTab === tab.key ? 600 : 400, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
@@ -2977,7 +2985,7 @@ function SettingsPage() {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px,1fr))", gap: 14 }}>
                   <div>
                     <label style={labelStyle}>Full Name</label>
                     <input value={profile.name} onChange={e => setProfile(p => ({...p, name: e.target.value}))} placeholder="Your full name" style={inputStyle} />
@@ -3452,7 +3460,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         </div>
 
         {/* Status badges + actions */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
           {[
             { label: "to do",       count: counts.to_do,       color: "#f59e0b" },
             { label: "in progress", count: counts.in_progress, color: "#3b82f6" },
@@ -3541,7 +3549,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         )}
 
         {/* Metrics */}
-        <div className="fade-up delay-1 stagger" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 16 }}>
+        <div className="fade-up delay-1 stagger" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(160px,1fr))", gap: 16 }}>
           {METRICS.map((m, i) => (
             <div key={m.label} className="pcard" style={{
               backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
@@ -3641,18 +3649,21 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
               <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading tasks…</span>
             </div>
           ) : (
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(0,1fr))`,
-              gap: 20, alignItems: "start",
-            }}>
-              {columns.map(col => (
-                <KanbanColumn
-                  key={col.status} status={col.status} label={col.label}
-                  tasks={col.tasks} onMove={moveTask} onDelete={removeTask}
-                  timezone={user?.timezone}
-                />
-              ))}
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(220px, 1fr))`,
+                gap: 20, alignItems: "start",
+                minWidth: COLUMNS.length * 240,
+              }}>
+                {columns.map(col => (
+                  <KanbanColumn
+                    key={col.status} status={col.status} label={col.label}
+                    tasks={col.tasks} onMove={moveTask} onDelete={removeTask}
+                    timezone={user?.timezone}
+                  />
+                ))}
+              </div>
             </div>
           )}
 
@@ -3872,7 +3883,7 @@ function IntegrationsPage() {
             </div>
             {statusDot(status?.notion_configured)}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px,1fr))", gap: 12 }}>
             {field("Integration Token", notion.notion_token, v => setNotion(p => ({ ...p, notion_token: v })), "secret_...", "password")}
             {field("Database ID", notion.notion_database_id, v => setNotion(p => ({ ...p, notion_database_id: v })), "xxxxxxxx-xxxx-...")}
           </div>
@@ -3897,7 +3908,7 @@ function IntegrationsPage() {
             </div>
             {statusDot(status?.jira_configured)}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px,1fr))", gap: 12 }}>
             {field("Base URL", jira.jira_base_url, v => setJira(p => ({ ...p, jira_base_url: v })), "https://yourorg.atlassian.net")}
             {field("Project Key", jira.jira_project_key, v => setJira(p => ({ ...p, jira_project_key: v })), "PROJ")}
             {field("Email", jira.jira_email, v => setJira(p => ({ ...p, jira_email: v })), "you@company.com")}
@@ -3924,7 +3935,7 @@ function IntegrationsPage() {
             </div>
             {statusDot(status?.trello_configured)}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px,1fr))", gap: 12 }}>
             {field("API Key", trello.trello_api_key, v => setTrello(p => ({ ...p, trello_api_key: v })), "From trello.com/app-key", "password")}
             {field("Token", trello.trello_token, v => setTrello(p => ({ ...p, trello_token: v })), "OAuth token", "password")}
             {field("List ID", trello.trello_list_id, v => setTrello(p => ({ ...p, trello_list_id: v })), "Target list ID")}
@@ -4104,7 +4115,7 @@ function LocalePage() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px,1fr))", gap: 16 }}>
             {/* Language */}
             <div>
               <label style={labelStyle}>Language</label>
@@ -4176,7 +4187,7 @@ function LocalePage() {
             }}>Architect only</span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px,1fr))", gap: 16 }}>
             <div>
               <label style={labelStyle}>Default Language</label>
               <div style={{ position: "relative" }}>
@@ -4346,7 +4357,7 @@ function TeamsPage() {
           {isArchitect && <button onClick={() => setShowForm(f => !f)} style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "1px solid rgba(79,142,247,0.3)", background: "rgba(79,142,247,0.08)", color: "#3b82f6", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{showForm ? "Cancel" : "+ Add Channel"}</button>}
         </div>
         {showForm && isArchitect && <div style={{ padding: 18, borderRadius: 12, background: "rgba(79,142,247,0.05)", border: "1px solid rgba(79,142,247,0.15)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px,1fr))", gap: 12 }}>
             {[["channel_name","Channel Name","#general"],["channel_id","Channel ID","19:abc@thread.tacv2"],["service_url","Service URL","https://smba.trafficmanager.net/…"],["conversation_id","Conversation ID","19:abc@thread.tacv2"]].map(([k, label, ph]) => (
               <div key={k}><label style={lbl}>{label}</label><input value={chForm[k]} onChange={e => setChForm(f => ({ ...f, [k]: e.target.value }))} placeholder={ph} style={inp} /></div>
             ))}
@@ -4511,15 +4522,15 @@ function ApiPage() {
         <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>📖 Endpoint Reference</div>
         <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", fontFamily: "var(--font-mono)", marginBottom: 4 }}>Base URL: {BACKEND}</div>
         {ENDPOINTS.map(e => (
-          <div key={e.path} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)" }}>
+          <div key={e.path} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", flexWrap: "wrap" }}>
             <span style={{ flex: "0 0 60px", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: METHOD_COLORS[e.method] }}>{e.method}</span>
-            <code style={{ flex: "0 0 220px", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--color-text-primary)" }}>{e.path}</code>
+            <code style={{ flex: "0 0 auto", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--color-text-primary)", wordBreak: "break-all" }}>{e.path}</code>
             <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{e.desc}</span>
           </div>
         ))}
         <div style={{ marginTop: 4, padding: "14px 16px", borderRadius: 10, background: "rgba(79,142,247,0.05)", border: "1px solid rgba(79,142,247,0.12)", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.8 }}>
           <strong style={{ color: "#3b82f6" }}>Example request:</strong><br />
-          <code style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#e8eaf6" }}>
+          <code style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#e8eaf6", wordBreak: "break-all", overflowWrap: "anywhere" }}>
             curl -X POST {BACKEND}/api/v1/tasks \<br />
             &nbsp;&nbsp;-H "X-API-Key: sk_live_..." \<br />
             &nbsp;&nbsp;-H "Content-Type: application/json" \<br />
@@ -4595,13 +4606,13 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 24px 90px 0", pointerEvents: "none" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 clamp(8px,3vw,24px) 90px 0", pointerEvents: "none" }}>
       {/* Backdrop */}
       <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", pointerEvents: "all" }} />
 
       {/* Modal card */}
       <div style={{
-        position: "relative", pointerEvents: "all", width: 420, background: "#0d1117",
+        position: "relative", pointerEvents: "all", width: "min(420px, calc(100vw - 16px))", background: "#0d1117",
         border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20,
         boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
         animation: "slideUpIn 0.3s cubic-bezier(0.34,1.56,0.64,1)",
@@ -5090,7 +5101,7 @@ function AuthenticatedApp() {
       <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
 
       <Sidebar activeNav={activeNav} onNavChange={setActiveNav} navBadges={navBadges} />
-      <div style={{ paddingLeft: winWidth < 900 ? 64 : (sidebarCollapsed ? 64 : 228), display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1, transition: "padding-left 0.25s cubic-bezier(0.4,0,0.2,1)", minWidth: 0, overflow: "hidden" }}>
+      <div style={{ paddingLeft: winWidth < 900 ? 64 : (sidebarCollapsed ? 64 : 228), display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1, transition: "padding-left 0.25s cubic-bezier(0.4,0,0.2,1)", minWidth: 0, overflowX: "auto" }}>
         {activeNav === 0 ? (
           <Dashboard
             tasks={tasks} total={total} loading={loading} error={error}
