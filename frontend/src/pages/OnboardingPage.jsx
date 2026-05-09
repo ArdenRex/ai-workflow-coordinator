@@ -353,6 +353,10 @@ const STYLES = `
   .ob-step { animation: stepIn 0.35s cubic-bezier(0.16,1,0.3,1) both; }
 
 
+  @media (max-width: 768px) {
+    .ob-card { border-radius: 20px; }
+    .ob-title { font-size: 20px; }
+  }
   @media (max-width: 480px) {
     .ob-card { border-radius: 16px; }
     .ob-roles { grid-template-columns: 1fr 1fr; gap: 8px; }
