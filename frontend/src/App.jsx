@@ -9,10 +9,10 @@ import KanbanColumn from "./components/KanbanColumn";
 import AddTaskModal from "./components/AddTaskModal";
 import AddToSlackButton from "./components/AddToSlackButton";
 
-// ── API base URL — env var with hardcoded fallback ───────────────────────────
+// -- API base URL — env var with hardcoded fallback ---------------------------
 const BASE_URL = process.env.REACT_APP_API_URL || "https://ai-workflow-coordinator-api-production.up.railway.app";
 
-// ── Responsive window width hook ─────────────────────────────────────────────
+// -- Responsive window width hook ---------------------------------------------
 function useWindowWidth() {
   const [w, setW] = React.useState(window.innerWidth);
   React.useEffect(() => {
@@ -25,7 +25,7 @@ function useWindowWidth() {
 
 
 
-// ── Date formatting utility ───────────────────────────────────────────────────
+// -- Date formatting utility ---------------------------------------------------
 // Normalises "2026-04-30" and "2026-04-30T00:00:00[Z]" → local Date object.
 // When a timezone string (IANA, e.g. "Asia/Karachi") is supplied the date is
 // displayed in that zone; otherwise it falls back to the browser's local time.
@@ -51,7 +51,7 @@ function parseDeadline(raw) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// ── CSS variables + animations ────────────────────────────────────────────────
+// -- CSS variables + animations ------------------------------------------------
 const GLOBAL_STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap');
 
@@ -162,7 +162,7 @@ const GLOBAL_STYLES = `
   /* Selection */
   ::selection { background: rgba(59,130,246,0.25); color: #f1f3fc; }
 
-  /* ── Premium card hover ─────────────── */
+  /* -- Premium card hover --------------- */
   .pcard {
     background: rgba(255,255,255,0.032);
     border: 1px solid var(--border-glass);
@@ -175,14 +175,14 @@ const GLOBAL_STYLES = `
     border-color: rgba(255,255,255,0.1);
   }
 
-  /* ── Table rows ─────────────────────── */
+  /* -- Table rows ----------------------- */
   .trow {
     transition: background 0.12s;
     border-radius: 8px;
   }
   .trow:hover { background: rgba(255,255,255,0.04) !important; }
 
-  /* ── Btn primary ────────────────────── */
+  /* -- Btn primary ---------------------- */
   .btn-primary {
     height: 38px; padding: 0 20px; border-radius: 10px; border: none;
     background: var(--grad-primary); color: #fff;
@@ -196,7 +196,7 @@ const GLOBAL_STYLES = `
   .btn-primary:active { transform: translateY(0); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-  /* ── Btn ghost ──────────────────────── */
+  /* -- Btn ghost ------------------------ */
   .btn-ghost {
     height: 38px; padding: 0 16px; border-radius: 10px;
     border: 1px solid var(--border-glass);
@@ -207,7 +207,7 @@ const GLOBAL_STYLES = `
   }
   .btn-ghost:hover { background: rgba(255,255,255,0.07); color: var(--color-text-primary); border-color: rgba(255,255,255,0.12); }
 
-  /* ── Input field ────────────────────── */
+  /* -- Input field ---------------------- */
   .field-input {
     width: 100%; height: 40px; padding: 0 13px;
     background: rgba(255,255,255,0.04);
@@ -224,7 +224,7 @@ const GLOBAL_STYLES = `
   }
   .field-input::placeholder { color: var(--color-text-muted); }
 
-  /* ── Page header ────────────────────── */
+  /* -- Page header ---------------------- */
   .page-header {
     position: sticky; top: 0; z-index: 40; min-height: 56px;
     background: rgba(7,8,15,0.88);
@@ -234,7 +234,7 @@ const GLOBAL_STYLES = `
     padding: 10px clamp(12px, 2.5vw, 28px); display: flex; align-items: center; gap: 10; flex-wrap: wrap;
   }
 
-  /* ── Section card ───────────────────── */
+  /* -- Section card --------------------- */
   .section-card {
     background: rgba(255,255,255,0.03);
     border: 1px solid var(--border-glass);
@@ -242,7 +242,7 @@ const GLOBAL_STYLES = `
     padding: 22px 24px;
   }
 
-  /* ── Badge ──────────────────────────── */
+  /* -- Badge ---------------------------- */
   .badge {
     display: inline-flex; align-items: center; gap: 4px;
     padding: 3px 9px; border-radius: 999px;
@@ -250,11 +250,11 @@ const GLOBAL_STYLES = `
     border: 1px solid transparent;
   }
 
-  /* ── Animated counter ───────────────── */
+  /* -- Animated counter ----------------- */
   @keyframes countUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   .count-up { animation: countUp 0.4s cubic-bezier(0.16,1,0.3,1) both; }
 
-  /* ── Skeleton shimmer ───────────────── */
+  /* -- Skeleton shimmer ----------------- */
   .skeleton {
     background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 100%);
     background-size: 200% 100%;
@@ -262,7 +262,7 @@ const GLOBAL_STYLES = `
     border-radius: 6px;
   }
 
-  /* ── Modal backdrop ─────────────────── */
+  /* -- Modal backdrop ------------------- */
   .modal-backdrop {
     position: fixed; inset: 0; z-index: 200;
     background: rgba(0,0,0,0.65);
@@ -280,7 +280,7 @@ const GLOBAL_STYLES = `
     width: 100%;
   }
 
-  /* ── Status pill ────────────────────── */
+  /* -- Status pill ---------------------- */
   .status-pill {
     display: inline-flex; align-items: center; gap: 5px;
     padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
@@ -291,7 +291,7 @@ const GLOBAL_STYLES = `
     background: currentColor; opacity: 0.8; flex-shrink: 0;
   }
 
-  /* ── Progress bar ───────────────────── */
+  /* -- Progress bar --------------------- */
   .progress-track {
     height: 5px; border-radius: 999px;
     background: rgba(255,255,255,0.07); overflow: hidden;
@@ -301,32 +301,32 @@ const GLOBAL_STYLES = `
     transition: width 0.7s cubic-bezier(0.16,1,0.3,1);
   }
 
-  /* ── Glow orb ───────────────────────── */
+  /* -- Glow orb ------------------------- */
   .glow-orb {
     position: absolute; border-radius: 50%;
     pointer-events: none; filter: blur(32px);
   }
 
-  /* ── Icon bubble ────────────────────── */
+  /* -- Icon bubble ---------------------- */
   .icon-bubble {
     display: flex; align-items: center; justify-content: center;
     border-radius: var(--radius-md); flex-shrink: 0;
   }
 
-  /* ── Page transition ────────────────── */
+  /* -- Page transition ------------------ */
   @keyframes pageIn {
     from { opacity: 0; transform: translateY(10px); }
     to   { opacity: 1; transform: translateY(0); }
   }
   .page-enter { animation: pageIn 0.32s cubic-bezier(0.16,1,0.3,1) both; }
 
-  /* ── Ripple on click ────────────────── */
+  /* -- Ripple on click ------------------ */
   @keyframes ripple {
     from { transform: scale(0); opacity: 0.4; }
     to   { transform: scale(2.5); opacity: 0; }
   }
 
-  /* ── Task row ───────────────────────── */
+  /* -- Task row ------------------------- */
   .task-row {
     display: grid; align-items: center;
     border-radius: 10px; padding: 10px 14px;
@@ -338,7 +338,7 @@ const GLOBAL_STYLES = `
     box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
   }
 
-  /* ── Ownership node card ────────────── */
+  /* -- Ownership node card -------------- */
   .owner-card {
     background: rgba(255,255,255,0.04);
     border: 1px solid var(--border-glass);
@@ -357,7 +357,7 @@ const GLOBAL_STYLES = `
     border-color: rgba(59,130,246,0.45);
   }
 
-  /* ── Integration card ───────────────── */
+  /* -- Integration card ----------------- */
   .integ-card {
     background: rgba(255,255,255,0.035);
     border: 1px solid var(--border-glass);
@@ -370,7 +370,7 @@ const GLOBAL_STYLES = `
     box-shadow: 0 8px 32px rgba(0,0,0,0.35);
   }
 
-  /* ── Pulse dot for live status ──────── */
+  /* -- Pulse dot for live status -------- */
   @keyframes pulseDot {
     0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,168,0.4); }
     50%       { box-shadow: 0 0 0 5px rgba(34,211,168,0); }
@@ -380,7 +380,7 @@ const GLOBAL_STYLES = `
     background: #22d3a8; animation: pulseDot 2s ease-in-out infinite;
   }
 
-  /* ── Tooltip ────────────────────────── */
+  /* -- Tooltip -------------------------- */
   .has-tooltip { position: relative; }
   .has-tooltip:hover::after {
     content: attr(data-tip);
@@ -392,7 +392,7 @@ const GLOBAL_STYLES = `
     font-family: var(--font-sans); z-index: 100;
   }
 
-  /* ── Stagger fade for list items ────── */
+  /* -- Stagger fade for list items ------ */
   .stagger > * { animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both; }
   .stagger > *:nth-child(1) { animation-delay: 0.04s; }
   .stagger > *:nth-child(2) { animation-delay: 0.08s; }
@@ -401,7 +401,7 @@ const GLOBAL_STYLES = `
   .stagger > *:nth-child(5) { animation-delay: 0.20s; }
   .stagger > *:nth-child(6) { animation-delay: 0.24s; }
 
-  /* ── Tour overlay ───────────────────── */
+  /* -- Tour overlay --------------------- */
   @keyframes tourIn {
     from { opacity: 0; transform: scale(0.92) translateY(16px); }
     to   { opacity: 1; transform: scale(1) translateY(0); }
@@ -439,7 +439,7 @@ const GLOBAL_STYLES = `
 
 `;
 
-// ── Tour step definitions ─────────────────────────────────────────────────────
+// -- Tour step definitions -----------------------------------------------------
 const TOUR_STEPS = [
   {
     id: "welcome", emoji: "👋", title: "Welcome to AI Workflow Coordinator",
@@ -521,7 +521,7 @@ const TOUR_STEPS = [
   },
 ];
 
-// ── Confetti burst on tour finish ─────────────────────────────────────────────
+// -- Confetti burst on tour finish ---------------------------------------------
 function ConfettiBurst() {
   const pieces = [...Array(60)].map((_, i) => ({
     id: i,
@@ -551,7 +551,7 @@ function ConfettiBurst() {
   );
 }
 
-// ── Floating particles ────────────────────────────────────────────────────────
+// -- Floating particles --------------------------------------------------------
 function TourParticles({ color }) {
   return (
     <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: "inherit" }}>
@@ -568,7 +568,7 @@ function TourParticles({ color }) {
   );
 }
 
-// ── Feature preview illustrations per step ─────────────────────────────────
+// -- Feature preview illustrations per step ---------------------------------
 function StepVisual({ stepId, color }) {
   const s = { borderRadius: 8, overflow: "hidden", position: "relative" };
   if (stepId === "welcome") return (
@@ -741,7 +741,7 @@ function StepVisual({ stepId, color }) {
   return null;
 }
 
-// ── Main Tour Overlay — MANDATORY, no skip ────────────────────────────────────
+// -- Main Tour Overlay — MANDATORY, no skip ------------------------------------
 function TourOverlay({ onComplete }) {
   const [step, setStep]             = useState(0);
   const [xp, setXp]                 = useState(0);
@@ -820,7 +820,7 @@ function TourOverlay({ onComplete }) {
         top: "20%", left: "65%", pointerEvents: "none", transition: "background 0.6s ease",
       }} />
 
-      {/* ── Keyboard hint (top right) ── */}
+      {/* -- Keyboard hint (top right) -- */}
       <div style={{
         position: "absolute", top: 20, right: 24,
         fontSize: 11, color: "var(--color-text-muted)",
@@ -830,7 +830,7 @@ function TourOverlay({ onComplete }) {
         <span>to advance</span>
       </div>
 
-      {/* ── Step counter (top left) ── */}
+      {/* -- Step counter (top left) -- */}
       <div style={{
         position: "absolute", top: 20, left: 24,
         fontSize: 11, color: "var(--color-text-muted)", fontFamily: "var(--font-mono)",
@@ -840,7 +840,7 @@ function TourOverlay({ onComplete }) {
         Step {step + 1} of {TOUR_STEPS.length}
       </div>
 
-      {/* ── Main card ── */}
+      {/* -- Main card -- */}
       <div className="tour-card" style={{
         width: "100%", maxWidth: 620,
         background: "linear-gradient(160deg,#111526 0%,#0c0f1e 50%,#080a16 100%)",
@@ -961,7 +961,7 @@ function TourOverlay({ onComplete }) {
             {typing
               ? <><span style={{ fontSize: 17 }}>⏭</span> Skip typing</>
               : isLast
-                ? <><span style={{ fontSize: 19 }}>🚀</span> Launch Dashboard — Let's Go!</>
+                ? <><span style={{ fontSize: 19 }}>🚀</span> Launch Dashboard &mdash; Let's Go!</>
                 : isFirst
                   ? <><span style={{ fontSize: 17 }}>▶</span> Start Tour &nbsp;<span style={{ opacity: 0.75, fontSize: 13 }}>+{TOUR_STEPS[1].xp} XP</span></>
                   : <><span style={{ fontSize: 14, opacity: 0.85 }}>Continue</span> &nbsp;→&nbsp; <span style={{ opacity: 0.7, fontSize: 13 }}>+{Math.max(0,(TOUR_STEPS[step + 1]?.xp ?? current.xp) - current.xp)} XP</span></>
@@ -997,7 +997,7 @@ function TourOverlay({ onComplete }) {
   );
 }
 
-// ── Full-screen loading spinner (shown while auth state initialises) ───────────
+// -- Full-screen loading spinner (shown while auth state initialises) -----------
 function AppLoader() {
   return (
     <div style={{
@@ -1036,7 +1036,7 @@ function AppLoader() {
   );
 }
 
-// ── Columns / nav config (unchanged) ─────────────────────────────────────────
+// -- Columns / nav config (unchanged) -----------------------------------------
 const COLUMNS = [
   { status: "to_do",       label: "To Do"       },
   { status: "in_progress", label: "In Progress" },
@@ -1065,7 +1065,7 @@ const TABS = [
   { label: "Done",        filter: "completed"   },
 ];
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
+// -- Sidebar -------------------------------------------------------------------
 const NAV_GROUPS = [
   {
     label: "Core",
@@ -1343,7 +1343,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
   );
 }
 
-// ── SVG icons (unchanged) ─────────────────────────────────────────────────────
+// -- SVG icons (unchanged) -----------------------------------------------------
 const IconCheckbox = () => (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <rect x="2" y="2" width="16" height="16" rx="4" stroke="currentColor" strokeWidth="1.5"/>
@@ -1373,7 +1373,7 @@ function Sparkline({ color }) {
   );
 }
 
-// ── Segment 10: Ownership Graph view ─────────────────────────────────────────
+// -- Segment 10: Ownership Graph view -----------------------------------------
 function OwnershipGraph() {
   const { user, token } = useAuth();
   const API = BASE_URL;
@@ -1629,7 +1629,7 @@ function OwnershipGraph() {
   );
 }
 
-// ── Tasks Page ────────────────────────────────────────────────────────────────
+// -- Tasks Page ----------------------------------------------------------------
 function TasksPage() {
   const { token, isArchitect, isNavigator, user } = useAuth();
   const API = BASE_URL;
@@ -1809,7 +1809,7 @@ function TasksPage() {
             <div key={m.label} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid var(--border-glass)", borderRadius:14, padding:"16px 18px", position:"relative", overflow:"hidden" }}>
               <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:m.color, opacity:0.7 }} />
               <div style={{ fontSize:11, fontWeight:600, color:"var(--color-text-secondary)", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>{m.label}</div>
-              <div style={{ fontSize:28, fontWeight:700, color:m.color }}>{loading ? "—" : m.value}</div>
+              <div style={{ fontSize:28, fontWeight:700, color:m.color }}>{loading ? "&mdash;" : m.value}</div>
             </div>
           ))}
         </div>
@@ -1868,7 +1868,7 @@ function TasksPage() {
 
                   {/* Deadline */}
                   <div style={{ fontSize:12, color: parseDeadline(t.deadline) && parseDeadline(t.deadline) < new Date() ? "#f87171" : "var(--color-text-secondary)" }}>
-                    {t.deadline ? formatDeadline(t.deadline, user?.timezone) : <span style={{ color:"var(--color-text-tertiary)" }}>—</span>}
+                    {t.deadline ? formatDeadline(t.deadline, user?.timezone) : <span style={{ color:"var(--color-text-tertiary)" }}>&mdash;</span>}
                   </div>
 
                   {/* Actions */}
@@ -1950,7 +1950,7 @@ function TasksPage() {
 }
 
 
-// ── Reports Page ──────────────────────────────────────────────────────────────
+// -- Reports Page --------------------------------------------------------------
 function ReportsPage() {
   const { user } = useAuth();
   const taskFilters = user?.role === "operator" ? { assignee_id: user.id }
@@ -2050,7 +2050,7 @@ function ReportsPage() {
         ) : !stats ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: "var(--color-text-tertiary)" }}>
             <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>▲</div>
-            <div style={{ fontSize: 14 }}>No data yet — create some tasks to see reports</div>
+            <div style={{ fontSize: 14 }}>No data yet &mdash; create some tasks to see reports</div>
           </div>
         ) : (
           <>
@@ -2161,7 +2161,7 @@ function ReportsPage() {
 
             {/* Activity trend */}
             <Card>
-              <SectionTitle>Task Creation Trend — Last 14 Days</SectionTitle>
+              <SectionTitle>Task Creation Trend &mdash; Last 14 Days</SectionTitle>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 100 }}>
                 {stats.trend.map((d, i) => (
                   <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
@@ -2177,7 +2177,7 @@ function ReportsPage() {
 
             {/* Leaderboard */}
             <Card>
-              <SectionTitle>Team Leaderboard — Tasks by Assignee</SectionTitle>
+              <SectionTitle>Team Leaderboard &mdash; Tasks by Assignee</SectionTitle>
               {stats.leaderboard.length === 0 ? (
                 <div style={{ fontSize: 13, color: "var(--color-text-tertiary)", textAlign: "center", padding: "20px 0" }}>No assignee data yet</div>
               ) : (
@@ -2201,7 +2201,7 @@ function ReportsPage() {
                     </div>
                   ))}
                 </div>
-                </div>{/* end leaderboard scroll */}
+                </div>
               )}
             </Card>
           </>
@@ -2212,7 +2212,7 @@ function ReportsPage() {
 }
 
 
-// ── Compliance Page ───────────────────────────────────────────────────────────
+// -- Compliance Page -----------------------------------------------------------
 function CompliancePage() {
   const { user } = useAuth();
   const taskFilters = user?.role === "operator" ? { assignee_id: user.id }
@@ -2433,7 +2433,7 @@ function CompliancePage() {
                           onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
                           <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }} title={title}>{title}</div>
-                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{t.assignee || <span style={{ color: "var(--color-text-tertiary)" }}>—</span>}</div>
+                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{t.assignee || <span style={{ color: "var(--color-text-tertiary)" }}>&mdash;</span>}</div>
                           <div>
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: `${PRI_C[pri] || "#f59e0b"}18`, color: PRI_C[pri] || "#f59e0b", border: `1px solid ${PRI_C[pri] || "#f59e0b"}33`, textTransform: "capitalize" }}>{pri}</span>
                           </div>
@@ -2458,7 +2458,7 @@ function CompliancePage() {
 }
 
 
-// ── Knowledge Page ────────────────────────────────────────────────────────────
+// -- Knowledge Page ------------------------------------------------------------
 function KnowledgePage() {
   const { token, user, isArchitect, isNavigator } = useAuth();
   const API = BASE_URL;
@@ -2763,7 +2763,7 @@ function KnowledgePage() {
 }
 
 
-// ── Settings Page ─────────────────────────────────────────────────────────────
+// -- Settings Page -------------------------------------------------------------
 function SettingsPage() {
   const { token, user, isArchitect, logout } = useAuth();
   const API = BASE_URL;
@@ -2967,7 +2967,7 @@ function SettingsPage() {
           {successMsg && <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.3)", color: "#22d3a8", fontSize: 13, fontWeight: 600, marginBottom: 16 }}>✓ {successMsg}</div>}
           {errorMsg   && <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171", fontSize: 13, marginBottom: 16 }}>⚠ {errorMsg}</div>}
 
-          {/* ── PROFILE ── */}
+          {/* -- PROFILE -- */}
           {activeTab === "profile" && (
             <>
               <div style={sectionStyle}>
@@ -3015,7 +3015,7 @@ function SettingsPage() {
             </>
           )}
 
-          {/* ── SECURITY ── */}
+          {/* -- SECURITY -- */}
           {activeTab === "security" && (
             <div style={sectionStyle}>
               <div style={sectionTitle}>Change Password</div>
@@ -3065,7 +3065,7 @@ function SettingsPage() {
             </div>
           )}
 
-          {/* ── WORKSPACE ── */}
+          {/* -- WORKSPACE -- */}
           {activeTab === "workspace" && (
             <>
               <div style={sectionStyle}>
@@ -3117,7 +3117,7 @@ function SettingsPage() {
             </>
           )}
 
-          {/* ── NOTIFICATIONS ── */}
+          {/* -- NOTIFICATIONS -- */}
           {activeTab === "notifications" && (
             <div style={sectionStyle}>
               <div style={sectionTitle}>Notification Preferences</div>
@@ -3133,7 +3133,7 @@ function SettingsPage() {
             </div>
           )}
 
-          {/* ── BILLING ── */}
+          {/* -- BILLING -- */}
           {activeTab === "billing" && (
             <>
               {/* Cancel confirmation modal */}
@@ -3259,7 +3259,7 @@ function SettingsPage() {
             </>
           )}
 
-          {/* ── DANGER ZONE ── */}
+          {/* -- DANGER ZONE -- */}
           {activeTab === "danger" && (
             <div style={{ ...sectionStyle, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.04)" }}>
               <div style={{ ...sectionTitle, color: "#f87171", borderBottomColor: "rgba(248,113,113,0.2)" }}>⚠ Danger Zone</div>
@@ -3305,11 +3305,11 @@ function PlaceholderPage({ label }) {
   );
 }
 
-// ── Dashboard — now role-aware ────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
+// -- Dashboard — now role-aware ------------------------------------------------
+// -----------------------------------------------------------------------------
 // INSTRUCTIONS: Replace lines 3070–3318 in App.jsx (the entire Dashboard function)
 // with the code below. Nothing else in App.jsx needs to change.
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 
 function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError }) {
   const { user, isArchitect, isNavigator, token } = useAuth();
@@ -3317,7 +3317,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
   const [filter, setFilter]       = useState("");
   const [activeTab, setActiveTab] = useState(0);  // 0 = Team, 1 = Individual
 
-  // ── Fetch individual tasks (/tasks/my) separately ────────────────────────
+  // -- Fetch individual tasks (/tasks/my) separately ------------------------
   const [myTasks, setMyTasks]         = useState([]);
   const [myLoading, setMyLoading]     = useState(true);
   const [myError, setMyError]         = useState(null);
@@ -3342,7 +3342,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
 
   useEffect(() => { fetchMyTasks(); }, [fetchMyTasks]);
 
-  // ── Role-aware labels ─────────────────────────────────────────────────────
+  // -- Role-aware labels -----------------------------------------------------
   const roleGreeting = isArchitect
     ? "Architect View — All workspace tasks"
     : isNavigator
@@ -3351,14 +3351,14 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         ? "Solo Dashboard — Your personal tasks"
         : "Operator View — Tasks assigned to you";
 
-  // ── Source tasks depend on active tab ─────────────────────────────────────
+  // -- Source tasks depend on active tab -------------------------------------
   // Team tab  → `tasks` prop (role-scoped, passed from AuthenticatedApp)
   // Individual tab → `myTasks` (fetched from /tasks/my)
   const isIndividualTab = activeTab === 1;
   const sourceTasks     = isIndividualTab ? myTasks : tasks;
   const isLoadingSource = isIndividualTab ? myLoading : loading;
 
-  // ── Kanban columns for the active tab ────────────────────────────────────
+  // -- Kanban columns for the active tab ------------------------------------
   const columns = useMemo(() => {
     const filtered = sourceTasks.filter(t => {
       if (!filter) return true;
@@ -3374,7 +3374,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
     }));
   }, [sourceTasks, filter]);
 
-  // ── Counts for the active tab ─────────────────────────────────────────────
+  // -- Counts for the active tab ---------------------------------------------
   const counts = useMemo(() => ({
     to_do:       sourceTasks.filter(t => t.status === "to_do").length,
     in_progress: sourceTasks.filter(t => t.status === "in_progress").length,
@@ -3414,7 +3414,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
     fetchMyTasks();
   };
 
-  // ── Tab config ────────────────────────────────────────────────────────────
+  // -- Tab config ------------------------------------------------------------
   const SECTION_TABS = [
     {
       label: "Team",
@@ -3572,7 +3572,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
           ))}
         </div>
 
-        {/* ── Team / Individual section tabs ───────────────────────────────── */}
+        {/* -- Team / Individual section tabs --------------------------------- */}
         <div className="fade-up delay-2">
 
           {/* Section switcher */}
@@ -3696,7 +3696,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
 }
 
 
-// ── Segment 11: Integrations Page ────────────────────────────────────────────
+// -- Segment 11: Integrations Page --------------------------------------------
 function IntegrationsPage() {
   const { token } = useAuth();
   const API = BASE_URL;
@@ -3870,7 +3870,7 @@ function IntegrationsPage() {
         </div>
       )}
 
-      {/* ── Notion ── */}
+      {/* -- Notion -- */}
       {card(
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -3895,7 +3895,7 @@ function IntegrationsPage() {
         </div>
       )}
 
-      {/* ── Jira ── */}
+      {/* -- Jira -- */}
       {card(
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -3922,7 +3922,7 @@ function IntegrationsPage() {
         </div>
       )}
 
-      {/* ── Trello ── */}
+      {/* -- Trello -- */}
       {card(
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
@@ -3952,7 +3952,7 @@ function IntegrationsPage() {
   );
 }
 
-// ── Segment 12: Locale Page ───────────────────────────────────────────────────
+// -- Segment 12: Locale Page ---------------------------------------------------
 function LocalePage() {
   const { user, token } = useAuth();
   const API = BASE_URL;
@@ -4104,7 +4104,7 @@ function LocalePage() {
         ))}
       </div>
 
-      {/* ── User Locale Card ── */}
+      {/* -- User Locale Card -- */}
       {card(
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
@@ -4172,7 +4172,7 @@ function LocalePage() {
         </div>
       )}
 
-      {/* ── Workspace Locale Card (Architect only) ── */}
+      {/* -- Workspace Locale Card (Architect only) -- */}
       {isArchitect && card(
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
@@ -4245,7 +4245,7 @@ function LocalePage() {
   );
 }
 
-// ── TeamsPage — Segment 9: Microsoft Teams Integration ───────────────────────
+// -- TeamsPage — Segment 9: Microsoft Teams Integration -----------------------
 function TeamsPage() {
   const { token, user } = useAuth();
   const API = BASE_URL;
@@ -4331,7 +4331,7 @@ function TeamsPage() {
             <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Teams Connection</div>
             <div style={{ fontSize: 12, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ width: 7, height: 7, borderRadius: "50%", background: status?.connected ? "#22d3a8" : "#6b7280", display: "inline-block" }} />
-              <span style={{ color: status?.connected ? "#22d3a8" : "var(--color-text-tertiary)" }}>{status?.connected ? `Connected — Tenant: ${status.tenant_id}` : "Not connected"}</span>
+              <span style={{ color: status?.connected ? "#22d3a8" : "var(--color-text-tertiary)" }}>{status?.connected ? `Connected &mdash; Tenant: ${status.tenant_id}` : "Not connected"}</span>
             </div>
           </div>
           {status?.connected && isArchitect && <button onClick={handleDisconnect} disabled={saving} style={{ height: 32, padding: "0 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Disconnect</button>}
@@ -4380,7 +4380,7 @@ function TeamsPage() {
   );
 }
 
-// ── ApiPage — Segment 13: Public REST API & Key Management ────────────────────
+// -- ApiPage — Segment 13: Public REST API & Key Management --------------------
 function ApiPage() {
   const { token, user } = useAuth();
   const API = BASE_URL;
@@ -4466,7 +4466,7 @@ function ApiPage() {
       {/* Revealed key banner */}
       {revealedKey && (
         <div style={{ padding: "16px 20px", borderRadius: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>⚠ Copy your API key now — it won't be shown again</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>⚠ Copy your API key now &mdash; it won't be shown again</div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <code style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: 12, background: "rgba(0,0,0,0.3)", padding: "8px 12px", borderRadius: 8, color: "#e8eaf6", wordBreak: "break-all" }}>{revealedKey.key}</code>
             <button onClick={() => copyKey(revealedKey.key)} style={{ height: 36, padding: "0 16px", borderRadius: 8, border: "none", background: copied ? "rgba(34,211,168,0.2)" : "rgba(245,158,11,0.2)", color: copied ? "#22d3a8" : "#f59e0b", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
@@ -4547,7 +4547,7 @@ function ApiPage() {
   );
 }
 
-// ── Feedback System (Segment 14) ─────────────────────────────────────────────
+// -- Feedback System (Segment 14) ---------------------------------------------
 
 const FEEDBACK_TYPES = [
   { id: "bug",             label: "Bug Report",      emoji: "🐛", color: "#f43f5e", desc: "Something is broken or not working right" },
@@ -4785,7 +4785,7 @@ function FeedbackButton({ user, token, currentPage }) {
   );
 }
 
-// ── Billing Wall (Segment 15) ─────────────────────────────────────────────────
+// -- Billing Wall (Segment 15) -------------------------------------------------
 
 const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || "wahaj@acedengroup.com").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
 
@@ -4882,7 +4882,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
           {isNewUser && daysLeft !== undefined && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, padding: "10px 14px", borderRadius: 10, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: 13, color: "#10b981", fontWeight: 600 }}>
               <span>⏱</span>
-              <span>Free trial: <strong>{daysLeft} day{daysLeft === 1 ? "" : "s"} remaining</strong> — no charge until it ends</span>
+              <span>Free trial: <strong>{daysLeft} day{daysLeft === 1 ? "" : "s"} remaining</strong> &mdash; no charge until it ends</span>
             </div>
           )}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
@@ -4920,7 +4920,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
   );
 }
 
-// ── Authenticated shell — wraps Dashboard with Sidebar ────────────────────────
+// -- Authenticated shell — wraps Dashboard with Sidebar ------------------------
 function AuthenticatedApp() {
   const { user, isOnboarded, token } = useAuth();
   const [activeNav, setActiveNav]     = useState(0);
@@ -4934,7 +4934,7 @@ function AuthenticatedApp() {
   const [billing, setBilling]         = useState(null);   // null=loading, object=loaded
   const [billingChecked, setBillingChecked] = useState(false);
 
-  // ── Check billing status on mount ──────────────────────────────────────────
+  // -- Check billing status on mount ------------------------------------------
   useEffect(() => {
     if (!token || !user) return;
     // Exempt: your admin email(s) never see billing wall
@@ -4987,7 +4987,7 @@ function AuthenticatedApp() {
 
   const { tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError } = useTasks(taskFilters);
 
-  // ── Live nav badges derived from tasks ──────────────────────────────────────
+  // -- Live nav badges derived from tasks --------------------------------------
   const navBadges = useMemo(() => {
     if (!tasks?.length) return {};
     const totalCount      = tasks.length;
@@ -5136,9 +5136,9 @@ function AuthenticatedApp() {
   );
 }
 
-// ── Router — decides which page to show ──────────────────────────────────────
+// -- Router — decides which page to show --------------------------------------
 
-// ── Freelancer Dashboard ───────────────────────────────────────────────────────
+// -- Freelancer Dashboard -------------------------------------------------------
 function FreelancerDashboard() {
   const { user, token, logout } = useAuth();
   const API = BASE_URL;
@@ -5280,7 +5280,7 @@ function FreelancerDashboard() {
   );
 }
 
-// ── Invite landing page — /invite/:slug ──────────────────────────────────────
+// -- Invite landing page — /invite/:slug --------------------------------------
 function InvitePage() {
   const slug = window.location.pathname.replace(/^\/invite\/?/, "").trim();
   const API  = BASE_URL;
@@ -5369,7 +5369,7 @@ function AppRouter() {
   return <AuthenticatedApp />;
 }
 
-// ── Root App — wraps everything in AuthProvider ───────────────────────────────
+// -- Root App — wraps everything in AuthProvider -------------------------------
 export default function App() {
   return (
     <>
