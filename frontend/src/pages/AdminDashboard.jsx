@@ -2901,7 +2901,7 @@ function FreelancerPanel({ showToast }) {
   return (
     <div>
       {/* ── Stat strip ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(140px,1fr))", gap: 12, marginBottom: 18 }}>
         {[
           { label: "Total Freelancers", val: stats.total,     color: purple, icon: "◈" },
           { label: "Active",            val: stats.active,    color: green,  icon: "✦" },
@@ -3024,15 +3024,17 @@ function FreelancerPanel({ showToast }) {
       </div>
 
       {/* ── Table ── */}
+      <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
       <div style={{
         background: dark ? "rgba(0,4,18,0.97)" : "rgba(220,238,255,0.88)",
         border: `1px solid rgba(${cyan},0.15)`,
         borderRadius: 6, overflow: "hidden",
         clipPath: "polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,0 100%)",
+        minWidth: 700,
       }}>
         {/* Header */}
         <div style={{
-          display: "grid", gridTemplateColumns: "1.8fr 1.8fr 80px 80px 80px 100px 36px",
+          display: "grid", gridTemplateColumns: "1.8fr 1.8fr 80px 80px 80px 100px 36px", minWidth: 680,
           padding: "10px 18px", gap: 8,
           borderBottom: `1px solid rgba(${cyan},0.1)`,
           background: dark ? `rgba(${cyan},0.03)` : `rgba(${cyan},0.06)`,
@@ -3059,7 +3061,7 @@ function FreelancerPanel({ showToast }) {
               <div
                 className="holo-table-row"
                 style={{
-                  display: "grid", gridTemplateColumns: "1.8fr 1.8fr 80px 80px 80px 100px 36px",
+                  display: "grid", gridTemplateColumns: "1.8fr 1.8fr 80px 80px 80px 100px 36px", minWidth: 680,
                   padding: "11px 18px", gap: 8,
                   borderBottom: `1px solid rgba(${cyan},0.05)`,
                   transition: "background 0.15s",
@@ -3133,7 +3135,7 @@ function FreelancerPanel({ showToast }) {
                     </div>
                   </div>
                   {/* Detail grid */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 14 }}>
                     {[
                       { label: "Referral Code", val: f.referral_code },
                       { label: "Cancelled",     val: f.cancelled ?? 0 },
@@ -3158,6 +3160,7 @@ function FreelancerPanel({ showToast }) {
           );
         })}
       </div>
+      </div>{/* end scroll wrap */}
 
       {/* Footer */}
       <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -5208,7 +5211,7 @@ function SystemStatusPulseBar() {
 
       {/* Expanded body */}
       {!collapsed && (
-        <div style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+        <div style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "repeat(3, minmax(140px,1fr))", gap: 14 }}>
 
           {/* API Latency gauge */}
           <div style={{ position: "relative" }}>
@@ -6433,9 +6436,11 @@ function SessionReplayLog() {
         </div>
       </div>
 
+      {/* Table - scroll wrapper */}
+      <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
       {/* Table header */}
       <div style={{
-        display: "grid", gridTemplateColumns: "28px 1.8fr 1fr 1.2fr 1fr 80px 64px",
+        display: "grid", gridTemplateColumns: "28px 1.8fr 1fr 1.2fr 1fr 80px 64px", minWidth: 620,
         padding: "8px 18px", borderBottom: `1px solid rgba(${cyan},0.08)`,
         background: `rgba(${cyan},0.02)`,
       }}>
@@ -6451,7 +6456,7 @@ function SessionReplayLog() {
         ) : page_entries.map((entry, i) => (
           <div key={entry.id}
             style={{
-              display: "grid", gridTemplateColumns: "28px 1.8fr 1fr 1.2fr 1fr 80px 64px",
+              display: "grid", gridTemplateColumns: "28px 1.8fr 1fr 1.2fr 1fr 80px 64px", minWidth: 620,
               padding: "9px 18px", alignItems: "center",
               borderBottom: `1px solid rgba(${cyan},0.04)`,
               background: i % 2 === 0 ? `rgba(${cyan},0.01)` : "transparent",
@@ -7012,7 +7017,7 @@ function TaskPipelineKanban() {
       )}
 
       {/* Kanban columns */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 10 }}>
         {colOrder.map(colId => {
           const col = KANBAN_COLS.find(c => c.id === colId);
           const tasks = (cols[colId] || []).filter(t => !filterPri || t.priority === filterPri);
@@ -7277,7 +7282,7 @@ function AlertRulesEngine({ m }) {
             </select>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(120px,1fr))", gap: 10, marginBottom: 14 }}>
           <div>
             <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>THRESHOLD {metricDef?.unit || ""}</div>
             <input value={r.threshold} onChange={e => setR(p => ({ ...p, threshold: e.target.value }))} placeholder="Value…" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
@@ -7647,8 +7652,9 @@ function CommandTelemetryStream() {
         </button>
       </div>
 
-      {/* Column headers */}
-      <div style={{ display: "grid", gridTemplateColumns: "88px 60px 1fr 52px 68px 64px 72px 74px", gap: 0, padding: "4px 10px", marginBottom: 2, borderBottom: "1px solid rgba(0,229,255,0.08)" }}>
+      {/* Column headers - scroll wrapper */}
+      <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "88px 60px 1fr 52px 68px 64px 72px 74px", minWidth: 580, gap: 0, padding: "4px 10px", marginBottom: 2, borderBottom: "1px solid rgba(0,229,255,0.08)" }}>
         {["TIMESTAMP","METHOD","ENDPOINT","STATUS","LATENCY","SIZE","AGENT","REGION"].map(h => (
           <div key={h} style={{ fontSize: 6.5, color: "rgba(0,229,255,0.25)", letterSpacing: "0.16em", fontFamily: "'Share Tech Mono', monospace" }}>{h}</div>
         ))}
@@ -7662,7 +7668,7 @@ function CommandTelemetryStream() {
           const isSlow = entry.latency > 400;
           return (
             <div key={entry.id} style={{
-              display: "grid", gridTemplateColumns: "88px 60px 1fr 52px 68px 64px 72px 74px",
+              display: "grid", gridTemplateColumns: "88px 60px 1fr 52px 68px 64px 72px 74px", minWidth: 580,
               gap: 0, padding: "4px 10px", borderRadius: 2,
               background: isNew ? `rgba(0,229,255,0.05)` : isErr ? `rgba(${entry.status.code >= 500 ? "255,45,85" : "255,208,96"},0.03)` : "transparent",
               borderLeft: isErr ? `2px solid ${entry.status.color}55` : isNew ? "2px solid rgba(0,229,255,0.4)" : "2px solid transparent",
@@ -8645,10 +8651,12 @@ export default function AdminDashboard() {
            MAIN CONTENT
         ══════════════════════════════════════════════════════ */
         .main-content {
-          margin-left: 240px; flex: 1;
-          padding: 0 32px 88px;
+          flex: 1;
+          padding: 0 clamp(12px, 2.5vw, 32px) 88px;
           min-height: 100vh;
           position: relative;
+          min-width: 0;
+          overflow-x: auto;
         }
 
         /* ══════════════════════════════════════════════════════
