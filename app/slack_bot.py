@@ -269,9 +269,27 @@ def _get_workspace_invite_code(db, workspace_id: int | None) -> str | None:
 
 # ── Core task processing (shared by mention + message handlers) ───────────────
 
-def _process_message(event, say, client, require_mention: bool = False):
+def _post(client, channel_id: str, thread_ts: str, text: str) -> None:
+    """
+    Post a message using client.chat_postMessage directly.
+    This works reliably regardless of Bolt's response-context timing,
+    avoiding the 3-second ack window that causes say() to silently fail.
+    """
+    try:
+        client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=thread_ts,
+            text=text,
+        )
+    except Exception as exc:
+        logger.warning("chat_postMessage failed: %s", exc)
+
+
+def _process_message(event, client, require_mention: bool = False):
     """
     Evaluate a Slack message and create a task if the AI detects one.
+    Uses client.chat_postMessage directly instead of say() so replies
+    work reliably outside Bolt's 3-second ack window.
 
     require_mention=True  → used for @mention handler; will reply with errors/help
     require_mention=False → used for message handler; stays silent if not a task
@@ -315,15 +333,12 @@ def _process_message(event, say, client, require_mention: bool = False):
         body = _MENTION_RE.sub("", text).strip()
         if not body:
             if require_mention:
-                say(
-                    text=(
-                        "Hi! I can create tasks two ways:\n"
-                        "• *Structured:* `@bot create task [@assignee] <title>`\n"
-                        "• *Natural language:* `@bot Hey Alina, finish the sales report today — it's urgent`\n\n"
-                        "Or just send any message like _'Ali make the sales report today'_ and I'll pick it up automatically!"
-                    ),
-                    thread_ts=thread_ts,
-                    channel=channel_id,
+                _post(
+                    client, channel_id, thread_ts,
+                    "Hi! I can create tasks two ways:\n"
+                    "• *Structured:* `@bot create task [@assignee] <title>`\n"
+                    "• *Natural language:* `@bot Hey Alina, finish the sales report today — it's urgent`\n\n"
+                    "Or just send any message like _'Ali make the sales report today'_ and I'll pick it up automatically!",
                 )
             return
 
@@ -347,11 +362,8 @@ def _process_message(event, say, client, require_mention: bool = False):
     except Exception as exc:
         logger.error("AI extraction failed: %s", exc, exc_info=True)
         if require_mention:
-            say(
-                text="⚠️ I couldn't extract a task from that message. Please try rephrasing.",
-                thread_ts=thread_ts,
-                channel=channel_id,
-            )
+            _post(client, channel_id, thread_ts,
+                  "⚠️ I couldn't extract a task from that message. Please try rephrasing.")
         return
 
     # No task detected — skip silently for auto-detection
@@ -421,7 +433,7 @@ def _process_message(event, say, client, require_mention: bool = False):
         if deadline_line:
             lines.append(deadline_line)
 
-        say(text="\n".join(lines), thread_ts=thread_ts, channel=channel_id)
+        _post(client, channel_id, thread_ts, "\n".join(lines))
         logger.info(
             "Created task id=%s title=%r assignee=%r priority=%s deadline=%r mode=%s workspace_id=%s",
             new_task.id, extracted.task, final_assignee,
@@ -462,11 +474,8 @@ def _process_message(event, say, client, require_mention: bool = False):
         db.rollback()
         logger.error("Failed to save task: %s", exc, exc_info=True)
         if require_mention:
-            say(
-                text=f"⚠️ Sorry, I couldn't save that task. Please try again. (Error: {exc})",
-                thread_ts=thread_ts,
-                channel=channel_id,
-            )
+            _post(client, channel_id, thread_ts,
+                  f"⚠️ Sorry, I couldn't save that task. Please try again. (Error: {exc})")
     finally:
         db.close()
 
@@ -474,16 +483,19 @@ def _process_message(event, say, client, require_mention: bool = False):
 # ── Slack event handlers ──────────────────────────────────────────────────────
 
 @bolt_app.event("app_mention")
-def handle_mention(event, say, client):
+def handle_mention(event, client):
     """
     Handles @mentions of the bot.
     Always processes and replies (even on errors or no-task messages).
+    Runs in a background thread so Bolt can ack Slack within 3 seconds.
     """
-    _process_message(event, say, client, require_mention=True)
+    thread = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    thread.submit(_process_message, event, client, True)
+    thread.shutdown(wait=False)
 
 
 @bolt_app.event("message")
-def handle_all_messages(event, say, client):
+def handle_all_messages(event, client):
     """
     Listens to ALL channel messages — no @mention needed.
     AI decides whether the message contains a task.
@@ -504,4 +516,6 @@ def handle_all_messages(event, say, client):
     if bot_user_id and f"<@{bot_user_id}>" in text:
         return
 
-    _process_message(event, say, client, require_mention=False)
+    thread = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    thread.submit(_process_message, event, client, False)
+    thread.shutdown(wait=False)
