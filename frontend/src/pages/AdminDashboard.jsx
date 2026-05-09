@@ -6517,6 +6517,7 @@ function SessionReplayLog() {
           >{label}</button>
         ))}
       </div>
+      </div>{/* end scroll wrapper */}
     </div>
   );
 }
@@ -7710,6 +7711,7 @@ function CommandTelemetryStream() {
           </div>;
         })}
       </div>
+      </div>{/* end scroll wrapper */}
     </div>
   );
 }
