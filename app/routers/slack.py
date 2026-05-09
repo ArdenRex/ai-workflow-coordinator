@@ -24,7 +24,7 @@ BACKEND_URL         = os.getenv("BACKEND_URL", "https://ai-workflow-coordinator-
 FRONTEND_URL        = os.getenv("FRONTEND_URL", "").rstrip("/")
 
 # Scopes your bot needs — must match what is configured in api.slack.com/apps
-SLACK_SCOPES = "app_mentions:read,chat:write,channels:history,users:read"
+SLACK_SCOPES = "app_mentions:read,chat:write,channels:history,users:read,im:write"
 
 # Fixed redirect URI — must exactly match what is saved in Slack App dashboard
 REDIRECT_URI = f"{BACKEND_URL}/auth/slack/callback"
