@@ -43,14 +43,28 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # ── Bolt app ──────────────────────────────────────────────────────────────────
-# process_before_response=False (the default) means Bolt acks Slack immediately
-# in a background thread, then runs our handler synchronously — no extra
-# threading needed, and no silent thread-GC races.
+# IMPORTANT: Bolt 1.x auto-enables multi-tenant OAuth mode when SLACK_CLIENT_ID
+# and SLACK_CLIENT_SECRET are both present in the environment — even if you pass
+# a token explicitly. When that happens, Bolt ignores the bot token entirely and
+# tries an installation_store lookup for every event, which always fails (error:
+# "AuthorizeResult not found") and produces zero responses.
+#
+# Fix: temporarily remove those env vars before constructing App() so Bolt stays
+# in single-workspace token mode. The vars are restored immediately after so the
+# OAuth install/callback routes in routers/slack.py still work normally.
+_cid    = os.environ.pop("SLACK_CLIENT_ID",     None)
+_csecret = os.environ.pop("SLACK_CLIENT_SECRET", None)
+
 bolt_app = App(
     token=settings.slack_bot_token.get_secret_value(),
     signing_secret=settings.slack_signing_secret.get_secret_value(),
-    process_before_response=False,   # ← KEY FIX: was True
+    process_before_response=False,
 )
+
+if _cid:
+    os.environ["SLACK_CLIENT_ID"]     = _cid
+if _csecret:
+    os.environ["SLACK_CLIENT_SECRET"] = _csecret
 
 slack_handler = SlackRequestHandler(bolt_app)
 
