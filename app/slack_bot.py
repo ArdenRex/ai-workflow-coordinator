@@ -69,6 +69,19 @@ ROLE_LABELS: dict[str, str] = {
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "").rstrip("/")
 
+# ── Cache bot user ID once at startup to avoid a network call per message ─────
+_bot_user_id: str = ""
+
+def _get_bot_user_id() -> str:
+    global _bot_user_id
+    if not _bot_user_id:
+        try:
+            info = bolt_app.client.auth_test()
+            _bot_user_id = info.get("user_id", "")
+        except Exception as exc:
+            logger.warning("Could not resolve bot_user_id: %s", exc)
+    return _bot_user_id
+
 # ── Regex patterns ─────────────────────────────────────────────────────────────
 _CMD_RE = re.compile(
     r"<@[A-Z0-9]+>\s+create\s+task\s+"
@@ -263,12 +276,17 @@ def _process_message(event, say, client, require_mention: bool = False):
     require_mention=True  → used for @mention handler; will reply with errors/help
     require_mention=False → used for message handler; stays silent if not a task
     """
-    channel_id = event.get("channel", "")
+    channel_id = event.get("channel") or event.get("channel_id", "")
     message_ts = event.get("ts", "")
     text       = event.get("text", "")
     thread_ts  = event.get("thread_ts") or message_ts
     sender_id  = event.get("user", "")
     subtype    = event.get("subtype", "")
+
+    # Guard: without a channel we cannot post a reply
+    if not channel_id:
+        logger.warning("Event missing channel field — skipping")
+        return
 
     # Skip system/bot events
     if subtype in _IGNORE_SUBTYPES:
@@ -482,12 +500,8 @@ def handle_all_messages(event, say, client):
 
     # Skip if it's an @mention — the app_mention handler covers that
     text = event.get("text", "")
-    try:
-        bot_info    = bolt_app.client.auth_test()
-        bot_user_id = bot_info.get("user_id", "")
-        if bot_user_id and f"<@{bot_user_id}>" in text:
-            return
-    except Exception:
-        pass
+    bot_user_id = _get_bot_user_id()
+    if bot_user_id and f"<@{bot_user_id}>" in text:
+        return
 
     _process_message(event, say, client, require_mention=False)
