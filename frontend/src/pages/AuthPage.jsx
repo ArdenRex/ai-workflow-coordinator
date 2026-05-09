@@ -295,6 +295,10 @@ const STYLES = `
   }
 
 
+  @media (max-width: 768px) {
+    .auth-card { border-radius: 20px; }
+    .auth-title { font-size: 22px; }
+  }
   @media (max-width: 480px) {
     .auth-card {
       border-radius: 16px;
