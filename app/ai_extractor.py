@@ -14,6 +14,7 @@ from a raw Slack/email/manual message.
 
 import json
 import logging
+import re
 from typing import Optional
 
 from groq import AsyncGroq, APITimeoutError, AuthenticationError, RateLimitError, APIError
@@ -153,7 +154,6 @@ async def extract_task_from_message(message: str) -> ExtractedTask:
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": f"Extract task from this message:\n\n{payload}"},
             ],
-            response_format={"type": "json_object"},
         )
     except RateLimitError as exc:
         logger.error("Groq rate limit hit: %s", exc)
@@ -174,8 +174,23 @@ async def extract_task_from_message(message: str) -> ExtractedTask:
 
     logger.debug("Raw Groq response: %s", raw)
 
+    # Strip markdown code fences if the model wrapped the JSON
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        # Remove opening fence (```json or ```)
+        cleaned = re.sub(r"^```[a-zA-Z]*\n?", "", cleaned)
+        # Remove closing fence
+        cleaned = re.sub(r"\n?```$", "", cleaned.rstrip())
+        cleaned = cleaned.strip()
+
+    # If the model returned text before/after the JSON object, extract just the object
+    if not cleaned.startswith("{"):
+        match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+        if match:
+            cleaned = match.group(0)
+
     try:
-        data = json.loads(raw)
+        data = json.loads(cleaned)
     except json.JSONDecodeError as exc:
         logger.error("Groq returned invalid JSON: %s", raw)
         raise ValueError(f"AI returned invalid JSON: {exc}") from exc
