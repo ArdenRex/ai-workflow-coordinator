@@ -24,20 +24,19 @@ from app.schemas import ExtractedTask
 
 logger = logging.getLogger(__name__)
 
-# ── Client — instantiated once, reused across requests ───────────────────────
-_client: Optional[AsyncGroq] = None
-
+# ── Client — created fresh per call to avoid event loop mismatch ─────────────
+# AsyncGroq uses httpx.AsyncClient internally which is bound to the event loop
+# it was created in. The Slack bot runs each AI call in a NEW event loop via
+# _run_async(), so a cached client from a different loop causes a RuntimeError.
+# Creating a fresh client per call is safe and negligible overhead.
 
 def _get_client() -> AsyncGroq:
-    global _client
-    if _client is None:
-        settings = get_settings()
-        _client = AsyncGroq(
-            api_key=settings.groq_api_key.get_secret_value(),
-            timeout=30.0,
-            max_retries=2,
-        )
-    return _client
+    settings = get_settings()
+    return AsyncGroq(
+        api_key=settings.groq_api_key.get_secret_value(),
+        timeout=30.0,
+        max_retries=2,
+    )
 
 
 VALID_PRIORITIES: set[str] = {p.value for p in Priority}
