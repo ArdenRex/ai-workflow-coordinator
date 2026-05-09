@@ -26,7 +26,6 @@ Required Slack OAuth scopes (Bot Token):
 """
 
 import asyncio
-import concurrent.futures
 import logging
 import os
 import re
@@ -44,10 +43,13 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # ── Bolt app ──────────────────────────────────────────────────────────────────
+# process_before_response=False (the default) means Bolt acks Slack immediately
+# in a background thread, then runs our handler synchronously — no extra
+# threading needed, and no silent thread-GC races.
 bolt_app = App(
     token=settings.slack_bot_token.get_secret_value(),
     signing_secret=settings.slack_signing_secret.get_secret_value(),
-    process_before_response=True,
+    process_before_response=False,   # ← KEY FIX: was True
 )
 
 slack_handler = SlackRequestHandler(bolt_app)
@@ -126,7 +128,8 @@ def _task_exists(db, channel_id: str, message_ts: str) -> bool:
 def _run_async(coro):
     """
     Safely run an async coroutine from a sync Bolt handler.
-    FastAPI already runs an event loop, so we use a thread with its own loop.
+    FastAPI already runs an event loop on the main thread, so we spin up
+    a dedicated thread with its own loop to avoid "loop already running" errors.
     """
     def _in_thread():
         loop = asyncio.new_event_loop()
@@ -136,7 +139,10 @@ def _run_async(coro):
         finally:
             loop.close()
 
+    import concurrent.futures
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        # wait=True (the default for the context manager) ensures the thread
+        # completes before we return — the old shutdown(wait=False) bug is gone.
         future = executor.submit(_in_thread)
         return future.result(timeout=30)
 
@@ -272,8 +278,8 @@ def _get_workspace_invite_code(db, workspace_id: int | None) -> str | None:
 def _post(client, channel_id: str, thread_ts: str, text: str) -> None:
     """
     Post a message using client.chat_postMessage directly.
-    This works reliably regardless of Bolt's response-context timing,
-    avoiding the 3-second ack window that causes say() to silently fail.
+    More reliable than say() because it doesn't depend on Bolt's
+    response-context being open — works at any point during handler execution.
     """
     try:
         client.chat_postMessage(
@@ -288,11 +294,13 @@ def _post(client, channel_id: str, thread_ts: str, text: str) -> None:
 def _process_message(event, client, require_mention: bool = False):
     """
     Evaluate a Slack message and create a task if the AI detects one.
-    Uses client.chat_postMessage directly instead of say() so replies
-    work reliably outside Bolt's 3-second ack window.
 
-    require_mention=True  → used for @mention handler; will reply with errors/help
-    require_mention=False → used for message handler; stays silent if not a task
+    With process_before_response=False, Bolt acks Slack in its own thread
+    and calls this handler synchronously — so we can block freely here
+    without worrying about the 3-second ack window.
+
+    require_mention=True  → used for @mention handler; replies even on errors
+    require_mention=False → used for message handler; silent if not a task
     """
     channel_id = event.get("channel") or event.get("channel_id", "")
     message_ts = event.get("ts", "")
@@ -487,11 +495,12 @@ def handle_mention(event, client):
     """
     Handles @mentions of the bot.
     Always processes and replies (even on errors or no-task messages).
-    Runs in a background thread so Bolt can ack Slack within 3 seconds.
+
+    With process_before_response=False, Bolt acks Slack in a background
+    thread before calling this — so we run synchronously here with no
+    extra threading, no GC races, and no duplicate-retry risk.
     """
-    thread = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    thread.submit(_process_message, event, client, True)
-    thread.shutdown(wait=False)
+    _process_message(event, client, require_mention=True)
 
 
 @bolt_app.event("message")
@@ -516,6 +525,4 @@ def handle_all_messages(event, client):
     if bot_user_id and f"<@{bot_user_id}>" in text:
         return
 
-    thread = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    thread.submit(_process_message, event, client, False)
-    thread.shutdown(wait=False)
+    _process_message(event, client, require_mention=False)
