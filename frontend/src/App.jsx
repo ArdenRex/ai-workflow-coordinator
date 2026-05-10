@@ -1901,4 +1901,3777 @@ function TasksPage() {
       <main style={{ flex:1, padding:"clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px" }}>
         {/* Flash messages */}
         {successMsg && (
-          <div styl
+          <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(34,211,168,0.12)", border:"1px solid rgba(34,211,168,0.3)", color:"#22d3a8", fontSize:13, fontWeight:600, marginBottom:16 }}>✓ {successMsg}</div>
+        )}
+        {displayError && (
+          <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.25)", color:"#f87171", fontSize:13, marginBottom:16, display:"flex", justifyContent:"space-between" }}>
+            <span>⚠ {displayError}</span>
+            <button onClick={() => setError(null)} style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer", fontSize:16 }}>×</button>
+          </div>
+        )}
+
+        {/* Summary cards */}
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(130px,1fr))", gap:14, marginBottom:24 }}>
+          {[
+            { label:"Total Tasks", value:counts.all, color:"#3b82f6" },
+            { label:"To Do", value:counts.to_do, color:"#a78bfa" },
+            { label:"In Progress", value:counts.in_progress, color:"#f59e0b" },
+            { label:"Completed", value:counts.completed, color:"#22d3a8" },
+          ].map(m => (
+            <div key={m.label} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid var(--border-glass)", borderRadius:14, padding:"16px 18px", position:"relative", overflow:"hidden" }}>
+              <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:m.color, opacity:0.7 }} />
+              <div style={{ fontSize:11, fontWeight:600, color:"var(--color-text-secondary)", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>{m.label}</div>
+              <div style={{ fontSize:28, fontWeight:700, color:m.color }}>{loading ? "&mdash;" : m.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Task table */}
+        <div style={{ background:"rgba(255,255,255,0.03)", border:"1px solid var(--border-glass)", borderRadius:16, overflow:"hidden" }}>
+          <div style={{ overflowX:"auto", WebkitOverflowScrolling:"touch" }}>
+          {/* Table header */}
+          <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 100px 110px 130px 120px", gap:0, padding:"10px 18px", borderBottom:"1px solid var(--border-glass)", background:"rgba(255,255,255,0.03)", minWidth:680 }}>
+            {["Task", "Assignee", "Priority", "Status", "Deadline", "Actions"].map(h => (
+              <div key={h} style={{ fontSize:11, fontWeight:700, color:"var(--color-text-tertiary)", textTransform:"uppercase", letterSpacing:"0.06em" }}>{h}</div>
+            ))}
+          </div>
+
+          {loading ? (
+            <div style={{ padding:"48px 0", textAlign:"center" }}>
+              <div style={{ width:24, height:24, border:"2px solid rgba(79,142,247,0.2)", borderTopColor:"#3b82f6", borderRadius:"50%", animation:"spin 0.7s linear infinite", margin:"0 auto 10px" }} />
+              <div style={{ fontSize:13, color:"var(--color-text-tertiary)" }}>Loading tasks…</div>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding:"48px 0", textAlign:"center" }}>
+              <div style={{ fontSize:36, marginBottom:10, opacity:0.3 }}>✦</div>
+              <div style={{ fontSize:14, color:"var(--color-text-tertiary)" }}>No tasks found</div>
+              <div style={{ fontSize:12, color:"var(--color-text-tertiary)", marginTop:4 }}>Try changing filters or create a new task</div>
+            </div>
+          ) : (
+            filtered.map((t, i) => {
+              const pri   = t.priority || "medium";
+              const st    = t.status || "to_do";
+              const title = t.title || t.task_description || "Untitled";
+              return (
+                <div key={t.id} style={{ display:"grid", gridTemplateColumns:"2fr 1fr 100px 110px 130px 120px", gap:0, padding:"13px 18px", minWidth:680, borderBottom: i < filtered.length-1 ? "1px solid rgba(255,255,255,0.04)" : "none", alignItems:"center", transition:"background 0.15s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.03)"}
+                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                >
+                  {/* Title */}
+                  <div style={{ fontSize:13, color:"var(--color-text-primary)", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:12 }} title={title}>{title}</div>
+
+                  {/* Assignee */}
+                  <div style={{ fontSize:12, color:"var(--color-text-secondary)", display:"flex", alignItems:"center", gap:6 }}>
+                    {t.assignee ? (
+                      <><span style={{ width:22, height:22, borderRadius:"50%", background:"var(--grad-primary)", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0 }}>{t.assignee[0]?.toUpperCase()}</span>{t.assignee}</>
+                    ) : <span style={{ color:"var(--color-text-tertiary)" }}>Unassigned</span>}
+                  </div>
+
+                  {/* Priority */}
+                  <div>{pill(PRIORITY_COLOR[pri] || "#f59e0b", pri.charAt(0).toUpperCase()+pri.slice(1))}</div>
+
+                  {/* Status */}
+                  <div>
+                    <select value={st} onChange={e => changeStatus(t.id, e.target.value)}
+                      style={{ fontSize:11, fontWeight:600, background:`${STATUS_COLOR[st] || "#3b82f6"}18`, color:STATUS_COLOR[st] || "#3b82f6", border:`1px solid ${STATUS_COLOR[st] || "#3b82f6"}33`, borderRadius:999, padding:"3px 8px", cursor:"pointer", outline:"none", fontFamily:"var(--font-sans)" }}>
+                      {Object.entries(STATUS_LABEL).map(([v,l]) => <option key={v} value={v} style={{background:"#1e2140",color:"#f0f2ff"}}>{l}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Deadline */}
+                  <div style={{ fontSize:12, color: parseDeadline(t.deadline) && parseDeadline(t.deadline) < new Date() ? "#f87171" : "var(--color-text-secondary)" }}>
+                    {t.deadline ? formatDeadline(t.deadline, user?.timezone) : <span style={{ color:"var(--color-text-tertiary)" }}>&mdash;</span>}
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display:"flex", gap:6 }}>
+                    {(isArchitect || isNavigator) && (
+                      <button onClick={() => openEdit(t)} title="Edit" style={{ width:28, height:28, borderRadius:7, border:"1px solid var(--border-glass)", background:"transparent", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}
+                        onMouseEnter={e => { e.currentTarget.style.background="rgba(79,142,247,0.15)"; e.currentTarget.style.color="#3b82f6"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="var(--color-text-secondary)"; }}>✎</button>
+                    )}
+                    {isArchitect && (
+                      <button onClick={() => deleteTask(t.id)} title="Delete" style={{ width:28, height:28, borderRadius:7, border:"1px solid var(--border-glass)", background:"transparent", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}
+                        onMouseEnter={e => { e.currentTarget.style.background="rgba(248,113,113,0.12)"; e.currentTarget.style.color="#f87171"; }}
+                        onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="var(--color-text-secondary)"; }}>✕</button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+          </div>{/* end scroll wrapper */}
+        </div>
+      </main>
+
+      {/* Create / Edit Modal */}
+      {showForm && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
+          <div className="modal-box" style={{ width: "min(500px, 100%)", padding: "30px 30px 26px" }}>
+            {/* Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>{editTask ? "Edit Task" : "New Task"}</div>
+                <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>{editTask ? "Update task details" : "Add to your workflow"}</div>
+              </div>
+              <button onClick={() => setShowForm(false)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.04)", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={labelStyle}>Task Title *</label>
+                <input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="What needs to be done?" className="field-input" style={{ height: 42 }} />
+              </div>
+              <div>
+                <label style={labelStyle}>Assignee</label>
+                <input value={form.assignee} onChange={e => setForm(f => ({...f, assignee: e.target.value}))} placeholder="username or name" className="field-input" style={{ height: 42 }} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px,1fr))", gap: 14 }}>
+                <div>
+                  <label style={labelStyle}>Priority</label>
+                  <select value={form.priority} onChange={e => setForm(f => ({...f, priority: e.target.value}))} className="field-input" style={{ height: 42, cursor: "pointer" }}>
+                    <option value="high" style={{ background: "#1e2140", color: "#f0f2ff" }}>🔴 High</option>
+                    <option value="medium" style={{ background: "#1e2140", color: "#f0f2ff" }}>🟡 Medium</option>
+                    <option value="low" style={{ background: "#1e2140", color: "#f0f2ff" }}>🟢 Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Deadline</label>
+                  <input type="date" value={form.deadline} onChange={e => setForm(f => ({...f, deadline: e.target.value}))} className="field-input" style={{ height: 42, colorScheme: "dark" }} />
+                </div>
+              </div>
+              {editTask && (
+                <div>
+                  <label style={labelStyle}>Description</label>
+                  <textarea value={form.description} onChange={e => setForm(f => ({...f, description: e.target.value}))} rows={3} placeholder="Additional details…" className="field-input" style={{ height: "auto", padding: "11px 13px", resize: "vertical", lineHeight: 1.6 }} />
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border-glass)" }}>
+              <button onClick={() => setShowForm(false)} className="btn-ghost">Cancel</button>
+              <button onClick={handleSubmit} disabled={submitting || !form.title.trim()} className="btn-primary" style={{ opacity: (submitting || !form.title.trim()) ? 0.55 : 1 }}>
+                {submitting ? "Saving…" : editTask ? "Save Changes" : "✦ Create Task"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+
+// -- Reports Page --------------------------------------------------------------
+function ReportsPage() {
+  const { user } = useAuth();
+  const taskFilters = user?.role === "operator" ? { assignee_id: user.id }
+    : user?.role === "navigator"                ? { team_id: user.team_id }
+    : {};
+  const { tasks, loading } = useTasks(taskFilters);
+
+  const [range, setRange] = useState(30); // days
+
+  const now = new Date();
+
+  const stats = useMemo(() => {
+    if (!tasks.length) return null;
+    const cutoff = new Date(now - range * 86400000);
+    const inRange = tasks.filter(t => new Date(t.created_at) >= cutoff);
+
+    const byStatus = { to_do: 0, in_progress: 0, completed: 0, cancelled: 0 };
+    tasks.forEach(t => { if (byStatus[t.status] !== undefined) byStatus[t.status]++; });
+
+    const byPriority = { high: 0, medium: 0, low: 0, critical: 0 };
+    tasks.forEach(t => { const p = t.priority || "medium"; if (byPriority[p] !== undefined) byPriority[p]++; });
+
+    // Assignee leaderboard
+    const assigneeCounts = {};
+    tasks.forEach(t => {
+      if (t.assignee) {
+        if (!assigneeCounts[t.assignee]) assigneeCounts[t.assignee] = { total: 0, done: 0 };
+        assigneeCounts[t.assignee].total++;
+        if (t.status === "completed") assigneeCounts[t.assignee].done++;
+      }
+    });
+    const leaderboard = Object.entries(assigneeCounts)
+      .map(([name, d]) => ({ name, total: d.total, done: d.done, rate: d.total ? Math.round(d.done / d.total * 100) : 0 }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8);
+
+    // Daily creation trend (last 14 days)
+    const trend = [];
+    for (let i = 13; i >= 0; i--) {
+      const day = new Date(now - i * 86400000);
+      const label = day.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+      const count = tasks.filter(t => {
+        const d = new Date(t.created_at);
+        return d.toDateString() === day.toDateString();
+      }).length;
+      trend.push({ label, count });
+    }
+
+    // Overdue
+    const overdue = tasks.filter(t =>
+      t.deadline && parseDeadline(t.deadline) < now && t.status !== "completed" && t.status !== "cancelled"
+    );
+
+    const completionRate = tasks.length ? Math.round(byStatus.completed / tasks.length * 100) : 0;
+    const avgPerDay = range > 0 ? (inRange.length / range).toFixed(1) : 0;
+
+    return { byStatus, byPriority, leaderboard, trend, overdue, completionRate, avgPerDay, inRange: inRange.length };
+  }, [tasks, range]);
+
+  const maxTrend = stats ? Math.max(...stats.trend.map(d => d.count), 1) : 1;
+
+  const Card = ({ children, style }) => (
+    <div className="pcard" style={{ padding: "22px 24px", ...style }}>{children}</div>
+  );
+
+  const SectionTitle = ({ children }) => (
+    <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 14 }}>{children}</div>
+  );
+
+  const STATUS_C = { to_do: "#3b82f6", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
+  const STATUS_L = { to_do: "To Do", in_progress: "In Progress", completed: "Done", cancelled: "Cancelled" };
+  const PRI_C    = { critical: "#f43f5e", high: "#f87171", medium: "#f59e0b", low: "#22d3a8" };
+
+  return (
+    <>
+      {/* Topbar */}
+      <header className="page-header">
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Reports</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Workspace analytics & performance</div>
+        </div>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 4, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 999, padding: 3 }}>
+          {[7, 14, 30, 90].map(d => (
+            <button key={d} onClick={() => setRange(d)} style={{ padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", fontFamily: "var(--font-sans)", background: range === d ? "linear-gradient(135deg,#4f8ef7,#7b5cf0)" : "transparent", color: range === d ? "#fff" : "var(--color-text-secondary)", transition: "all 0.15s" }}>
+              {d}d
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+        {loading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+            <div style={{ width: 28, height: 28, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+          </div>
+        ) : !stats ? (
+          <div style={{ textAlign: "center", padding: "80px 0", color: "var(--color-text-tertiary)" }}>
+            <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>▲</div>
+            <div style={{ fontSize: 14 }}>No data yet &mdash; create some tasks to see reports</div>
+          </div>
+        ) : (
+          <>
+            {/* KPI row */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 14 }}>
+              {[
+                { label: "Total Tasks", value: tasks.length, sub: `${stats.inRange} in last ${range}d`, color: "#3b82f6" },
+                { label: "Completed", value: stats.byStatus.completed, sub: `${stats.completionRate}% completion rate`, color: "#22d3a8" },
+                { label: "Overdue", value: stats.overdue.length, sub: stats.overdue.length ? "Need attention" : "All on track ✓", color: stats.overdue.length ? "#f87171" : "#22d3a8" },
+                { label: "Avg / Day", value: stats.avgPerDay, sub: `Tasks created per day`, color: "#a78bfa" },
+              ].map(m => (
+                <div key={m.label} className="pcard" style={{ padding: "20px 22px", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.85 }} />
+                  <div className="glow-orb" style={{ top: -20, left: -20, width: 80, height: 80, background: m.color, opacity: 0.06 }} />
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8, fontFamily: "var(--font-display)" }}>{m.label}</div>
+                  <div style={{ fontSize: 34, fontWeight: 800, color: m.color, lineHeight: 1, marginBottom: 5, fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{m.value}</div>
+                  <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{m.sub}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Charts row */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(280px,1fr))", gap: 18 }}>
+
+              {/* Status breakdown */}
+              <Card>
+                <SectionTitle>Task Status Breakdown</SectionTitle>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {Object.entries(STATUS_L).map(([key, label]) => {
+                    const count = stats.byStatus[key] || 0;
+                    const pct = tasks.length ? Math.round(count / tasks.length * 100) : 0;
+                    return (
+                      <div key={key}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                          <span style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_C[key], display: "inline-block" }} />{label}
+                          </span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: STATUS_C[key] }}>{count} <span style={{ fontWeight: 400, color: "var(--color-text-tertiary)" }}>({pct}%)</span></span>
+                        </div>
+                        <div className="progress-track" style={{ height: 6 }}>
+                          <div className="progress-fill" style={{ width: `${pct}%`, background: STATUS_C[key] }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Completion ring */}
+                <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-glass)", display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ position: "relative", width: 70, height: 70, flexShrink: 0 }}>
+                    <svg viewBox="0 0 36 36" style={{ width: 70, height: 70, transform: "rotate(-90deg)" }}>
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="#22d3a8" strokeWidth="3"
+                        strokeDasharray={`${stats.completionRate * 0.942} 94.2`}
+                        strokeLinecap="round" />
+                    </svg>
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#22d3a8" }}>
+                      {stats.completionRate}%
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Completion Rate</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 3 }}>{stats.byStatus.completed} of {tasks.length} tasks done</div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Priority breakdown */}
+              <Card>
+                <SectionTitle>Priority Distribution</SectionTitle>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {Object.entries(PRI_C).map(([key, color]) => {
+                    const count = stats.byPriority[key] || 0;
+                    if (!count) return null;
+                    const pct = tasks.length ? Math.round(count / tasks.length * 100) : 0;
+                    return (
+                      <div key={key}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                          <span style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "flex", alignItems: "center", gap: 6, textTransform: "capitalize" }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "inline-block" }} />{key}
+                          </span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color }}>{count} <span style={{ fontWeight: 400, color: "var(--color-text-tertiary)" }}>({pct}%)</span></span>
+                        </div>
+                        <div className="progress-track" style={{ height: 6 }}>
+                          <div className="progress-fill" style={{ width: `${pct}%`, background: color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Overdue alert */}
+                {stats.overdue.length > 0 && (
+                  <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-glass)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>⚠ Overdue Tasks ({stats.overdue.length})</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 110, overflowY: "auto" }}>
+                      {stats.overdue.map(t => (
+                        <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>{t.title || t.task_description}</span>
+                          <span style={{ fontSize: 11, color: "#f87171", flexShrink: 0 }}>{formatDeadline(t.deadline, user?.timezone, { month: "short", day: "numeric", year: undefined })}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Card>
+            </div>
+
+            {/* Activity trend */}
+            <Card>
+              <SectionTitle>Task Creation Trend &mdash; Last 14 Days</SectionTitle>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 100 }}>
+                {stats.trend.map((d, i) => (
+                  <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <div style={{ fontSize: 10, color: "var(--color-text-tertiary)", fontWeight: 600 }}>{d.count || ""}</div>
+                    <div style={{ width: "100%", borderRadius: "4px 4px 0 0", background: d.count ? "linear-gradient(180deg,#7b5cf0,#4f8ef7)" : "rgba(255,255,255,0.05)", transition: "height 0.5s cubic-bezier(.4,0,.2,1)", height: `${Math.max(4, (d.count / maxTrend) * 80)}px`, minHeight: 4 }}
+                      title={`${d.label}: ${d.count} task${d.count !== 1 ? "s" : ""}`}
+                    />
+                    <div style={{ fontSize: 9, color: "var(--color-text-tertiary)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", width: "100%", textOverflow: "ellipsis" }}>{i % 2 === 0 ? d.label : ""}</div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {/* Leaderboard */}
+            <Card>
+              <SectionTitle>Team Leaderboard &mdash; Tasks by Assignee</SectionTitle>
+              {stats.leaderboard.length === 0 ? (
+                <div style={{ fontSize: 13, color: "var(--color-text-tertiary)", textAlign: "center", padding: "20px 0" }}>No assignee data yet</div>
+              ) : (
+                <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 0, minWidth: 420 }}>
+                  {stats.leaderboard.map((person, i) => (
+                    <div key={person.name} style={{ display: "grid", gridTemplateColumns: "28px 1fr 80px 80px 100px", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: i < stats.leaderboard.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? "#f59e0b" : i === 1 ? "#9ca3af" : i === 2 ? "#b45309" : "var(--color-text-tertiary)", textAlign: "center" }}>#{i + 1}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ width: 28, height: 28, borderRadius: "50%", background: `hsl(${(person.name.charCodeAt(0) * 37) % 360},60%,50%)`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{person.name[0]?.toUpperCase()}</span>
+                        <span style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>{person.name}</span>
+                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#3b82f6", textAlign: "center" }}>{person.total} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--color-text-tertiary)" }}>tasks</span></div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#22d3a8", textAlign: "center" }}>{person.done} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--color-text-tertiary)" }}>done</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ flex: 1, height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${person.rate}%`, background: person.rate >= 75 ? "#22d3a8" : person.rate >= 40 ? "#f59e0b" : "#f87171", borderRadius: 999 }} />
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", minWidth: 32 }}>{person.rate}%</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                </div>
+              )}
+            </Card>
+          </>
+        )}
+      </main>
+    </>
+  );
+}
+
+
+// -- Compliance Page -----------------------------------------------------------
+function CompliancePage() {
+  const { user } = useAuth();
+  const taskFilters = user?.role === "operator" ? { assignee_id: user.id }
+    : user?.role === "navigator"                ? { team_id: user.team_id }
+    : {};
+  const { tasks, loading } = useTasks(taskFilters);
+
+  const [activeTab, setActiveTab] = useState("overdue");
+
+  const now = new Date();
+
+  const compliance = useMemo(() => {
+    if (!tasks.length) return null;
+
+    // Overdue tasks (past deadline, not done/cancelled)
+    const overdue = tasks.filter(t =>
+      t.deadline && parseDeadline(t.deadline) < now &&
+      t.status !== "completed" && t.status !== "cancelled"
+    ).sort((a, b) => parseDeadline(a.deadline) - parseDeadline(b.deadline));
+
+    // Unassigned tasks
+    const unassigned = tasks.filter(t =>
+      !t.assignee && t.status !== "completed" && t.status !== "cancelled"
+    );
+
+    // Stale tasks — in_progress for more than 7 days
+    const stale = tasks.filter(t => {
+      if (t.status !== "in_progress") return false;
+      const updated = new Date(t.updated_at || t.created_at);
+      return (now - updated) > 7 * 86400000;
+    });
+
+    // No-deadline tasks (active, no deadline set)
+    const noDeadline = tasks.filter(t =>
+      !t.deadline && t.status !== "completed" && t.status !== "cancelled"
+    );
+
+    // High priority not started
+    const highNotStarted = tasks.filter(t =>
+      (t.priority === "high" || t.priority === "critical") && t.status === "to_do"
+    );
+
+    // Compliance score (0-100)
+    const issues = overdue.length + unassigned.length + stale.length + highNotStarted.length;
+    const score = Math.max(0, Math.round(100 - (issues / Math.max(tasks.length, 1)) * 100));
+
+    // Audit log — recent task activity (simulate from task data)
+    const recent = [...tasks]
+      .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+      .slice(0, 20);
+
+    return { overdue, unassigned, stale, noDeadline, highNotStarted, score, issues, recent };
+  }, [tasks]);
+
+  const TABS = [
+    { key: "overdue",        label: "Overdue",          badge: compliance?.overdue.length },
+    { key: "unassigned",     label: "Unassigned",        badge: compliance?.unassigned.length },
+    { key: "stale",          label: "Stale (7d+)",       badge: compliance?.stale.length },
+    { key: "high_priority",  label: "High Not Started",  badge: compliance?.highNotStarted.length },
+    { key: "audit",          label: "Audit Log",         badge: null },
+  ];
+
+  const currentList =
+    activeTab === "overdue"       ? compliance?.overdue :
+    activeTab === "unassigned"    ? compliance?.unassigned :
+    activeTab === "stale"         ? compliance?.stale :
+    activeTab === "high_priority" ? compliance?.highNotStarted :
+    compliance?.recent;
+
+  const STATUS_C = { to_do: "#3b82f6", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
+  const STATUS_L = { to_do: "To Do", in_progress: "In Progress", completed: "Done", cancelled: "Cancelled" };
+  const PRI_C    = { critical: "#f43f5e", high: "#f87171", medium: "#f59e0b", low: "#22d3a8" };
+
+  const scoreColor = !compliance ? "#3b82f6"
+    : compliance.score >= 80 ? "#22d3a8"
+    : compliance.score >= 50 ? "#f59e0b"
+    : "#f87171";
+
+  const daysSince = (dateStr) => {
+    const d = dateStr ? Math.floor((now - new Date(dateStr)) / 86400000) : null;
+    if (d === null) return "—";
+    if (d === 0) return "Today";
+    if (d === 1) return "Yesterday";
+    return `${d}d ago`;
+  };
+
+  const daysOverdue = (dateStr) => {
+    if (!dateStr) return "";
+    const parsed = parseDeadline(dateStr);
+    if (!parsed) return "";
+    const d = Math.floor((now - parsed) / 86400000);
+    return d > 0 ? `${d}d overdue` : "Due today";
+  };
+
+  return (
+    <>
+      {/* Topbar */}
+      <header className="page-header">
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Compliance</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Task health monitoring & audit trail</div>
+        </div>
+        {compliance && (
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Compliance Score</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: scoreColor, letterSpacing: "-0.03em" }}>{compliance.score}<span style={{ fontSize: 13, fontWeight: 500 }}>%</span></div>
+            <div style={{ width: 80, height: 6, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${compliance.score}%`, background: scoreColor, borderRadius: 999, transition: "width 0.6s ease" }} />
+            </div>
+          </div>
+        )}
+      </header>
+
+      <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 20 }}>
+
+        {loading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
+            <div style={{ width: 28, height: 28, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+          </div>
+        ) : !compliance ? (
+          <div style={{ textAlign: "center", padding: "80px 0", color: "var(--color-text-tertiary)" }}>
+            <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>◈</div>
+            <div>No tasks to analyse yet</div>
+          </div>
+        ) : (
+          <>
+            {/* Score cards */}
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(130px,1fr))", gap: 12, minWidth: 700 }}>
+              {[
+                { label: "Overdue",          value: compliance.overdue.length,          color: compliance.overdue.length ? "#f87171" : "#22d3a8",  icon: "⏰" },
+                { label: "Unassigned",       value: compliance.unassigned.length,       color: compliance.unassigned.length ? "#f59e0b" : "#22d3a8", icon: "👤" },
+                { label: "Stale (7d+)",      value: compliance.stale.length,            color: compliance.stale.length ? "#f59e0b" : "#22d3a8",     icon: "💤" },
+                { label: "High Not Started", value: compliance.highNotStarted.length,   color: compliance.highNotStarted.length ? "#f87171" : "#22d3a8", icon: "🔴" },
+                { label: "No Deadline",      value: compliance.noDeadline.length,       color: compliance.noDeadline.length > 3 ? "#f59e0b" : "#22d3a8", icon: "📅" },
+              ].map(m => (
+                <div key={m.label} className="pcard" style={{ padding: "18px 16px 16px", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.8 }} />
+                  <div className="glow-orb" style={{ top: -20, left: -20, width: 80, height: 80, background: m.color, opacity: 0.06 }} />
+                  <div style={{ fontSize: 20, marginBottom: 8 }}>{m.icon}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: m.color, lineHeight: 1, marginBottom: 5, fontFamily: "var(--font-display)" }}>{m.value}</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{m.label}</div>
+                </div>
+              ))}
+            </div>
+            </div>
+
+            {/* Compliance score bar */}
+            <div className="section-card" style={{ display: "flex", alignItems: "center", gap: 24 }}>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>Overall Health</div>
+                <div style={{ fontSize: 32, fontWeight: 800, color: scoreColor, fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{compliance.score}<span style={{ fontSize: 16, fontWeight: 500 }}>%</span></div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="progress-track" style={{ height: 8 }}>
+                  <div className="progress-fill" style={{ width: `${compliance.score}%`, background: `linear-gradient(90deg, ${scoreColor}, ${scoreColor}bb)`, boxShadow: `0 0 10px ${scoreColor}55` }} />
+                </div>
+              </div>
+              <div style={{ padding: "6px 14px", borderRadius: 999, background: scoreColor + "18", border: `1px solid ${scoreColor}33`, fontSize: 12, color: scoreColor, fontWeight: 600 }}>
+                {compliance.issues === 0 ? "✅ All healthy" : `${compliance.issues} issue${compliance.issues !== 1 ? "s" : ""}`}
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", borderRadius: 16, overflow: "hidden" }}>
+              {/* Tab bar */}
+              <div style={{ display: "flex", borderBottom: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.02)" }}>
+                {TABS.map(tab => (
+                  <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ flex: 1, padding: "12px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", fontFamily: "var(--font-sans)", background: activeTab === tab.key ? "rgba(79,142,247,0.12)" : "transparent", color: activeTab === tab.key ? "#3b82f6" : "var(--color-text-secondary)", borderBottom: activeTab === tab.key ? "2px solid #4f8ef7" : "2px solid transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                    {tab.label}
+                    {tab.badge !== null && tab.badge !== undefined && (
+                      <span style={{ minWidth: 18, height: 18, borderRadius: 999, background: tab.badge > 0 ? (tab.key === "audit" ? "#3b82f6" : "#f87171") : "rgba(255,255,255,0.1)", color: "#fff", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{tab.badge}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab content */}
+              <div style={{ minHeight: 200, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                {/* Table header */}
+                {activeTab !== "audit" && (
+                  <div style={{ display: "grid", gridTemplateColumns: activeTab === "overdue" ? "2fr 1fr 100px 110px 120px" : "2fr 1fr 100px 110px", gap: 0, padding: "9px 18px", borderBottom: "1px solid rgba(255,255,255,0.04)", background: "rgba(255,255,255,0.02)", minWidth: activeTab === "overdue" ? 620 : 520 }}>
+                    {["Task", "Assignee", "Priority", "Status", activeTab === "overdue" ? "Overdue" : null].filter(Boolean).map(h => (
+                      <div key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.07em" }}>{h}</div>
+                    ))}
+                  </div>
+                )}
+
+                {!currentList || currentList.length === 0 ? (
+                  <div style={{ padding: "40px 0", textAlign: "center" }}>
+                    <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.3 }}>✓</div>
+                    <div style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>
+                      {activeTab === "audit" ? "No recent activity" : "No issues found — looking good!"}
+                    </div>
+                  </div>
+                ) : activeTab === "audit" ? (
+                  <div>
+                    {currentList.map((t, i) => (
+                      <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 18px", borderBottom: i < currentList.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_C[t.status] || "#3b82f6", flexShrink: 0 }} />
+                        <div style={{ flex: 1, fontSize: 13, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title || t.task_description || "Untitled"}</div>
+                        <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", flexShrink: 0 }}>{t.assignee || "Unassigned"}</div>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: STATUS_C[t.status], flexShrink: 0, minWidth: 70, textAlign: "right" }}>{STATUS_L[t.status]}</div>
+                        <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", flexShrink: 0, minWidth: 70, textAlign: "right" }}>{daysSince(t.updated_at || t.created_at)}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div>
+                    {currentList.map((t, i) => {
+                      const pri = t.priority || "medium";
+                      const st  = t.status || "to_do";
+                      const title = t.title || t.task_description || "Untitled";
+                      return (
+                        <div key={t.id} style={{ display: "grid", gridTemplateColumns: activeTab === "overdue" ? "2fr 1fr 100px 110px 120px" : "2fr 1fr 100px 110px", gap: 0, padding: "12px 18px", minWidth: activeTab === "overdue" ? 620 : 520, borderBottom: i < currentList.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none", alignItems: "center" }}
+                          onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                          <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }} title={title}>{title}</div>
+                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{t.assignee || <span style={{ color: "var(--color-text-tertiary)" }}>&mdash;</span>}</div>
+                          <div>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: `${PRI_C[pri] || "#f59e0b"}18`, color: PRI_C[pri] || "#f59e0b", border: `1px solid ${PRI_C[pri] || "#f59e0b"}33`, textTransform: "capitalize" }}>{pri}</span>
+                          </div>
+                          <div>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: STATUS_C[st], background: `${STATUS_C[st]}18`, border: `1px solid ${STATUS_C[st]}33`, borderRadius: 999, padding: "2px 8px" }}>{STATUS_L[st]}</span>
+                          </div>
+                          {activeTab === "overdue" && (
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "#f87171" }}>{daysOverdue(t.deadline)}</div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </main>
+    </>
+  );
+}
+
+
+// -- Knowledge Page ------------------------------------------------------------
+function KnowledgePage() {
+  const { token, user, isArchitect, isNavigator } = useAuth();
+
+  const [activeTab, setActiveTab]   = useState("guide");   // "guide" | "notes"
+  const [notes, setNotes]           = useState([]);
+  const [search, setSearch]         = useState("");
+  const [category, setCategory]     = useState("all");
+  const [showForm, setShowForm]     = useState(false);
+  const [editNote, setEditNote]     = useState(null);
+  const [viewNote, setViewNote]     = useState(null);
+  const [submitting, setSub]        = useState(false);
+  const [successMsg, setSuccess]    = useState(null);
+  const [expandedSection, setExpandedSection] = useState(null);
+  const [form, setForm]             = useState({ title: "", body: "", category: "general", pinned: false });
+
+  const STORAGE_KEY = `kb_notes_${user?.workspace?.id || "default"}`;
+
+  const SAMPLE_NOTES = [
+    { id: 1, title: "How to create tasks via Slack", body: "Mention the bot with: @bot create task @assignee task title by YYYY-MM-DD\n\nPriority keywords: URGENT, HIGH PRIORITY, LOW PRIORITY\n\nThe bot will auto-assign based on @mention.", category: "guide", pinned: true, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 2, title: "Role permissions overview", body: "Architect — Full access: create, edit, delete tasks, manage workspace, view all reports.\n\nNavigator — Team lead: create and edit tasks for their team, view team reports.\n\nOperator — Team member: view and update status of assigned tasks only.", category: "policy", pinned: true, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 3, title: "API integration guide", body: "Use the API page to generate an API key.\n\nEndpoints:\nPOST /api/v1/tasks — create a task\nGET /api/v1/tasks — list tasks\nPUT /api/v1/tasks/{id} — update a task\n\nPass your key in: X-API-Key: your_key_here", category: "technical", pinned: false, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  ];
+
+  const loadNotes = useCallback(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      setNotes(stored ? JSON.parse(stored) : SAMPLE_NOTES);
+    } catch { setNotes(SAMPLE_NOTES); }
+  }, [STORAGE_KEY]);
+
+  useEffect(() => { loadNotes(); }, [loadNotes]);
+
+  const saveNotes = (updated) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    setNotes(updated);
+  };
+
+  const CATEGORIES = [
+    { value: "all",       label: "All Notes" },
+    { value: "general",   label: "General" },
+    { value: "guide",     label: "Guides" },
+    { value: "policy",    label: "Policies" },
+    { value: "technical", label: "Technical" },
+    { value: "meeting",   label: "Meeting Notes" },
+  ];
+
+  const CAT_COLOR = {
+    general:   "#3b82f6",
+    guide:     "#22d3a8",
+    policy:    "#a78bfa",
+    technical: "#f59e0b",
+    meeting:   "#f87171",
+  };
+
+  const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(null), 3000); };
+
+  const handleSave = () => {
+    if (!form.title.trim()) return;
+    setSub(true);
+    try {
+      if (editNote) {
+        const updated = notes.map(n => n.id === editNote.id
+          ? { ...n, ...form, updated_at: new Date().toISOString() }
+          : n
+        );
+        saveNotes(updated);
+        flash("Note updated ✓");
+      } else {
+        const newNote = {
+          id: Date.now(),
+          ...form,
+          author: user?.name || "You",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        saveNotes([newNote, ...notes]);
+        flash("Note created ✓");
+      }
+      setShowForm(false);
+      setEditNote(null);
+    } finally { setSub(false); }
+  };
+
+  const handleDelete = (id) => {
+    if (!window.confirm("Delete this note?")) return;
+    saveNotes(notes.filter(n => n.id !== id));
+    if (viewNote?.id === id) setViewNote(null);
+    flash("Note deleted");
+  };
+
+  const handlePin = (id) => {
+    saveNotes(notes.map(n => n.id === id ? { ...n, pinned: !n.pinned } : n));
+  };
+
+  const openEdit = (note) => {
+    setForm({ title: note.title, body: note.body, category: note.category, pinned: note.pinned });
+    setEditNote(note);
+    setShowForm(true);
+  };
+
+  const openCreate = () => {
+    setForm({ title: "", body: "", category: "general", pinned: false });
+    setEditNote(null);
+    setShowForm(true);
+  };
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return notes
+      .filter(n => {
+        const matchQ = !q || n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q);
+        const matchC = category === "all" || n.category === category;
+        return matchQ && matchC;
+      })
+      .sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1;
+        if (!a.pinned && b.pinned) return 1;
+        return new Date(b.updated_at) - new Date(a.updated_at);
+      });
+  }, [notes, search, category]);
+
+  const catCounts = useMemo(() => {
+    const counts = {};
+    notes.forEach(n => { counts[n.category] = (counts[n.category] || 0) + 1; });
+    return counts;
+  }, [notes]);
+
+  const formatDate = (d) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+  const inputStyle = { width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", boxSizing: "border-box" };
+  const labelStyle = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5, display: "block" };
+
+  // ── Software Guide sections ────────────────────────────────────────────────
+  const GUIDE_SECTIONS = [
+    {
+      id: "overview",
+      icon: "🧠",
+      title: "What is AI Workflow Coordinator?",
+      color: "#4f8ef7",
+      body: `AI Workflow Coordinator is a smart task management platform built for teams. It combines role-based dashboards, AI-powered task extraction, Slack integration, and a compliance engine — all in one place.\n\nWhether you're a solo operator or managing a full workspace with multiple teams, the platform adapts to your role so you always see exactly what's relevant to you.`,
+    },
+    {
+      id: "roles",
+      icon: "👥",
+      title: "Roles & Permissions",
+      color: "#a78bfa",
+      body: `🏛️ Architect (Owner/Manager)\nFull access to all tasks, all team members, workspace settings, billing, and reports. Can create, edit, and delete anything. Manages invite codes and API keys.\n\n🧭 Navigator (Team Lead)\nSees all tasks assigned to their team. Can create and edit tasks. Has access to team reports and compliance.\n\n⚙️ Operator (Team Member)\nSees only tasks assigned to them. Can update task status and add comments.\n\n🚀 Solo\nPrivate task board with no team visibility. Perfect for freelancers or personal use.`,
+    },
+    {
+      id: "tasks",
+      icon: "✅",
+      title: "Managing Tasks",
+      color: "#22d3a8",
+      body: `Creating Tasks\n• Click "+ Add Task" on the Dashboard or Tasks page\n• Fill in title, assignee, priority, deadline, and category\n• AI can auto-extract tasks from plain text descriptions\n\nTask Statuses\n• To Do → In Progress → In Review → Completed\n• Cancelled is available for dropped tasks\n\nKanban Board\nDrag and drop tasks between columns on the Tasks page to update their status visually.\n\nPriorities\n• Critical — urgent blockers\n• High — important, should be done soon\n• Medium — normal priority\n• Low — do when time allows`,
+    },
+    {
+      id: "slack",
+      icon: "💬",
+      title: "Slack Integration",
+      color: "#f59e0b",
+      body: `Connect your workspace to Slack to manage tasks without leaving your chat.\n\nSetup\n1. Go to Settings → Integrations\n2. Click "Add to Slack" and authorize the bot\n3. Invite the bot to your channel: /invite @AIWorkflow\n\nSlack Commands\n• @bot create task @john Fix the login bug by 2025-06-01\n• @bot list tasks — shows open tasks\n• @bot status [task id] done — marks a task complete\n\nThe bot understands priority keywords automatically:\n• URGENT or CRITICAL → critical priority\n• HIGH PRIORITY → high\n• LOW PRIORITY → low`,
+    },
+    {
+      id: "compliance",
+      icon: "🛡️",
+      title: "Compliance & Reporting",
+      color: "#f87171",
+      body: `The Compliance page flags tasks that need attention:\n\n• Overdue — past their deadline and not completed\n• Unassigned — no owner set\n• Stale — not updated in 7+ days\n• High priority & not started — critical/high tasks still in To Do\n\nReports\nThe Reports page shows completed tasks, team performance, and output over time. Architects see workspace-wide data; Navigators see their team's data.\n\nUse compliance weekly to keep your team on track and catch bottlenecks early.`,
+    },
+    {
+      id: "api",
+      icon: "🔌",
+      title: "API & Integrations",
+      color: "#22d3a8",
+      body: `Generate an API Key\n1. Go to the API page in the sidebar\n2. Click "Generate API Key"\n3. Copy and store it securely — it won't be shown again\n\nKey Endpoints\nGET  /api/v1/tasks          — list tasks\nPOST /api/v1/tasks          — create a task\nPUT  /api/v1/tasks/{id}     — update a task\nDELETE /api/v1/tasks/{id}   — delete a task\n\nAuthentication\nSend your key in every request header:\nX-API-Key: your_key_here\n\nPagination\nUse ?skip=0&limit=50 to paginate large task lists.`,
+    },
+    {
+      id: "tips",
+      icon: "💡",
+      title: "Tips & Best Practices",
+      color: "#4f8ef7",
+      body: `🔔 Stay on top of work\n• Check the Compliance page weekly to catch overdue or unassigned tasks\n• Pin critical notes in the Knowledge Base so your team sees them first\n\n📋 Keep tasks clean\n• Always set a deadline and assignee when creating tasks\n• Use categories to group related work\n• Archive completed sprints using bulk status updates\n\n🤝 Team collaboration\n• Navigators: use the Team Notes tab to document processes your team follows\n• Architects: share the workspace invite code via Settings so new members can join\n• Use Slack integration to reduce context-switching`,
+    },
+  ];
+
+  return (
+    <>
+      {/* Topbar */}
+      <header className="page-header">
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Knowledge Panel</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Software guides · team notes · documentation</div>
+        </div>
+
+        {/* Tab toggle */}
+        <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: 3, gap: 3 }}>
+          {[
+            { id: "guide", label: "📖 Software Guide" },
+            { id: "notes", label: "📝 Team Notes" },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                height: 32, padding: "0 16px", borderRadius: 8, border: "none",
+                fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600,
+                cursor: "pointer", transition: "all 0.18s",
+                background: activeTab === tab.id ? "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)" : "transparent",
+                color: activeTab === tab.id ? "#fff" : "var(--color-text-muted)",
+                boxShadow: activeTab === tab.id ? "0 0 16px rgba(79,142,247,0.3)" : "none",
+              }}
+            >{tab.label}</button>
+          ))}
+        </div>
+
+        {/* Notes tab extras */}
+        {activeTab === "notes" && (
+          <>
+            <div style={{ flex: 1, maxWidth: 280, position: "relative" }}>
+              <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", width: 13, height: 13, color: "var(--color-text-tertiary)", pointerEvents: "none" }} viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.3"/><path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search notes…" style={{ ...inputStyle, paddingLeft: 30, borderRadius: 999, padding: "0 14px 0 30px", height: 36 }} />
+            </div>
+            <select value={category} onChange={e => setCategory(e.target.value)} style={{ height: 34, padding: "0 10px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--color-text-primary)", cursor: "pointer", outline: "none" }}>
+              {CATEGORIES.map(c => (
+                <option key={c.value} value={c.value} style={{ background: "#1e2140", color: "#f0f2ff" }}>
+                  {c.label} {c.value !== "all" && catCounts[c.value] ? `(${catCounts[c.value]})` : ""}
+                </option>
+              ))}
+            </select>
+            <button onClick={openCreate} style={{ height: 36, padding: "0 18px", borderRadius: 999, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 0 24px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.12)", marginLeft: "auto" }}>
+              + New Note
+            </button>
+          </>
+        )}
+      </header>
+
+      <main style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", gap: 20 }}>
+
+        {/* ── SOFTWARE GUIDE TAB ── */}
+        {activeTab === "guide" && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+
+            {/* Intro banner */}
+            <div style={{
+              padding: "20px 24px", borderRadius: 16,
+              background: "linear-gradient(135deg, rgba(79,142,247,0.1) 0%, rgba(123,92,240,0.08) 100%)",
+              border: "1px solid rgba(79,142,247,0.25)",
+              display: "flex", alignItems: "center", gap: 18,
+            }}>
+              <div style={{ fontSize: 36, flexShrink: 0 }}>📚</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4, fontFamily: "var(--font-display)" }}>
+                  Everything you need to know about AI Workflow Coordinator
+                </div>
+                <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+                  Click any section below to expand it. Use the <strong style={{ color: "#a5b4fc" }}>Team Notes</strong> tab to add your own notes for your team.
+                </div>
+              </div>
+            </div>
+
+            {/* Accordion sections */}
+            {GUIDE_SECTIONS.map((section) => {
+              const isOpen = expandedSection === section.id;
+              return (
+                <div
+                  key={section.id}
+                  style={{
+                    borderRadius: 14,
+                    border: `1px solid ${isOpen ? section.color + "40" : "rgba(255,255,255,0.07)"}`,
+                    background: isOpen ? `${section.color}08` : "rgba(255,255,255,0.025)",
+                    overflow: "hidden",
+                    transition: "border-color 0.2s, background 0.2s",
+                  }}
+                >
+                  {/* Section header — always visible */}
+                  <button
+                    onClick={() => setExpandedSection(isOpen ? null : section.id)}
+                    style={{
+                      width: "100%", padding: "16px 20px",
+                      display: "flex", alignItems: "center", gap: 14,
+                      background: "transparent", border: "none", cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div style={{
+                      width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                      background: `${section.color}15`, border: `1px solid ${section.color}30`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 20,
+                    }}>{section.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>{section.title}</div>
+                    </div>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: "50%",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      background: "rgba(255,255,255,0.04)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, color: "var(--color-text-muted)",
+                      transition: "transform 0.2s",
+                      transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                      flexShrink: 0,
+                    }}>▼</div>
+                  </button>
+
+                  {/* Expanded body */}
+                  {isOpen && (
+                    <div style={{
+                      padding: "0 20px 20px 76px",
+                      fontSize: 13, color: "var(--color-text-secondary)",
+                      lineHeight: 1.85, whiteSpace: "pre-wrap",
+                      borderTop: `1px solid ${section.color}18`,
+                      paddingTop: 16,
+                      animation: "fadeUp 0.25s ease both",
+                    }}>
+                      {section.body}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── TEAM NOTES TAB ── */}
+        {activeTab === "notes" && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+            {successMsg && (
+              <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.3)", color: "#22d3a8", fontSize: 13, fontWeight: 600 }}>✓ {successMsg}</div>
+            )}
+
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: "var(--color-text-tertiary)" }}>
+                <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>◉</div>
+                <div style={{ fontSize: 14, marginBottom: 6 }}>No notes found</div>
+                <div style={{ fontSize: 12 }}>Try a different search or create a new note</div>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14, alignContent: "start" }}>
+                {filtered.map(note => (
+                  <div key={note.id}
+                    onClick={() => setViewNote(note)}
+                    className="pcard"
+                    style={{ padding: "18px 20px", cursor: "pointer", position: "relative", overflow: "hidden",
+                      border: `1px solid ${viewNote?.id === note.id ? "rgba(59,130,246,0.5)" : "var(--border-glass)"}`,
+                      background: viewNote?.id === note.id ? "rgba(59,130,246,0.06)" : "rgba(255,255,255,0.032)",
+                    }}>
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2.5, background: CAT_COLOR[note.category] || "#3b82f6" }} />
+                    <div className="glow-orb" style={{ top: -20, right: -20, width: 80, height: 80, background: CAT_COLOR[note.category] || "#3b82f6", opacity: 0.05 }} />
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.35, flex: 1 }}>{note.title}</div>
+                      {note.pinned && <span title="Pinned" style={{ fontSize: 13, flexShrink: 0 }}>📌</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 14, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+                      {note.body}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span className="badge" style={{ background: `${CAT_COLOR[note.category] || "#3b82f6"}18`, color: CAT_COLOR[note.category] || "#3b82f6", borderColor: `${CAT_COLOR[note.category] || "#3b82f6"}33`, textTransform: "capitalize" }}>{note.category}</span>
+                      <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{formatDate(note.updated_at)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Right — note viewer (notes tab only) */}
+        {activeTab === "notes" && viewNote && (
+          <div style={{ width: "clamp(280px, 30vw, 380px)", flexShrink: 0, background: "linear-gradient(160deg, rgba(20,22,46,0.95) 0%, rgba(14,17,36,0.98) 100%)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "var(--radius-xl)", padding: "24px 24px 20px", height: "fit-content", position: "sticky", top: 80, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: CAT_COLOR[viewNote.category] || "#3b82f6", borderRadius: "16px 16px 0 0" }} />
+            <div className="glow-orb" style={{ top: -30, right: -30, width: 120, height: 120, background: CAT_COLOR[viewNote.category] || "#3b82f6", opacity: 0.06 }} />
+
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, gap: 8 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.3, flex: 1 }}>{viewNote.title}</div>
+              <button onClick={() => setViewNote(null)} style={{ width: 28, height: 28, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.04)", color: "var(--color-text-tertiary)", cursor: "pointer", fontSize: 14, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
+              <span className="badge" style={{ background: `${CAT_COLOR[viewNote.category] || "#3b82f6"}18`, color: CAT_COLOR[viewNote.category] || "#3b82f6", borderColor: `${CAT_COLOR[viewNote.category] || "#3b82f6"}33`, textTransform: "capitalize" }}>{viewNote.category}</span>
+              <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>by {viewNote.author}</span>
+              <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>· {formatDate(viewNote.updated_at)}</span>
+            </div>
+
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.75, whiteSpace: "pre-wrap", marginBottom: 20, maxHeight: 380, overflowY: "auto", paddingRight: 4 }}>{viewNote.body}</div>
+
+            <div style={{ display: "flex", gap: 8, borderTop: "1px solid var(--border-glass)", paddingTop: 16 }}>
+              <button onClick={() => handlePin(viewNote.id)} className="btn-ghost" style={{ flex: 1, height: 34, fontSize: 12, background: viewNote.pinned ? "rgba(59,130,246,0.12)" : undefined, color: viewNote.pinned ? "#3b82f6" : undefined, borderColor: viewNote.pinned ? "rgba(59,130,246,0.3)" : undefined }}>
+                {viewNote.pinned ? "📌 Pinned" : "📌 Pin"}
+              </button>
+              {(isArchitect || isNavigator) && (
+                <button onClick={() => { openEdit(viewNote); setViewNote(null); }} className="btn-ghost" style={{ flex: 1, height: 34, fontSize: 12 }}>Edit</button>
+              )}
+              {isArchitect && (
+                <button onClick={() => handleDelete(viewNote.id)} style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid rgba(248,113,113,0.3)", background: "rgba(248,113,113,0.06)", color: "#f87171", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+              )}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Create / Edit Note Modal */}
+      {showForm && (
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
+          <div className="modal-box" style={{ width: "min(540px, 100%)", padding: "30px 30px 26px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>{editNote ? "Edit Note" : "New Team Note"}</div>
+                <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Knowledge base entry</div>
+              </div>
+              <button onClick={() => setShowForm(false)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.04)", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={labelStyle}>Title *</label>
+                <input value={form.title} onChange={e => setForm(f => ({...f, title: e.target.value}))} placeholder="Note title…" className="field-input" style={{ height: 42 }} />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "end" }}>
+                <div>
+                  <label style={labelStyle}>Category</label>
+                  <select value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} className="field-input" style={{ height: 42, cursor: "pointer" }}>
+                    {CATEGORIES.filter(c => c.value !== "all").map(c => (
+                      <option key={c.value} value={c.value} style={{ background: "#1e2140", color: "#f0f2ff" }}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, marginBottom: 8 }}>Pin</label>
+                  <div onClick={() => setForm(f => ({...f, pinned: !f.pinned}))} style={{ width: 46, height: 26, borderRadius: 999, background: form.pinned ? "var(--accent-blue)" : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s", boxShadow: form.pinned ? "0 0 12px rgba(59,130,246,0.4)" : "none" }}>
+                    <div style={{ position: "absolute", top: 3, left: form.pinned ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label style={labelStyle}>Content</label>
+                <textarea value={form.body} onChange={e => setForm(f => ({...f, body: e.target.value}))} rows={8} placeholder="Write your note here… supports plain text and line breaks." className="field-input" style={{ height: "auto", padding: "11px 13px", resize: "vertical", lineHeight: 1.7 }} />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border-glass)" }}>
+              <button onClick={() => setShowForm(false)} className="btn-ghost">Cancel</button>
+              <button onClick={handleSave} disabled={submitting || !form.title.trim()} className="btn-primary" style={{ opacity: !form.title.trim() ? 0.5 : 1 }}>
+                {submitting ? "Saving…" : editNote ? "Save Changes" : "✦ Create Note"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+
+
+// -- Settings Page -------------------------------------------------------------
+function SettingsPage() {
+  const { token, user, isArchitect, logout } = useAuth();
+  const API = BASE_URL;
+  const hdrs = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  const [activeTab, setActiveTab]   = useState("profile");
+  const [successMsg, setSuccess]    = useState(null);
+  const [errorMsg, setError]        = useState(null);
+  const [saving, setSaving]         = useState(false);
+
+  // Profile form
+  const [profile, setProfile] = useState({
+    name:     user?.name     || "",
+    email:    user?.email    || "",
+    username: user?.username || "",
+    timezone: user?.timezone || "UTC",
+  });
+
+  // Password form
+  const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
+  const [showPw, setShowPw] = useState({ current: false, next: false, confirm: false });
+
+  // Workspace form (Architect only)
+  const [workspace, setWorkspace] = useState({
+    name:        user?.workspace?.name        || "",
+    invite_code: user?.workspace?.invite_code || "",
+    plan:        user?.workspace?.plan        || "free",
+  });
+
+  // Notification preferences (stored locally)
+  const NOTIF_KEY = `notif_prefs_${user?.id || "u"}`;
+  const [notif, setNotif] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(NOTIF_KEY)) || { email_overdue: true, email_daily: true, slack_mentions: true, browser_push: false }; }
+    catch { return { email_overdue: true, email_daily: true, slack_mentions: true, browser_push: false }; }
+  });
+
+  // Billing state
+  const [billingStatus, setBillingStatus] = useState(null);   // null=not loaded
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [cancelConfirm, setCancelConfirm] = useState(false);  // show confirm modal
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelDone, setCancelDone] = useState(false);
+
+  // Load billing status when billing tab is opened
+  const loadBillingStatus = async () => {
+    if (billingStatus) return; // already loaded
+    setBillingLoading(true);
+    try {
+      const r = await fetch(`${API}/auth/billing-status`, { headers: hdrs });
+      const d = await r.json();
+      setBillingStatus(d);
+    } catch (e) {
+      setBillingStatus({ status: "unknown", error: true });
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    setCancelLoading(true);
+    try {
+      const r = await fetch(`${API}/billing/cancel`, { method: "POST", headers: hdrs });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.detail || "Could not cancel. Please try again.");
+      setCancelConfirm(false);
+      setCancelDone(true);
+      setBillingStatus(prev => ({ ...prev, status: "cancelled" }));
+      flash("Subscription cancelled. Access continues until end of billing period. Note: creating a new account will require management approval.");
+    } catch (e) {
+      setCancelConfirm(false);
+      flash(e.message, true);
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const goToPortal = async () => {
+    setSaving(true);
+    try {
+      const r = await fetch(`${API}/billing/portal`, { headers: hdrs });
+      const d = await r.json();
+      if (d.portal_url) window.open(d.portal_url, "_blank");
+      else flash("Portal unavailable. Please contact support.", true);
+    } catch (e) {
+      flash("Could not open billing portal.", true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const flash = (msg, isErr) => {
+    if (isErr) { setError(msg); setTimeout(() => setError(null), 4000); }
+    else       { setSuccess(msg); setTimeout(() => setSuccess(null), 3000); }
+  };
+
+  const saveProfile = async () => {
+    setSaving(true);
+    try {
+      const r = await fetch(`${API}/users/me`, { method: "PUT", headers: hdrs, body: JSON.stringify(profile) });
+      if (!r.ok) throw new Error("Update failed");
+      flash("Profile saved ✓");
+    } catch (e) { flash(e.message, true); }
+    finally { setSaving(false); }
+  };
+
+  const savePassword = async () => {
+    if (!pwForm.current || !pwForm.next) return flash("Fill all fields", true);
+    if (pwForm.next !== pwForm.confirm)  return flash("Passwords don't match", true);
+    if (pwForm.next.length < 8)          return flash("Password must be 8+ characters", true);
+    setSaving(true);
+    try {
+      const r = await fetch(`${API}/users/me/password`, { method: "PUT", headers: hdrs, body: JSON.stringify({ current_password: pwForm.current, new_password: pwForm.next }) });
+      if (!r.ok) throw new Error((await r.json()).detail || "Failed");
+      flash("Password updated ✓");
+      setPwForm({ current: "", next: "", confirm: "" });
+    } catch (e) { flash(e.message, true); }
+    finally { setSaving(false); }
+  };
+
+  const saveWorkspace = async () => {
+    setSaving(true);
+    try {
+      const r = await fetch(`${API}/workspaces/me`, { method: "PUT", headers: hdrs, body: JSON.stringify({ name: workspace.name }) });
+      if (!r.ok) throw new Error("Update failed");
+      flash("Workspace updated ✓");
+    } catch (e) { flash(e.message, true); }
+    finally { setSaving(false); }
+  };
+
+  const saveNotif = () => {
+    localStorage.setItem(NOTIF_KEY, JSON.stringify(notif));
+    flash("Preferences saved ✓");
+  };
+
+  const TABS = [
+    { key: "profile",       label: "Profile",        icon: "👤" },
+    { key: "security",      label: "Security",        icon: "🔒" },
+    { key: "workspace",     label: "Workspace",       icon: "🏢" },
+    { key: "notifications", label: "Notifications",   icon: "🔔" },
+    { key: "billing",       label: "Billing",         icon: "💳" },
+    { key: "danger",        label: "Danger Zone",     icon: "⚠️" },
+  ];
+
+  const inputStyle = { width: "100%", height: 40, padding: "0 12px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", boxSizing: "border-box", transition: "border-color 0.15s, box-shadow 0.15s" };
+  const labelStyle = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5, display: "block" };
+  const sectionStyle = { background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", borderRadius: "var(--radius-lg)", padding: "22px 24px", marginBottom: 16 };
+  const sectionTitle = { fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-glass)", letterSpacing: "-0.01em", fontFamily: "var(--font-display)" };
+
+  const Toggle = ({ value, onChange, label, sub }) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+      <div>
+        <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>{label}</div>
+        {sub && <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>{sub}</div>}
+      </div>
+      <div onClick={onChange} style={{ width: 44, height: 24, borderRadius: 999, background: value ? "#3b82f6" : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+        <div style={{ position: "absolute", top: 2, left: value ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
+      </div>
+    </div>
+  );
+
+  const ROLE_BADGES = { architect: { label: "Architect", color: "#f59e0b" }, navigator: { label: "Navigator", color: "#3b82f6" }, operator: { label: "Operator", color: "#22d3a8" } };
+  const role = ROLE_BADGES[user?.role] || ROLE_BADGES.operator;
+
+  const TIMEZONES = ["UTC","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Sao_Paulo","Europe/London","Europe/Paris","Europe/Berlin","Europe/Moscow","Asia/Dubai","Asia/Karachi","Asia/Kolkata","Asia/Dhaka","Asia/Bangkok","Asia/Singapore","Asia/Tokyo","Asia/Shanghai","Australia/Sydney","Pacific/Auckland"];
+
+  return (
+    <>
+      {/* Topbar */}
+      <header className="page-header">
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Settings</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Account, workspace & preferences</div>
+        </div>
+
+        {/* Role badge */}
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 999, background: `${role.color}18`, color: role.color, border: `1px solid ${role.color}33` }}>{role.label}</span>
+        </div>
+      </header>
+
+      <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", gap: 20, maxWidth: 900, flexWrap: "wrap" }}>
+
+        {/* Left sidebar tabs */}
+        <div style={{ width: "clamp(120px, 20vw, 180px)", flexShrink: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+          {TABS.map(tab => (
+            <button key={tab.key} onClick={() => { setActiveTab(tab.key); if (tab.key === "billing") loadBillingStatus(); }}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "none", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: activeTab === tab.key ? 600 : 400, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
+                background: activeTab === tab.key ? "rgba(59,130,246,0.14)" : "transparent",
+                color: activeTab === tab.key ? "#e0eaff" : "var(--color-text-secondary)",
+                borderLeft: `3px solid ${activeTab === tab.key ? "#3b82f6" : "transparent"}`,
+                boxShadow: activeTab === tab.key ? "inset 0 0 0 1px rgba(59,130,246,0.2)" : "none",
+              }}>
+              <span style={{ fontSize: 15 }}>{tab.icon}</span>{tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Right content */}
+        <div style={{ flex: 1 }}>
+          {/* Flash messages */}
+          {successMsg && <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.3)", color: "#22d3a8", fontSize: 13, fontWeight: 600, marginBottom: 16 }}>✓ {successMsg}</div>}
+          {errorMsg   && <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171", fontSize: 13, marginBottom: 16 }}>⚠ {errorMsg}</div>}
+
+          {/* -- PROFILE -- */}
+          {activeTab === "profile" && (
+            <>
+              <div style={sectionStyle}>
+                <div style={sectionTitle}>Personal Information</div>
+
+                {/* Avatar */}
+                <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--grad-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                    {(profile.name || profile.username || "?")[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>{profile.name || profile.username}</div>
+                    <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>{profile.email}</div>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, background: `${role.color}18`, color: role.color, border: `1px solid ${role.color}33`, marginTop: 6, display: "inline-block" }}>{role.label}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px,1fr))", gap: 14 }}>
+                  <div>
+                    <label style={labelStyle}>Full Name</label>
+                    <input value={profile.name} onChange={e => setProfile(p => ({...p, name: e.target.value}))} placeholder="Your full name" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Username</label>
+                    <input value={profile.username} onChange={e => setProfile(p => ({...p, username: e.target.value}))} placeholder="@username" style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Email</label>
+                    <input value={profile.email} onChange={e => setProfile(p => ({...p, email: e.target.value}))} placeholder="email@example.com" style={inputStyle} type="email" />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Timezone</label>
+                    <select value={profile.timezone} onChange={e => setProfile(p => ({...p, timezone: e.target.value}))} style={{ ...inputStyle, cursor: "pointer" }}>
+                      {TIMEZONES.map(tz => <option key={tz} value={tz} style={{ background: "#1e2140", color: "#f0f2ff" }}>{tz}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                  <button onClick={saveProfile} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                    {saving ? "Saving…" : "Save Profile"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* -- SECURITY -- */}
+          {activeTab === "security" && (
+            <div style={sectionStyle}>
+              <div style={sectionTitle}>Change Password</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {[
+                  { key: "current", label: "Current Password" },
+                  { key: "next",    label: "New Password" },
+                  { key: "confirm", label: "Confirm New Password" },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label style={labelStyle}>{f.label}</label>
+                    <div style={{ position: "relative" }}>
+                      <input
+                        type={showPw[f.key] ? "text" : "password"}
+                        value={pwForm[f.key]}
+                        onChange={e => setPwForm(p => ({...p, [f.key]: e.target.value}))}
+                        placeholder="••••••••"
+                        style={{ ...inputStyle, paddingRight: 40 }}
+                      />
+                      <button onClick={() => setShowPw(p => ({...p, [f.key]: !p[f.key]}))}
+                        style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", color: "var(--color-text-tertiary)", cursor: "pointer", fontSize: 14 }}>
+                        {showPw[f.key] ? "🙈" : "👁"}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {/* Password strength */}
+                {pwForm.next && (
+                  <div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginBottom: 5 }}>Password strength</div>
+                    <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                      <div style={{ height: "100%", borderRadius: 999, transition: "width 0.3s, background 0.3s",
+                        width: pwForm.next.length < 6 ? "25%" : pwForm.next.length < 10 ? "60%" : "100%",
+                        background: pwForm.next.length < 6 ? "#f87171" : pwForm.next.length < 10 ? "#f59e0b" : "#22d3a8",
+                      }} />
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
+                  <button onClick={savePassword} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                    {saving ? "Updating…" : "Update Password"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* -- WORKSPACE -- */}
+          {activeTab === "workspace" && (
+            <>
+              <div style={sectionStyle}>
+                <div style={sectionTitle}>Workspace Settings</div>
+                {!isArchitect && (
+                  <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", color: "#f59e0b", fontSize: 12, marginBottom: 16 }}>
+                    ⚠ Only Architects can edit workspace settings
+                  </div>
+                )}
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={labelStyle}>Workspace Name</label>
+                    <input value={workspace.name} onChange={e => setWorkspace(w => ({...w, name: e.target.value}))} disabled={!isArchitect} placeholder="Your workspace name" style={{ ...inputStyle, opacity: isArchitect ? 1 : 0.5 }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Invite Code</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <input value={workspace.invite_code} readOnly style={{ ...inputStyle, opacity: 0.7, fontFamily: "monospace", letterSpacing: "0.1em" }} />
+                      <button onClick={() => { navigator.clipboard.writeText(workspace.invite_code); flash("Invite code copied!"); }}
+                        style={{ height: 40, padding: "0 14px", borderRadius: 8, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 12, fontFamily: "var(--font-sans)", whiteSpace: "nowrap" }}>
+                        Copy
+                      </button>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 5 }}>Share this code with teammates to join your workspace</div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Plan</label>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      {["free", "pro", "team"].map(p => (
+                        <div key={p} style={{ flex: 1, padding: "14px 16px", borderRadius: 10, border: `1px solid ${workspace.plan === p ? "#3b82f6" : "var(--border-glass)"}`, background: workspace.plan === p ? "rgba(79,142,247,0.1)" : "rgba(255,255,255,0.03)", cursor: "default" }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: workspace.plan === p ? "#3b82f6" : "var(--color-text-secondary)", textTransform: "capitalize", marginBottom: 4 }}>{p === "team" ? "Team" : p.charAt(0).toUpperCase()+p.slice(1)}</div>
+                          <div style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>
+                            {p === "free" ? "Up to 3 users" : p === "pro" ? "$19/mo · Unlimited users" : "$49/mo · Multi-workspace"}
+                          </div>
+                          {workspace.plan === p && <div style={{ fontSize: 10, fontWeight: 700, color: "#22d3a8", marginTop: 4 }}>✓ Current plan</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {isArchitect && (
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                    <button onClick={saveWorkspace} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                      {saving ? "Saving…" : "Save Workspace"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* -- NOTIFICATIONS -- */}
+          {activeTab === "notifications" && (
+            <div style={sectionStyle}>
+              <div style={sectionTitle}>Notification Preferences</div>
+              <Toggle value={notif.email_overdue} onChange={() => setNotif(n => ({...n, email_overdue: !n.email_overdue}))} label="Email — Overdue tasks" sub="Get notified when tasks pass their deadline" />
+              <Toggle value={notif.email_daily} onChange={() => setNotif(n => ({...n, email_daily: !n.email_daily}))} label="Email — Daily rollup" sub="Morning summary of tasks due today" />
+              <Toggle value={notif.slack_mentions} onChange={() => setNotif(n => ({...n, slack_mentions: !n.slack_mentions}))} label="Slack mentions" sub="Receive pings when you're assigned a task" />
+              <Toggle value={notif.browser_push} onChange={() => setNotif(n => ({...n, browser_push: !n.browser_push}))} label="Browser push notifications" sub="Real-time alerts in your browser" />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                <button onClick={saveNotif} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  Save Preferences
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* -- BILLING -- */}
+          {activeTab === "billing" && (
+            <>
+              {/* Cancel confirmation modal */}
+              {cancelConfirm && (
+                <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+                  <div style={{ background: "linear-gradient(160deg,#14162e,#0e1124)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 20, padding: "32px 36px", maxWidth: 420, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(248,113,113,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 18 }}>⚠️</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f3fc", marginBottom: 10, fontFamily: "var(--font-display)" }}>Cancel your subscription?</div>
+                    <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: 16 }}>
+                      Your access will continue until the end of the current billing period. After that, your account will be locked.
+                    </div>
+                    <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)", marginBottom: 24 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#f87171", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span>🔒</span> Important — Account Access
+                      </div>
+                      <div style={{ fontSize: 12, color: "rgba(248,113,113,0.85)", lineHeight: 1.65 }}>
+                        After cancellation, <strong style={{ color: "#f87171" }}>you will not be able to create a new account</strong> on this platform until management reviews and approves your request. Please contact your workspace administrator if you need access reinstated.
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button onClick={() => setCancelConfirm(false)} disabled={cancelLoading}
+                        style={{ flex: 1, height: 42, borderRadius: 10, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                        Keep Subscription
+                      </button>
+                      <button onClick={handleCancelSubscription} disabled={cancelLoading}
+                        style={{ flex: 1, height: 42, borderRadius: 10, border: "none", background: cancelLoading ? "rgba(248,113,113,0.4)" : "#f87171", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: cancelLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                        {cancelLoading
+                          ? <><span style={{ width: 13, height: 13, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /> Cancelling…</>
+                          : "Yes, Cancel"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", borderRadius: "var(--radius-lg)", padding: "22px 24px", marginBottom: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-glass)", letterSpacing: "-0.01em", fontFamily: "var(--font-display)" }}>
+                  Subscription & Billing
+                </div>
+
+                {billingLoading && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--color-text-tertiary)", fontSize: 13, padding: "20px 0" }}>
+                    <span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+                    Loading billing status…
+                  </div>
+                )}
+
+                {!billingLoading && billingStatus && (() => {
+                  const STATUS_INFO = {
+                    active:    { label: "Active",    color: "#22d3a8", bg: "rgba(34,211,168,0.1)",  border: "rgba(34,211,168,0.25)",  icon: "✅" },
+                    trialing:  { label: "Trial",     color: "#f59e0b", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)",  icon: "⏱" },
+                    past_due:  { label: "Past Due",  color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)", icon: "⚠️" },
+                    cancelled: { label: "Cancelled", color: "#9ca3af", bg: "rgba(156,163,175,0.1)", border: "rgba(156,163,175,0.2)",  icon: "✕" },
+                    exempt:    { label: "Admin",     color: "#a78bfa", bg: "rgba(167,139,250,0.1)", border: "rgba(167,139,250,0.25)", icon: "🛡" },
+                    unknown:   { label: "Unknown",   color: "#9ca3af", bg: "rgba(156,163,175,0.1)", border: "rgba(156,163,175,0.2)",  icon: "?" },
+                  };
+                  const st = billingStatus.status || "unknown";
+                  const info = STATUS_INFO[st] || STATUS_INFO.unknown;
+                  const isActive = st === "active";
+                  const isTrialing = st === "trialing";
+                  const isCancelled = st === "cancelled" || cancelDone;
+                  const canCancel = (isActive || isTrialing) && !cancelDone;
+
+                  return (
+                    <>
+                      {/* Status badge */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderRadius: 12, background: info.bg, border: `1px solid ${info.border}`, marginBottom: 20 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span style={{ fontSize: 20 }}>{info.icon}</span>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: info.color }}>Subscription {info.label}</div>
+                            {billingStatus.days_left !== undefined && isTrialing && (
+                              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>{billingStatus.days_left} days left in trial</div>
+                            )}
+                            {isCancelled && !cancelDone && (
+                              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Your access has ended. Resubscribe below.</div>
+                            )}
+                            {cancelDone && (
+                              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Cancellation confirmed. Access continues until end of billing period.</div>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 11, padding: "4px 12px", borderRadius: 999, background: info.border, color: info.color, fontWeight: 700, border: `1px solid ${info.border}` }}>{info.label}</div>
+                      </div>
+
+                      {/* Post-cancellation approval notice */}
+                      {cancelDone && (
+                        <div style={{ padding: "16px 18px", borderRadius: 12, background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.22)", marginBottom: 16 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#f87171", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                            <span>🔒</span> Account Access After Cancellation
+                          </div>
+                          <div style={{ fontSize: 12, color: "rgba(248,113,113,0.8)", lineHeight: 1.7 }}>
+                            Your current access will remain active until the end of the billing period. Once it expires, <strong style={{ color: "#f87171" }}>you will not be able to create a new account</strong> on this platform without management approval. To request reinstatement, please contact your workspace administrator.
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Manage payment & invoices</div>
+                            <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Update card, view billing history via Lemon Squeezy portal</div>
+                          </div>
+                          <button onClick={goToPortal} disabled={saving} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                            {saving ? "Opening…" : "Open Portal →"}
+                          </button>
+                        </div>
+
+                        {canCancel && (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "#f87171" }}>Cancel subscription</div>
+                              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>You'll keep access until the end of the current billing period</div>
+                            </div>
+                            <button onClick={() => setCancelConfirm(true)}
+                              style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.4)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                              Cancel Plan
+                            </button>
+                          </div>
+                        )}
+
+                        {isCancelled && (
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Reactivate subscription</div>
+                              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Restore access by subscribing again</div>
+                            </div>
+                            <button onClick={async () => {
+                              const r = await fetch(`${API}/billing/checkout`, { method: "POST", headers: hdrs });
+                              const d = await r.json();
+                              if (d.checkout_url) window.location.href = d.checkout_url;
+                            }} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                              Resubscribe →
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </>
+          )}
+
+          {/* -- DANGER ZONE -- */}
+          {activeTab === "danger" && (
+            <div style={{ ...sectionStyle, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.04)" }}>
+              <div style={{ ...sectionTitle, color: "#f87171", borderBottomColor: "rgba(248,113,113,0.2)" }}>⚠ Danger Zone</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid rgba(248,113,113,0.1)" }}>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Sign out</div>
+                    <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Sign out of your account on this device</div>
+                  </div>
+                  <button onClick={logout} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.4)", background: "transparent", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    Sign Out
+                  </button>
+                </div>
+                {isArchitect && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0" }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Delete workspace</div>
+                      <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Permanently delete workspace and all data. This cannot be undone.</div>
+                    </div>
+                    <button onClick={() => flash("Contact support to delete your workspace", true)} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.4)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                      Delete Workspace
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+    </>
+  );
+}
+
+function PlaceholderPage({ label }) {
+  return (
+    <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.3 }}>🚧</div>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 8 }}>{label}</h2>
+        <p style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>This section is coming soon.</p>
+      </div>
+    </main>
+  );
+}
+
+// -- Dashboard — now role-aware ------------------------------------------------
+// -----------------------------------------------------------------------------
+// INSTRUCTIONS: Replace lines 3070–3318 in App.jsx (the entire Dashboard function)
+// with the code below. Nothing else in App.jsx needs to change.
+// -----------------------------------------------------------------------------
+
+function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError }) {
+  const { user, isArchitect, isNavigator, token } = useAuth();
+  const [showModal, setShowModal] = useState(false);
+  const [filter, setFilter]       = useState("");
+  const [activeTab, setActiveTab] = useState(0);  // 0 = Team, 1 = Individual
+
+  // -- Fetch individual tasks (/tasks/my) separately ------------------------
+  const [myTasks, setMyTasks]         = useState([]);
+  const [myLoading, setMyLoading]     = useState(true);
+  const [myError, setMyError]         = useState(null);
+
+  const fetchMyTasks = useCallback(async () => {
+    if (!token) return;
+    setMyLoading(true);
+    setMyError(null);
+    try {
+      const res = await fetch(`${BASE_URL}/tasks/my?limit=200`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Failed to load individual tasks");
+      const data = await res.json();
+      setMyTasks(data.tasks || []);
+    } catch (e) {
+      setMyError(e.message);
+    } finally {
+      setMyLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => { fetchMyTasks(); }, [fetchMyTasks]);
+
+  // -- Role-aware labels -----------------------------------------------------
+  const roleGreeting = isArchitect
+    ? "Architect View — All workspace tasks"
+    : isNavigator
+      ? `Navigator View — ${user?.team_name || "Your team"} tasks`
+      : user?.role === "solo"
+        ? "Solo Dashboard — Your personal tasks"
+        : "Operator View — Tasks assigned to you";
+
+  // -- Source tasks depend on active tab -------------------------------------
+  // Team tab  → `tasks` prop (role-scoped, passed from AuthenticatedApp)
+  // Individual tab → `myTasks` (fetched from /tasks/my)
+  const isIndividualTab = activeTab === 1;
+  const sourceTasks     = isIndividualTab ? myTasks : tasks;
+  const isLoadingSource = isIndividualTab ? myLoading : loading;
+
+  // -- Kanban columns for the active tab ------------------------------------
+  const columns = useMemo(() => {
+    const filtered = sourceTasks.filter(t => {
+      if (!filter) return true;
+      const q = filter.toLowerCase();
+      return (
+        (t.assignee || "").toLowerCase().includes(q) ||
+        (t.title || t.task_description || "").toLowerCase().includes(q)
+      );
+    });
+    return COLUMNS.map(col => ({
+      ...col,
+      tasks: filtered.filter(t => t.status === col.status),
+    }));
+  }, [sourceTasks, filter]);
+
+  // -- Counts for the active tab ---------------------------------------------
+  const counts = useMemo(() => ({
+    to_do:       sourceTasks.filter(t => t.status === "to_do").length,
+    in_progress: sourceTasks.filter(t => t.status === "in_progress").length,
+    completed:   sourceTasks.filter(t => t.status === "completed").length,
+    cancelled:   sourceTasks.filter(t => t.status === "cancelled").length,
+  }), [sourceTasks]);
+
+  const METRICS = useMemo(() => [
+    { label: "To Do",       value: counts.to_do,       icon: <IconCheckbox />, color: "#3b82f6", variant: "blue"  },
+    { label: "In Progress", value: counts.in_progress, icon: <IconProgress />, color: "#f59e0b", variant: "amber" },
+    { label: "Completed",   value: counts.completed,   icon: <IconDone />,     color: "#22d3a8", variant: "teal"  },
+  ], [counts]);
+
+  // Call /process-message directly with the auth token so the task gets
+  // stamped with owner_id + workspace_id (the useTasks hook doesn't send auth).
+  const handleModalAdd = useCallback(async (msg) => {
+    const res = await fetch(`${BASE_URL}/process-message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ message: msg, source: "dashboard" }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || "Database error. Task could not be saved.");
+    }
+    setShowModal(false);
+    reload();
+    fetchMyTasks();
+    return data;
+  }, [token, reload, fetchMyTasks]);
+
+  const handleReload = () => {
+    reload();
+    fetchMyTasks();
+  };
+
+  // -- Tab config ------------------------------------------------------------
+  const SECTION_TABS = [
+    {
+      label: "Team",
+      description: isArchitect
+        ? "All workspace tasks"
+        : isNavigator
+          ? `${user?.team_name || "Team"} tasks`
+          : "Tasks in your workspace",
+      color: "#3b82f6",
+    },
+    {
+      label: "Individual",
+      description: "My assigned tasks",
+      color: "#8b5cf6",
+    },
+  ];
+
+  return (
+    <>
+      {/* Topbar */}
+      <header className="page-header">
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)", lineHeight: 1.2 }}>Dashboard</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 1 }}>Your AI assistant team is ready</div>
+        </div>
+
+        {/* Search */}
+        <div style={{ flex: 1, maxWidth: 340, position: "relative" }}>
+          <svg style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", width: 14, height: 14, color: "var(--color-text-tertiary)", pointerEvents: "none" }} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.3"/>
+            <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+          </svg>
+          <input
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Search tasks or assignees…"
+            aria-label="Search tasks or assignees"
+            className="field-input"
+            style={{ paddingLeft: 32, borderRadius: 999, height: 36 }}
+            onFocus={e => { e.target.style.borderColor = "rgba(59,130,246,0.55)"; e.target.style.background = "rgba(59,130,246,0.07)"; e.target.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.14)"; }}
+            onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.background = "rgba(255,255,255,0.04)"; e.target.style.boxShadow = "none"; }}
+          />
+        </div>
+
+        {/* Status badges + actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
+          {[
+            { label: "to do",       count: counts.to_do,       color: "#f59e0b" },
+            { label: "in progress", count: counts.in_progress, color: "#3b82f6" },
+            { label: "done",        count: counts.completed,   color: "#22d3a8" },
+            { label: "cancelled",   count: counts.cancelled,   color: "#6b7280" },
+          ].map(s => (
+            <span key={s.label} style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              padding: "4px 10px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+              color: "var(--color-text-secondary)", background: "rgba(255,255,255,0.05)",
+              border: "1px solid var(--border-glass)",
+            }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.color, flexShrink: 0 }} aria-hidden="true" />
+              {s.count} {s.label}
+            </span>
+          ))}
+
+          <button onClick={handleReload} title="Refresh" aria-label="Refresh tasks" disabled={isLoadingSource}
+            className="btn-ghost has-tooltip" data-tip="Refresh"
+            style={{ width: 36, height: 36, padding: 0, justifyContent: "center", opacity: isLoadingSource ? 0.5 : 1, fontSize: 15 }}
+          >↻</button>
+
+          <button onClick={() => setShowModal(true)} disabled={submitting} aria-label="Create new task"
+            className="btn-primary"
+            style={{ borderRadius: 999, fontSize: 13, letterSpacing: "-0.01em", opacity: submitting ? 0.6 : 1 }}
+          >{submitting ? "Adding…" : "✦ New task"}</button>
+        </div>
+      </header>
+
+      {/* Page body */}
+      <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24 }}>
+
+        {/* Hero row */}
+        <div className="fade-up" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
+          <div>
+            <h1 style={{
+              fontSize: 28, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.1,
+              fontFamily: "var(--font-display)",
+              background: "linear-gradient(135deg, #f1f3fc 0%, #93c5fd 50%, #c4b5fd 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+            }}>
+              Hey, {user?.name?.split(" ")[0] || "there"} ✦
+            </h1>
+            <p style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 6, letterSpacing: "0.01em" }}>
+              {roleGreeting} · {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            </p>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <AddToSlackButton />
+            <div style={{
+              padding: "6px 14px", borderRadius: 999,
+              background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.22)",
+              fontSize: 12, fontWeight: 600, color: "#22d3a8",
+              display: "flex", alignItems: "center", gap: 7,
+            }}>
+              <span className="pulse-dot" aria-hidden="true" />
+              System Online
+            </div>
+          </div>
+        </div>
+
+        {/* Error banners */}
+        {error && (
+          <div role="alert" style={{
+            padding: "12px 18px", borderRadius: 10, fontSize: 13,
+            background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)",
+            color: "#f87171", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+          }}>
+            <span>⚠ {error}</span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={clearError} style={{ border: "1px solid rgba(248,113,113,0.3)", borderRadius: 6, background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Dismiss</button>
+              <button onClick={handleReload} style={{ border: "1px solid rgba(248,113,113,0.3)", borderRadius: 6, background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Retry</button>
+            </div>
+          </div>
+        )}
+        {myError && isIndividualTab && (
+          <div role="alert" style={{
+            padding: "12px 18px", borderRadius: 10, fontSize: 13,
+            background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)",
+            color: "#f87171", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+          }}>
+            <span>⚠ {myError}</span>
+            <button onClick={fetchMyTasks} style={{ border: "1px solid rgba(248,113,113,0.3)", borderRadius: 6, background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Retry</button>
+          </div>
+        )}
+
+        {/* Metrics */}
+        <div className="fade-up delay-1 stagger" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(160px,1fr))", gap: 16 }}>
+          {METRICS.map((m, i) => (
+            <div key={m.label} className="pcard" style={{
+              backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+              padding: "22px 24px", boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
+              position: "relative", overflow: "hidden", cursor: "default",
+              animationDelay: `${0.05 + i * 0.05}s`,
+            }}>
+              <div aria-hidden="true" style={{
+                position: "absolute", top: 0, left: 0, right: 0, height: 2, borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
+                background: m.variant === "blue" ? "linear-gradient(90deg,#3b82f6,#8b5cf6)" : m.variant === "amber" ? "linear-gradient(90deg,#f59e0b,#fb923c)" : "linear-gradient(90deg,#10b981,#06b6d4)",
+              }} />
+              <div className="glow-orb" style={{ top: -10, left: -10, width: 100, height: 100, background: m.color, opacity: 0.07 }} />
+              <div style={{ position: "absolute", right: 14, bottom: 14, opacity: 0.2 }}><Sparkline color={m.color} /></div>
+              <div className="icon-bubble" style={{ width: 42, height: 42, marginBottom: 18, color: m.color, background: `${m.color}15`, border: `1px solid ${m.color}25`, boxShadow: `0 0 16px ${m.color}18` }}>{m.icon}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6, fontFamily: "var(--font-display)" }}>{m.label}</div>
+              <div style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--color-text-primary)", lineHeight: 1, fontFamily: "var(--font-display)" }}>
+                {isLoadingSource ? <div className="skeleton" style={{ width: 60, height: 38, display: "inline-block" }} /> : <span className="count-up">{m.value}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* -- Team / Individual section tabs --------------------------------- */}
+        <div className="fade-up delay-2">
+
+          {/* Section switcher */}
+          <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 20, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", borderRadius: 14, padding: 4, width: "fit-content" }}>
+            {SECTION_TABS.map((tab, i) => {
+              const isActive = activeTab === i;
+              return (
+                <button
+                  key={tab.label}
+                  onClick={() => setActiveTab(i)}
+                  style={{
+                    padding: "8px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    cursor: "pointer", border: "none", fontFamily: "var(--font-sans)",
+                    background: isActive ? `linear-gradient(135deg, ${tab.color}22, ${tab.color}14)` : "transparent",
+                    color: isActive ? tab.color : "var(--color-text-secondary)",
+                    borderColor: isActive ? `${tab.color}40` : "transparent",
+                    borderWidth: 1, borderStyle: "solid",
+                    boxShadow: isActive ? `0 0 16px ${tab.color}25` : "none",
+                    transition: "all 0.15s",
+                    display: "flex", alignItems: "center", gap: 7,
+                  }}
+                  onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "var(--color-text-primary)"; }}}
+                  onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}}
+                >
+                  {/* Icon */}
+                  {i === 0 ? (
+                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
+                      <circle cx="5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.4"/>
+                      <circle cx="10.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.4" opacity="0.7"/>
+                      <path d="M1.5 13c0-1.7 1.6-3 3.5-3s3.5 1.3 3.5 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                      <path d="M10.5 10.5c1.6.3 3 1.5 3 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.6"/>
+                    </svg>
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
+                      <circle cx="7.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+                      <path d="M3 13c0-2.2 2-4 4.5-4s4.5 1.8 4.5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                  {tab.label}
+                  {/* Task count badge */}
+                  <span style={{
+                    minWidth: 20, height: 18, borderRadius: 999, fontSize: 10, fontWeight: 700,
+                    background: isActive ? `${tab.color}25` : "rgba(255,255,255,0.07)",
+                    color: isActive ? tab.color : "var(--color-text-tertiary)",
+                    border: `1px solid ${isActive ? tab.color + "40" : "transparent"}`,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px",
+                  }}>
+                    {i === 0 ? (loading ? "…" : tasks.length) : (myLoading ? "…" : myTasks.length)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Section description */}
+          <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 3, height: 16, borderRadius: 999, background: SECTION_TABS[activeTab].color, opacity: 0.8 }} />
+            <span style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>
+              {activeTab === 0
+                ? isArchitect
+                  ? "Showing all tasks in your workspace — role-filtered by default for team members"
+                  : isNavigator
+                    ? `Showing tasks for ${user?.team_name || "your team"} — switch to Individual to see your own`
+                    : "Your workspace tasks — switch to Individual to focus on what's assigned to you"
+                : "Tasks assigned to you directly — your personal work queue"
+              }
+            </span>
+          </div>
+
+          {/* Kanban board */}
+          {isLoadingSource && sourceTasks.length === 0 ? (
+            <div role="status" aria-label="Loading tasks" style={{ textAlign: "center", padding: "60px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+              <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading tasks…</span>
+            </div>
+          ) : (
+            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(220px, 1fr))`,
+                gap: 20, alignItems: "start",
+                minWidth: COLUMNS.length * 240,
+              }}>
+                {columns.map(col => (
+                  <KanbanColumn
+                    key={col.status} status={col.status} label={col.label}
+                    tasks={col.tasks} onMove={moveTask} onDelete={removeTask}
+                    timezone={user?.timezone}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!isLoadingSource && sourceTasks.length === 0 && (
+            <div style={{ textAlign: "center", padding: "60px 0", border: "1px dashed var(--border-glass)", borderRadius: 16 }}>
+              <div style={{ fontSize: 36, marginBottom: 10, opacity: 0.3 }}>
+                {activeTab === 0 ? "👥" : "👤"}
+              </div>
+              <div style={{ fontSize: 14, color: "var(--color-text-secondary)", marginBottom: 6 }}>
+                {activeTab === 0 ? "No team tasks yet" : "No individual tasks yet"}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--color-text-tertiary)" }}>
+                {activeTab === 0
+                  ? "Tasks created by your team will appear here"
+                  : "Tasks assigned to you will appear here — create one or ask your team lead"}
+              </div>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {showModal && (
+        <div role="dialog" aria-modal="true" aria-label="Add new task" style={{ position: "fixed", inset: 0, zIndex: 100 }}>
+          <AddTaskModal onClose={() => setShowModal(false)} onAdd={handleModalAdd} />
+        </div>
+      )}
+    </>
+  );
+}
+
+
+// -- Segment 11: Integrations Page --------------------------------------------
+function IntegrationsPage() {
+  const { token } = useAuth();
+  const API = BASE_URL;
+
+  // Status of which integrations are configured
+  const [status, setStatus]   = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Per-service form state
+  const [notion, setNotion]   = useState({ notion_token: "", notion_database_id: "" });
+  const [jira, setJira]       = useState({ jira_base_url: "", jira_email: "", jira_api_token: "", jira_project_key: "" });
+  const [trello, setTrello]   = useState({ trello_api_key: "", trello_token: "", trello_list_id: "" });
+
+  // Sync / save state
+  const [saving, setSaving]   = useState(null);   // "notion" | "jira" | "trello"
+  const [syncing, setSyncing] = useState(null);
+  const [result, setResult]   = useState(null);   // last sync result
+  const [saveMsg, setSaveMsg] = useState(null);
+
+  const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  useEffect(() => {
+    fetch(`${API}/integrations/status`, { headers: authHeaders })
+      .then(r => r.json())
+      .then(d => { setStatus(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  async function handleSave(service, payload) {
+    setSaving(service);
+    setSaveMsg(null);
+    try {
+      const r = await fetch(`${API}/integrations/config`, {
+        method: "PUT", headers: authHeaders, body: JSON.stringify(payload),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setSaveMsg({ service, type: "success", text: "Credentials saved!" });
+        // Refresh status
+        const sr = await fetch(`${API}/integrations/status`, { headers: authHeaders });
+        setStatus(await sr.json());
+      } else {
+        setSaveMsg({ service, type: "error", text: d.detail || "Save failed." });
+      }
+    } catch {
+      setSaveMsg({ service, type: "error", text: "Network error." });
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function handleSync(service) {
+    setSyncing(service);
+    setResult(null);
+    try {
+      const r = await fetch(`${API}/integrations/${service}/sync`, {
+        method: "POST", headers: authHeaders, body: JSON.stringify({ task_ids: null }),
+      });
+      const d = await r.json();
+      setResult({ service, ...d, error: r.ok ? null : (d.detail || "Sync failed.") });
+    } catch {
+      setResult({ service, error: "Network error." });
+    } finally {
+      setSyncing(null);
+    }
+  }
+
+  const card = (children, extra = {}) => (
+    <div className="integ-card" style={{ ...extra }}>{children}</div>
+  );
+
+  const field = (label, value, onChange, placeholder, type = "text") => (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <label style={{ fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em" }}>{label}</label>
+      <input
+        type={type} value={value} onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        style={{
+          width: "100%", height: 38, padding: "0 12px",
+          background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)",
+          borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13,
+          color: "var(--color-text-primary)", outline: "none",
+        }}
+        onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+        onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+      />
+    </div>
+  );
+
+  const saveBtn = (service, onClick) => (
+    <button onClick={onClick} disabled={saving === service} className="btn-primary" style={{ opacity: saving === service ? 0.55 : 1 }}>
+      {saving === service ? "Saving…" : "Save credentials"}
+    </button>
+  );
+
+  const syncBtn = (service, configured) => (
+    <button
+      onClick={() => handleSync(service)}
+      disabled={!configured || syncing === service}
+      title={!configured ? "Configure credentials first" : `Sync all tasks to ${service}`}
+      style={{
+        height: 36, padding: "0 18px", borderRadius: 8,
+        border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.05)",
+        color: configured ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
+        fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
+        cursor: !configured || syncing === service ? "not-allowed" : "pointer",
+        opacity: !configured || syncing === service ? 0.5 : 1,
+      }}
+    >{syncing === service ? "Syncing…" : "↑ Sync all tasks"}</button>
+  );
+
+  const statusDot = (configured) => (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600,
+      background: configured ? "rgba(34,211,168,0.12)" : "rgba(255,255,255,0.05)",
+      border: `1px solid ${configured ? "rgba(34,211,168,0.3)" : "var(--border-glass)"}`,
+      color: configured ? "#22d3a8" : "var(--color-text-tertiary)",
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: configured ? "#22d3a8" : "#555a80" }} />
+      {configured ? "Configured" : "Not configured"}
+    </span>
+  );
+
+  const msgBanner = (service) => saveMsg?.service === service ? (
+    <div style={{
+      padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+      background: saveMsg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)",
+      border: `1px solid ${saveMsg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`,
+      color: saveMsg.type === "success" ? "#22d3a8" : "#f87171",
+    }}>{saveMsg.text}</div>
+  ) : null;
+
+  if (loading) return (
+    <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+    </main>
+  );
+
+  return (
+    <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
+
+      {/* Header */}
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Integrations</h1>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+          Push your workspace tasks to Notion, Jira, or Trello with one click. Credentials are stored securely in your workspace settings.
+        </p>
+      </div>
+
+      {/* Last sync result */}
+      {result && (
+        <div style={{
+          padding: "14px 18px", borderRadius: 12,
+          background: result.error ? "rgba(248,113,113,0.1)" : "rgba(34,211,168,0.08)",
+          border: `1px solid ${result.error ? "rgba(248,113,113,0.3)" : "rgba(34,211,168,0.25)"}`,
+          color: result.error ? "#f87171" : "var(--color-text-primary)",
+          fontSize: 13,
+        }}>
+          {result.error ? (
+            <span>⚠ {result.error}</span>
+          ) : (
+            <span>
+              ✅ <strong>{result.integration}</strong> sync complete —{" "}
+              <span style={{ color: "#22d3a8" }}>{result.succeeded} succeeded</span>
+              {result.failed > 0 && <span style={{ color: "#f87171" }}>, {result.failed} failed</span>}
+              {" "}out of {result.total} tasks
+            </span>
+          )}
+          <button onClick={() => setResult(null)} style={{ float: "right", background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: 14, opacity: 0.6 }}>✕</button>
+        </div>
+      )}
+
+      {/* -- Notion -- */}
+      {card(
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>𝓝</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Notion</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Push tasks as pages into a Notion database</div>
+              </div>
+            </div>
+            {statusDot(status?.notion_configured)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px,1fr))", gap: 12 }}>
+            {field("Integration Token", notion.notion_token, v => setNotion(p => ({ ...p, notion_token: v })), "secret_...", "password")}
+            {field("Database ID", notion.notion_database_id, v => setNotion(p => ({ ...p, notion_database_id: v })), "xxxxxxxx-xxxx-...")}
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+            {msgBanner("notion")}
+            {saveBtn("notion", () => handleSave("notion", notion))}
+            {syncBtn("notion", status?.notion_configured)}
+          </div>
+        </div>
+      )}
+
+      {/* -- Jira -- */}
+      {card(
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0052cc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 800 }}>J</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Jira</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Create issues in an Atlassian Jira project</div>
+              </div>
+            </div>
+            {statusDot(status?.jira_configured)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px,1fr))", gap: 12 }}>
+            {field("Base URL", jira.jira_base_url, v => setJira(p => ({ ...p, jira_base_url: v })), "https://yourorg.atlassian.net")}
+            {field("Project Key", jira.jira_project_key, v => setJira(p => ({ ...p, jira_project_key: v })), "PROJ")}
+            {field("Email", jira.jira_email, v => setJira(p => ({ ...p, jira_email: v })), "you@company.com")}
+            {field("API Token", jira.jira_api_token, v => setJira(p => ({ ...p, jira_api_token: v })), "Your Atlassian API token", "password")}
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+            {msgBanner("jira")}
+            {saveBtn("jira", () => handleSave("jira", jira))}
+            {syncBtn("jira", status?.jira_configured)}
+          </div>
+        </div>
+      )}
+
+      {/* -- Trello -- */}
+      {card(
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0079bf", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 800 }}>T</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Trello</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Add cards to a Trello board list with priority labels</div>
+              </div>
+            </div>
+            {statusDot(status?.trello_configured)}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px,1fr))", gap: 12 }}>
+            {field("API Key", trello.trello_api_key, v => setTrello(p => ({ ...p, trello_api_key: v })), "From trello.com/app-key", "password")}
+            {field("Token", trello.trello_token, v => setTrello(p => ({ ...p, trello_token: v })), "OAuth token", "password")}
+            {field("List ID", trello.trello_list_id, v => setTrello(p => ({ ...p, trello_list_id: v })), "Target list ID")}
+          </div>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
+            {msgBanner("trello")}
+            {saveBtn("trello", () => handleSave("trello", trello))}
+            {syncBtn("trello", status?.trello_configured)}
+          </div>
+        </div>
+      )}
+
+    </main>
+  );
+}
+
+// -- Segment 12: Locale Page ---------------------------------------------------
+function LocalePage() {
+  const { user, token } = useAuth();
+  const API = BASE_URL;
+  const isArchitect = user?.role === "architect";
+
+  const [options, setOptions]           = useState(null);
+  const [userLocale, setUserLocale]     = useState(null);
+  const [wsLocale, setWsLocale]         = useState(null);
+  const [loading, setLoading]           = useState(true);
+  const [saving, setSaving]             = useState(null); // "user" | "workspace"
+  const [saveMsg, setSaveMsg]           = useState(null);
+
+  // Form state — user prefs
+  const [lang, setLang]     = useState("en");
+  const [tz, setTz]         = useState("UTC");
+  const [curr, setCurr]     = useState("USD");
+
+  // Form state — workspace defaults
+  const [wsLang, setWsLang] = useState("en");
+  const [wsTz, setWsTz]     = useState("UTC");
+  const [wsCurr, setWsCurr] = useState("USD");
+
+  const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  useEffect(() => {
+    const safe = (p) => p.catch(() => null);
+    Promise.all([
+      safe(fetch(`${API}/locale/options`).then(r => r.ok ? r.json() : null)),
+      safe(fetch(`${API}/locale/settings`, { headers: authHeaders }).then(r => r.ok ? r.json() : null)),
+      isArchitect ? safe(fetch(`${API}/locale/workspace`, { headers: authHeaders }).then(r => r.ok ? r.json() : null)) : Promise.resolve(null),
+    ]).then(([opts, ul, wl]) => {
+      setOptions(opts);
+      setUserLocale(ul);
+      setLang(ul?.language || "en");
+      setTz(ul?.timezone || "UTC");
+      setCurr(ul?.currency || "USD");
+      if (wl) {
+        setWsLocale(wl);
+        setWsLang(wl?.default_language || "en");
+        setWsTz(wl?.default_timezone || "UTC");
+        setWsCurr(wl?.default_currency || "USD");
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  async function handleSaveUser() {
+    setSaving("user"); setSaveMsg(null);
+    try {
+      const r = await fetch(`${API}/locale/settings`, {
+        method: "PUT", headers: authHeaders,
+        body: JSON.stringify({ language: lang, timezone: tz, currency: curr }),
+      });
+      const d = await r.json();
+      if (r.ok) { setUserLocale(d); setSaveMsg({ scope: "user", type: "success", text: "Your locale preferences saved!" }); }
+      else setSaveMsg({ scope: "user", type: "error", text: d.detail || "Save failed." });
+    } catch { setSaveMsg({ scope: "user", type: "error", text: "Network error." }); }
+    finally { setSaving(null); }
+  }
+
+  async function handleSaveWorkspace() {
+    setSaving("workspace"); setSaveMsg(null);
+    try {
+      const r = await fetch(`${API}/locale/workspace`, {
+        method: "PUT", headers: authHeaders,
+        body: JSON.stringify({ default_language: wsLang, default_timezone: wsTz, default_currency: wsCurr }),
+      });
+      const d = await r.json();
+      if (r.ok) { setWsLocale(d); setSaveMsg({ scope: "workspace", type: "success", text: "Workspace locale defaults saved!" }); }
+      else setSaveMsg({ scope: "workspace", type: "error", text: d.detail || "Save failed." });
+    } catch { setSaveMsg({ scope: "workspace", type: "error", text: "Network error." }); }
+    finally { setSaving(null); }
+  }
+
+  const selectStyle = {
+    width: "100%", height: 38, padding: "0 12px",
+    background: "#1e2140", border: "1px solid var(--border-glass)",
+    borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13,
+    color: "#f0f2ff", outline: "none", cursor: "pointer",
+    appearance: "none", WebkitAppearance: "none",
+  };
+  const optStyle = { background: "#1e2140", color: "#f0f2ff" };
+
+  const labelStyle = { fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", marginBottom: 6, display: "block" };
+
+  const card = (children) => (
+    <div style={{
+      background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)",
+      border: "1px solid var(--border-glass)", borderRadius: 16, padding: "22px 24px",
+    }}>{children}</div>
+  );
+
+  const msgBanner = (scope) => saveMsg?.scope === scope ? (
+    <div style={{
+      padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500,
+      background: saveMsg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)",
+      border: `1px solid ${saveMsg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`,
+      color: saveMsg.type === "success" ? "#22d3a8" : "#f87171",
+    }}>{saveMsg.text}</div>
+  ) : null;
+
+  const saveBtn = (scope, onClick) => (
+    <button onClick={onClick} disabled={saving === scope} style={{
+      height: 36, padding: "0 20px", borderRadius: 8, border: "none",
+      background: "var(--grad-primary)",
+      color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
+      cursor: saving === scope ? "not-allowed" : "pointer",
+      opacity: saving === scope ? 0.6 : 1,
+    }}>{saving === scope ? "Saving…" : "Save"}</button>
+  );
+
+  // Current display values for the summary pills
+  const langLabel = options?.languages?.[lang] || lang;
+  const currLabel = options?.currencies?.[curr] || curr;
+
+  if (loading) return (
+    <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+    </main>
+  );
+
+  return (
+    <main style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 780 }}>
+
+      {/* Header */}
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Locale &amp; Preferences</h1>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+          Set your language, timezone, and currency. Changes apply immediately to your account.
+        </p>
+      </div>
+
+      {/* Current summary pills */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {[
+          { label: "Language", value: langLabel, icon: "🌐" },
+          { label: "Timezone", value: tz, icon: "🕐" },
+          { label: "Currency", value: currLabel, icon: "💱" },
+        ].map(p => (
+          <div key={p.label} style={{
+            padding: "6px 14px", borderRadius: 999,
+            background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.25)",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span style={{ fontSize: 14 }}>{p.icon}</span>
+            <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{p.label}:</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#3b82f6" }}>{p.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* -- User Locale Card -- */}
+      {card(
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(79,142,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>👤</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>My Preferences</div>
+              <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Applied to your account only</div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px,1fr))", gap: 16 }}>
+            {/* Language */}
+            <div>
+              <label style={labelStyle}>Language</label>
+              <div style={{ position: "relative" }}>
+                <select value={lang} onChange={e => setLang(e.target.value)} style={selectStyle}
+                  onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+                  onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+                >
+                  {options && Object.entries(options.languages).map(([code, name]) => (
+                    <option style={optStyle} key={code} value={code}>{name}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+
+            {/* Timezone */}
+            <div>
+              <label style={labelStyle}>Timezone</label>
+              <div style={{ position: "relative" }}>
+                <select value={tz} onChange={e => setTz(e.target.value)} style={selectStyle}
+                  onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+                  onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+                >
+                  {options?.timezones?.map(t => (
+                    <option style={optStyle} key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+
+            {/* Currency */}
+            <div>
+              <label style={labelStyle}>Currency</label>
+              <div style={{ position: "relative" }}>
+                <select value={curr} onChange={e => setCurr(e.target.value)} style={selectStyle}
+                  onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+                  onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+                >
+                  {options && Object.entries(options.currencies).map(([code, label]) => (
+                    <option style={optStyle} key={code} value={code}>{label}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
+            {msgBanner("user")}
+            {saveBtn("user", handleSaveUser)}
+          </div>
+        </div>
+      )}
+
+      {/* -- Workspace Locale Card (Architect only) -- */}
+      {isArchitect && card(
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(123,92,240,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏢</div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Workspace Defaults</div>
+              <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Applied to new members who haven't set their own preferences</div>
+            </div>
+            <span style={{
+              marginLeft: "auto", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600,
+              background: "rgba(123,92,240,0.15)", border: "1px solid rgba(123,92,240,0.3)", color: "#8b5cf6",
+            }}>Architect only</span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px,1fr))", gap: 16 }}>
+            <div>
+              <label style={labelStyle}>Default Language</label>
+              <div style={{ position: "relative" }}>
+                <select value={wsLang} onChange={e => setWsLang(e.target.value)} style={selectStyle}>
+                  {options && Object.entries(options.languages).map(([code, name]) => (
+                    <option style={optStyle} key={code} value={code}>{name}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Default Timezone</label>
+              <div style={{ position: "relative" }}>
+                <select value={wsTz} onChange={e => setWsTz(e.target.value)} style={selectStyle}>
+                  {options?.timezones?.map(t => (
+                    <option style={optStyle} key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Default Currency</label>
+              <div style={{ position: "relative" }}>
+                <select value={wsCurr} onChange={e => setWsCurr(e.target.value)} style={selectStyle}>
+                  {options && Object.entries(options.currencies).map(([code, label]) => (
+                    <option style={optStyle} key={code} value={code}>{label}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--color-text-tertiary)", fontSize: 11 }}>▾</span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end" }}>
+            {msgBanner("workspace")}
+            {saveBtn("workspace", handleSaveWorkspace)}
+          </div>
+        </div>
+      )}
+
+      {/* Info box */}
+      <div style={{
+        padding: "14px 18px", borderRadius: 12,
+        background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)",
+        fontSize: 12, color: "var(--color-text-tertiary)", lineHeight: 1.7,
+      }}>
+        <strong style={{ color: "var(--color-text-secondary)" }}>ℹ How locale settings work</strong><br />
+        Your personal settings override workspace defaults. Timezone affects how deadlines and timestamps are displayed throughout the app.
+        Currency is used for any budget or cost fields. Language preference is stored and will power UI translations in a future release.
+      </div>
+
+    </main>
+  );
+}
+
+// -- TeamsPage — Segment 9: Microsoft Teams Integration -----------------------
+function TeamsPage() {
+  const { token, user } = useAuth();
+  const API = BASE_URL;
+  const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const isArchitect = user?.role === "architect";
+
+  const [status, setStatus]     = useState(null);
+  const [channels, setChannels] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [msg, setMsg]           = useState(null);
+  const [tenantId, setTenantId] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [chForm, setChForm]     = useState({ channel_id: "", channel_name: "", service_url: "", conversation_id: "" });
+
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API}/teams/status`,   { headers: authHeaders }).then(r => r.json()),
+      fetch(`${API}/teams/channels`, { headers: authHeaders }).then(r => r.json()),
+    ]).then(([s, ch]) => {
+      setStatus(s); setTenantId(s?.tenant_id || "");
+      setChannels(Array.isArray(ch) ? ch : []); setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  async function handleSaveConfig() {
+    setSaving(true); setMsg(null);
+    try {
+      const r = await fetch(`${API}/teams/config`, { method: "PUT", headers: authHeaders, body: JSON.stringify({ tenant_id: tenantId }) });
+      const d = await r.json();
+      if (r.ok) { setStatus(s => ({ ...s, connected: true, tenant_id: tenantId })); setMsg({ type: "success", text: "Teams tenant ID saved!" }); }
+      else setMsg({ type: "error", text: d.detail || "Save failed." });
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDisconnect() {
+    if (!window.confirm("Disconnect Teams from this workspace?")) return;
+    setSaving(true);
+    try {
+      await fetch(`${API}/teams/config`, { method: "DELETE", headers: authHeaders });
+      setStatus(s => ({ ...s, connected: false, tenant_id: null })); setTenantId(""); setMsg({ type: "success", text: "Teams disconnected." });
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+    finally { setSaving(false); }
+  }
+
+  async function handleRegisterChannel(e) {
+    e.preventDefault(); setSaving(true); setMsg(null);
+    try {
+      const r = await fetch(`${API}/teams/channels`, { method: "POST", headers: authHeaders, body: JSON.stringify(chForm) });
+      const d = await r.json();
+      if (r.ok) { setChannels(ch => [...ch, d]); setChForm({ channel_id: "", channel_name: "", service_url: "", conversation_id: "" }); setShowForm(false); setMsg({ type: "success", text: `Channel "${d.channel_name}" registered!` }); }
+      else setMsg({ type: "error", text: d.detail || "Registration failed." });
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+    finally { setSaving(false); }
+  }
+
+  async function handleRemoveChannel(id, name) {
+    if (!window.confirm(`Remove channel "${name}"?`)) return;
+    try {
+      await fetch(`${API}/teams/channels/${id}`, { method: "DELETE", headers: authHeaders });
+      setChannels(ch => ch.filter(c => c.id !== id)); setMsg({ type: "success", text: `Channel "${name}" removed.` });
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+  }
+
+  const inp = { width: "100%", height: 38, padding: "0 12px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" };
+  const lbl = { fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", marginBottom: 6, display: "block" };
+  const card = (ch) => <div style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", border: "1px solid var(--border-glass)", borderRadius: 16, padding: "22px 24px" }}>{ch}</div>;
+
+  if (loading) return <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /></main>;
+
+  return (
+    <main style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 820 }}>
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Microsoft Teams</h1>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Connect your workspace to Microsoft Teams. Create tasks directly from Teams channels by mentioning the bot.</p>
+      </div>
+      {msg && <div style={{ padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: msg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`, color: msg.type === "success" ? "#22d3a8" : "#f87171" }}>{msg.text}</div>}
+      {card(<div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: status?.connected ? "rgba(34,211,168,0.12)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>💬</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Teams Connection</div>
+            <div style={{ fontSize: 12, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: status?.connected ? "#22d3a8" : "#6b7280", display: "inline-block" }} />
+              <span style={{ color: status?.connected ? "#22d3a8" : "var(--color-text-tertiary)" }}>{status?.connected ? `Connected &mdash; Tenant: ${status.tenant_id}` : "Not connected"}</span>
+            </div>
+          </div>
+          {status?.connected && isArchitect && <button onClick={handleDisconnect} disabled={saving} style={{ height: 32, padding: "0 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Disconnect</button>}
+        </div>
+        <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(79,142,247,0.06)", border: "1px solid rgba(79,142,247,0.15)", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.8 }}>
+          <strong style={{ color: "#3b82f6", display: "block", marginBottom: 6 }}>⚙ Setup Instructions</strong>
+          1. Azure Portal → create a Bot resource → enable Teams channel.<br />
+          2. Set <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>TEAMS_APP_ID</code> and <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>TEAMS_APP_SECRET</code> in Railway.<br />
+          3. Set messaging endpoint: <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>{status?.webhook_url || `${API}/teams/webhook`}</code><br />
+          4. Paste your Azure AD Tenant ID below and save.
+        </div>
+        {isArchitect && <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <label style={lbl}>Azure AD Tenant ID</label>
+          <div style={{ display: "flex", gap: 10 }}>
+            <input value={tenantId} onChange={e => setTenantId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style={{ ...inp, flex: 1 }} />
+            <button onClick={handleSaveConfig} disabled={saving || !tenantId.trim()} style={{ height: 38, padding: "0 20px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: (saving || !tenantId.trim()) ? 0.6 : 1 }}>{saving ? "Saving…" : "Save"}</button>
+          </div>
+        </div>}
+      </div>)}
+      {card(<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div><div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Registered Channels</div><div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Channels that receive proactive task notifications</div></div>
+          {isArchitect && <button onClick={() => setShowForm(f => !f)} style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "1px solid rgba(79,142,247,0.3)", background: "rgba(79,142,247,0.08)", color: "#3b82f6", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{showForm ? "Cancel" : "+ Add Channel"}</button>}
+        </div>
+        {showForm && isArchitect && <div style={{ padding: 18, borderRadius: 12, background: "rgba(79,142,247,0.05)", border: "1px solid rgba(79,142,247,0.15)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px,1fr))", gap: 12 }}>
+            {[["channel_name","Channel Name","#general"],["channel_id","Channel ID","19:abc@thread.tacv2"],["service_url","Service URL","https://smba.trafficmanager.net/…"],["conversation_id","Conversation ID","19:abc@thread.tacv2"]].map(([k, label, ph]) => (
+              <div key={k}><label style={lbl}>{label}</label><input value={chForm[k]} onChange={e => setChForm(f => ({ ...f, [k]: e.target.value }))} placeholder={ph} style={inp} /></div>
+            ))}
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+            <button onClick={handleRegisterChannel} disabled={saving || !chForm.channel_id || !chForm.channel_name} style={{ height: 36, padding: "0 20px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{saving ? "Registering…" : "Register Channel"}</button>
+          </div>
+        </div>}
+        {channels.length === 0 ? <div style={{ padding: 28, textAlign: "center", color: "var(--color-text-tertiary)", fontSize: 13, border: "1px dashed var(--border-glass)", borderRadius: 10 }}>No channels registered yet.{isArchitect && " Click \"+ Add Channel\" to register."}</div>
+        : channels.map(ch => (
+          <div key={ch.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)" }}>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(79,142,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>💬</div>
+            <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{ch.channel_name}</div><div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2, fontFamily: "var(--font-mono)" }}>{ch.channel_id}</div></div>
+            <div style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.25)", color: "#22d3a8" }}>Active</div>
+            {isArchitect && <button onClick={() => handleRemoveChannel(ch.id, ch.channel_name)} style={{ height: 28, padding: "0 12px", borderRadius: 6, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.06)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Remove</button>}
+          </div>
+        ))}
+      </div>)}
+    </main>
+  );
+}
+
+// -- ApiPage — Segment 13: Public REST API & Key Management --------------------
+function ApiPage() {
+  const { token, user } = useAuth();
+  const API = BASE_URL;
+  const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const isArchitect = user?.role === "architect";
+  const BACKEND = API || "https://your-backend.railway.app";
+
+  const [keys, setKeys]           = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [creating, setCreating]   = useState(false);
+  const [msg, setMsg]             = useState(null);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [revealedKey, setRevealedKey] = useState(null); // { id, key }
+  const [copied, setCopied]       = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/api/v1/keys`, { headers: authHeaders })
+      .then(r => r.json()).then(d => { setKeys(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  async function handleCreateKey() {
+    if (!newKeyName.trim()) return;
+    setCreating(true); setMsg(null); setRevealedKey(null);
+    try {
+      const r = await fetch(`${API}/api/v1/keys`, {
+        method: "POST", headers: authHeaders,
+        body: JSON.stringify({ name: newKeyName.trim() }),
+      });
+      const d = await r.json();
+      if (r.ok) {
+        setRevealedKey({ id: d.id, key: d.key, name: d.name });
+        setKeys(k => [{ id: d.id, name: d.name, key_prefix: d.key_prefix, workspace_id: d.workspace_id, is_active: true, created_at: d.created_at }, ...k]);
+        setNewKeyName("");
+        setMsg({ type: "success", text: "API key created! Copy it now — it won't be shown again." });
+      } else {
+        setMsg({ type: "error", text: d.detail || "Failed to create key." });
+      }
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+    finally { setCreating(false); }
+  }
+
+  async function handleRevoke(id, name) {
+    if (!window.confirm(`Revoke key "${name}"? Any integrations using it will stop working.`)) return;
+    try {
+      await fetch(`${API}/api/v1/keys/${id}`, { method: "DELETE", headers: authHeaders });
+      setKeys(k => k.filter(key => key.id !== id));
+      if (revealedKey?.id === id) setRevealedKey(null);
+      setMsg({ type: "success", text: `Key "${name}" revoked.` });
+    } catch { setMsg({ type: "error", text: "Network error." }); }
+  }
+
+  function copyKey(key) {
+    navigator.clipboard.writeText(key).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
+  }
+
+  const inp = { width: "100%", height: 38, padding: "0 12px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none" };
+  const card = (ch, extra = {}) => <div style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", border: "1px solid var(--border-glass)", borderRadius: 16, padding: "22px 24px", ...extra }}>{ch}</div>;
+
+  const ENDPOINTS = [
+    { method: "POST",   path: "/api/v1/tasks",       desc: "Create a task from Notion, Jira, Zapier, etc." },
+    { method: "GET",    path: "/api/v1/tasks",        desc: "List tasks (supports ?status=, ?assignee=, ?priority=, ?skip=, ?limit=)" },
+    { method: "GET",    path: "/api/v1/tasks/{id}",   desc: "Get a single task by ID" },
+    { method: "PUT",    path: "/api/v1/tasks/{id}",   desc: "Update status, priority, assignee, or deadline" },
+    { method: "DELETE", path: "/api/v1/tasks/{id}",   desc: "Cancel a task (sets status to cancelled)" },
+  ];
+
+  const METHOD_COLORS = { POST: "#22d3a8", GET: "#3b82f6", PUT: "#f59e0b", DELETE: "#f87171" };
+
+  if (loading) return <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /></main>;
+
+  return (
+    <main style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Public API</h1>
+        <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
+          Connect Notion, Jira, Trello, Zapier, or any tool to your workspace using API keys. All endpoints use <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>X-API-Key</code> header authentication.
+        </p>
+      </div>
+
+      {msg && <div style={{ padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: msg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`, color: msg.type === "success" ? "#22d3a8" : "#f87171" }}>{msg.text}</div>}
+
+      {/* Revealed key banner */}
+      {revealedKey && (
+        <div style={{ padding: "16px 20px", borderRadius: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>⚠ Copy your API key now &mdash; it won't be shown again</div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <code style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: 12, background: "rgba(0,0,0,0.3)", padding: "8px 12px", borderRadius: 8, color: "#e8eaf6", wordBreak: "break-all" }}>{revealedKey.key}</code>
+            <button onClick={() => copyKey(revealedKey.key)} style={{ height: 36, padding: "0 16px", borderRadius: 8, border: "none", background: copied ? "rgba(34,211,168,0.2)" : "rgba(245,158,11,0.2)", color: copied ? "#22d3a8" : "#f59e0b", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+              {copied ? "✓ Copied!" : "Copy"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Key management */}
+      {card(<div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>API Keys</div>
+
+        {isArchitect && (
+          <div style={{ display: "flex", gap: 10 }}>
+            <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)} placeholder="Key name, e.g. Notion Integration" style={{ ...inp, flex: 1 }}
+              onKeyDown={e => e.key === "Enter" && handleCreateKey()}
+              onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+              onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
+            />
+            <button onClick={handleCreateKey} disabled={creating || !newKeyName.trim()} style={{ height: 38, padding: "0 20px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: (creating || !newKeyName.trim()) ? 0.6 : 1 }}>
+              {creating ? "Creating…" : "Generate Key"}
+            </button>
+          </div>
+        )}
+
+        {keys.length === 0 ? (
+          <div style={{ padding: 28, textAlign: "center", color: "var(--color-text-tertiary)", fontSize: 13, border: "1px dashed var(--border-glass)", borderRadius: 10 }}>
+            No API keys yet.{isArchitect && " Generate your first key above to start integrating."}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {keys.map(k => (
+              <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)" }}>
+                <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(79,142,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🔑</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{k.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2, fontFamily: "var(--font-mono)" }}>
+                    {k.key_prefix}•••••••••••••••••••••••
+                    {k.last_used_at && <span style={{ marginLeft: 10 }}>Last used: {new Date(k.last_used_at).toLocaleDateString()}</span>}
+                  </div>
+                </div>
+                <div style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.25)", color: "#22d3a8" }}>Active</div>
+                {isArchitect && <button onClick={() => handleRevoke(k.id, k.name)} style={{ height: 28, padding: "0 12px", borderRadius: 6, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.06)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Revoke</button>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>)}
+
+      {/* Endpoint reference */}
+      {card(<div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>📖 Endpoint Reference</div>
+        <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", fontFamily: "var(--font-mono)", marginBottom: 4 }}>Base URL: {BACKEND}</div>
+        {ENDPOINTS.map(e => (
+          <div key={e.path} style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: "10px 14px", borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", flexWrap: "wrap" }}>
+            <span style={{ flex: "0 0 60px", fontFamily: "var(--font-mono)", fontSize: 11, fontWeight: 700, color: METHOD_COLORS[e.method] }}>{e.method}</span>
+            <code style={{ flex: "0 0 auto", fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--color-text-primary)", wordBreak: "break-all" }}>{e.path}</code>
+            <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{e.desc}</span>
+          </div>
+        ))}
+        <div style={{ marginTop: 4, padding: "14px 16px", borderRadius: 10, background: "rgba(79,142,247,0.05)", border: "1px solid rgba(79,142,247,0.12)", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.8 }}>
+          <strong style={{ color: "#3b82f6" }}>Example request:</strong><br />
+          <code style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#e8eaf6", wordBreak: "break-all", overflowWrap: "anywhere" }}>
+            curl -X POST {BACKEND}/api/v1/tasks \<br />
+            &nbsp;&nbsp;-H "X-API-Key: sk_live_..." \<br />
+            &nbsp;&nbsp;-H "Content-Type: application/json" \<br />
+            &nbsp;&nbsp;-d {'\'{"title":"Fix payment bug","assignee":"ali","priority":"high"}\''}
+          </code>
+        </div>
+      </div>)}
+
+      {/* Full docs link */}
+      <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", fontSize: 12, color: "var(--color-text-tertiary)" }}>
+        📄 Full interactive API docs available at <code style={{ color: "#3b82f6", fontFamily: "var(--font-mono)" }}>{BACKEND}/docs</code> (FastAPI Swagger UI — no auth needed).
+      </div>
+    </main>
+  );
+}
+
+// -- Feedback System (Segment 14) ---------------------------------------------
+
+const FEEDBACK_TYPES = [
+  { id: "bug",             label: "Bug Report",      emoji: "🐛", color: "#f43f5e", desc: "Something is broken or not working right" },
+  { id: "feedback",        label: "General Feedback", emoji: "💬", color: "#3b82f6", desc: "Share your thoughts or experience" },
+  { id: "feature_request", label: "Feature Request",  emoji: "✨", color: "#8b5cf6", desc: "Suggest a new feature or improvement" },
+];
+
+const POSITIONS = ["Architect", "Navigator", "Operator", "Solo"];
+
+function FeedbackModal({ onClose, user, token, currentPage }) {
+  const [step, setStep]         = useState("type");
+  const [type, setType]         = useState(null);
+  const [title, setTitle]       = useState("");
+  const [message, setMessage]   = useState("");
+  const [userName, setUserName] = useState(user?.name || "");
+  const [position, setPosition] = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
+
+  const selected = FEEDBACK_TYPES.find(t => t.id === type);
+
+  const inputStyle = {
+    width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#f1f3fc",
+    fontSize: 13, outline: "none", boxSizing: "border-box",
+  };
+
+  const submit = async () => {
+    if (!userName.trim())                              { setError("Please enter your name."); return; }
+    if (!position)                                     { setError("Please select your position."); return; }
+    if (!title.trim() || title.trim().length < 3)     { setError("Title must be at least 3 characters."); return; }
+    if (!message.trim() || message.trim().length < 10) { setError("Please provide a bit more detail (10+ characters)."); return; }
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/feedback`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({
+          type,
+          title:        title.trim(),
+          message:      message.trim(),
+          page_context: currentPage || null,
+          user_id:      user?.id    || null,
+          user_email:   user?.email || null,
+          user_name:    `${userName.trim()} (${position})`,
+        }),
+      });
+      if (!res.ok) throw new Error("Server error");
+      setStep("success");
+    } catch {
+      setError("Failed to submit. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 clamp(8px,3vw,24px) 90px 0", pointerEvents: "none" }}>
+      {/* Backdrop */}
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", pointerEvents: "all" }} />
+
+      {/* Modal card */}
+      <div style={{
+        position: "relative", pointerEvents: "all", width: "min(420px, calc(100vw - 16px))", background: "#0d1117",
+        border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20,
+        boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
+        animation: "slideUpIn 0.3s cubic-bezier(0.34,1.56,0.64,1)",
+        overflow: "hidden",
+      }}>
+        {/* Header */}
+        <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f3fc", fontFamily: "var(--font-display)" }}>
+              {step === "success" ? "🎉 Thanks!" : step === "form" ? `${selected?.emoji} ${selected?.label}` : "Share Feedback"}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+              {step === "success" ? "We've received your message" : step === "form" ? selected?.desc : "Help us improve the product"}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 8, color: "var(--color-text-secondary)", cursor: "pointer", padding: "6px 10px", fontSize: 16, lineHeight: 1 }}>×</button>
+        </div>
+
+        <div style={{ padding: "20px 24px 24px" }}>
+
+          {/* Step: choose type */}
+          {step === "type" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {FEEDBACK_TYPES.map(t => (
+                <button key={t.id} onClick={() => { setType(t.id); setStep("form"); }} style={{
+                  display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
+                  background: "rgba(255,255,255,0.03)", border: `1px solid rgba(255,255,255,0.07)`,
+                  borderRadius: 12, cursor: "pointer", textAlign: "left", transition: "all 0.15s",
+                }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${t.color}18`; e.currentTarget.style.borderColor = `${t.color}50`; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; }}
+                >
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: `${t.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{t.emoji}</div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f3fc" }}>{t.label}</div>
+                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>{t.desc}</div>
+                  </div>
+                  <div style={{ marginLeft: "auto", color: "var(--color-text-tertiary)", fontSize: 16 }}>→</div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Step: fill form */}
+          {step === "form" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* Name + Position row */}
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>Your Name *</label>
+                  <input
+                    value={userName} onChange={e => setUserName(e.target.value)}
+                    placeholder="e.g. John Smith"
+                    style={inputStyle}
+                    onFocus={e => e.target.style.borderColor = selected?.color}
+                    onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>Position *</label>
+                  <select
+                    value={position} onChange={e => setPosition(e.target.value)}
+                    style={{ ...inputStyle, appearance: "none", cursor: "pointer", color: position ? "#f1f3fc" : "var(--color-text-tertiary)" }}
+                    onFocus={e => e.target.style.borderColor = selected?.color}
+                    onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                  >
+                    <option value="" disabled>Select role…</option>
+                    {POSITIONS.map(p => <option key={p} value={p} style={{ background: "#0d1117", color: "#f1f3fc" }}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>Title *</label>
+                <input
+                  value={title} onChange={e => setTitle(e.target.value)}
+                  placeholder={type === "bug" ? "e.g. Compliance page shows blank screen" : type === "feature_request" ? "e.g. Export tasks to CSV" : "e.g. The dashboard feels very fast!"}
+                  style={{
+                    width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#f1f3fc",
+                    fontSize: 13, outline: "none", boxSizing: "border-box",
+                  }}
+                  onFocus={e => e.target.style.borderColor = selected?.color}
+                  onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>
+                  Details * <span style={{ color: "var(--color-text-tertiary)", fontSize: 11 }}>({message.length}/5000)</span>
+                </label>
+                <textarea
+                  value={message} onChange={e => setMessage(e.target.value)} rows={5}
+                  placeholder={type === "bug" ? "Steps to reproduce, what you expected vs what happened..." : type === "feature_request" ? "Describe the feature, why it would help, any examples..." : "Tell us what you think — good or bad!"}
+                  style={{
+                    width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#f1f3fc",
+                    fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box",
+                    fontFamily: "var(--font-sans)",
+                  }}
+                  onFocus={e => e.target.style.borderColor = selected?.color}
+                  onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
+                />
+              </div>
+              {currentPage && (
+                <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", padding: "6px 10px", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}>
+                  📍 Page context will be attached: <strong style={{ color: "var(--color-text-secondary)" }}>{currentPage}</strong>
+                </div>
+              )}
+              {error && <div style={{ fontSize: 12, color: "#f43f5e", padding: "8px 12px", background: "rgba(244,63,94,0.1)", borderRadius: 8 }}>{error}</div>}
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setStep("type"); setError(""); }} style={{ flex: 1, padding: "10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 13 }}>← Back</button>
+                <button onClick={submit} disabled={loading} style={{
+                  flex: 2, padding: "10px", background: selected ? `linear-gradient(135deg, ${selected.color}, ${selected.color}cc)` : "var(--grad-primary)",
+                  border: "none", borderRadius: 10, color: "#fff", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontSize: 13, opacity: loading ? 0.7 : 1,
+                }}>
+                  {loading ? "Sending…" : `Submit ${selected?.label}`}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step: success */}
+          {step === "success" && (
+            <div style={{ textAlign: "center", padding: "10px 0 4px" }}>
+              <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#f1f3fc", marginBottom: 8 }}>Feedback received!</div>
+              <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 24 }}>
+                We read every submission and use it to make the product better. Thank you for taking the time!
+              </div>
+              <button onClick={onClose} style={{
+                padding: "10px 24px", background: "var(--grad-primary)", border: "none", borderRadius: 10,
+                color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13,
+              }}>Close</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeedbackButton({ user, token, currentPage }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      {/* Floating button */}
+      <button
+        onClick={() => setOpen(true)}
+        title="Share feedback"
+        style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 1000,
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "11px 18px 11px 14px",
+          background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+          border: "none", borderRadius: 50, cursor: "pointer",
+          boxShadow: "0 4px 20px rgba(59,130,246,0.45)",
+          color: "#fff", fontWeight: 600, fontSize: 13,
+          fontFamily: "var(--font-sans)",
+          transition: "transform 0.15s, box-shadow 0.15s",
+        }}
+        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 6px 28px rgba(59,130,246,0.6)"; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(59,130,246,0.45)"; }}
+      >
+        <span style={{ fontSize: 16 }}>💬</span>
+        Feedback
+      </button>
+
+      {open && <FeedbackModal onClose={() => setOpen(false)} user={user} token={token} currentPage={currentPage} />}
+    </>
+  );
+}
+
+// -- Billing Wall (Segment 15) -------------------------------------------------
+
+const ADMIN_EMAILS = (process.env.REACT_APP_ADMIN_EMAILS || "wahaj@acedengroup.com").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+
+function formatCardNumber(v) {
+  return v.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
+}
+function formatExpiry(v) {
+  const d = v.replace(/\D/g, "").slice(0, 4);
+  return d.length > 2 ? d.slice(0,2) + "/" + d.slice(2) : d;
+}
+function cardBrand(n) {
+  const d = n.replace(/\s/g, "");
+  if (/^4/.test(d)) return "💳 Visa";
+  if (/^5[1-5]/.test(d)) return "💳 Mastercard";
+  if (/^3[47]/.test(d)) return "💳 Amex";
+  return "💳";
+}
+
+function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, onSuccess }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  const isPastDue   = status === "past_due";
+  const isCancelled = status === "cancelled";
+
+  // Redirect user to Lemon Squeezy's real hosted checkout page.
+  // Card details are entered securely on LS — never on our side.
+  const goToCheckout = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch(`${BASE_URL}/billing/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Could not create checkout. Please try again.");
+
+      if (data.test_mode) {
+        // Dev/test: backend already updated DB, verify and proceed
+        const statusRes = await fetch(`${BASE_URL}/auth/billing-status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const statusData = await statusRes.json();
+        if (!statusData.show_wall) {
+          onSuccess();
+        } else {
+          throw new Error("Test mode: billing status not updated. Check backend logs.");
+        }
+      } else {
+        // Live mode: redirect to Lemon Squeezy hosted checkout
+        window.location.href = data.checkout_url;
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong. Please try again.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9998,
+      background: "rgba(8,10,20,0.97)", backdropFilter: "blur(20px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontFamily: "var(--font-sans)",
+    }}>
+      <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+
+      <div style={{
+        position: "relative", width: "100%", maxWidth: 480, margin: "0 24px",
+        background: "linear-gradient(160deg, rgba(20,22,46,0.98) 0%, rgba(14,17,36,0.99) 100%)",
+        border: "1px solid rgba(255,255,255,0.1)", borderRadius: 24,
+        boxShadow: "0 32px 100px rgba(0,0,0,0.8)", overflow: "hidden",
+        animation: "slideUpIn 0.4s cubic-bezier(0.34,1.56,0.64,1)",
+      }}>
+        <div style={{ height: 3, background: "linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899)" }} />
+
+        <div style={{ padding: "32px 36px 36px" }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: isNewUser ? "rgba(16,185,129,0.15)" : isPastDue ? "rgba(245,158,11,0.15)" : "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 20 }}>
+            {isNewUser ? "🎉" : isPastDue ? "⚠️" : isCancelled ? "🔒" : "🚀"}
+          </div>
+          <div style={{ fontSize: 21, fontWeight: 700, color: "#f1f3fc", marginBottom: 8, fontFamily: "var(--font-display)" }}>
+            {isNewUser ? "Start Your 7-Day Free Trial" : isPastDue ? "Payment Failed" : isCancelled ? "Subscription Ended" : "Your Free Trial Has Ended"}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: isCancelled ? 14 : 20 }}>
+            {isNewUser
+              ? "You'll be taken to our secure checkout to enter your card details. You won't be charged until the 7 days end — cancel anytime."
+              : isPastDue
+              ? "We couldn't process your last payment. Update your card to continue."
+              : isCancelled
+              ? "Your subscription has ended and your account is currently locked."
+              : "Your trial has ended. Subscribe to keep access to all your tasks and workflows."}
+          </div>
+          {isCancelled && (
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)", marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#f87171", marginBottom: 5, display: "flex", alignItems: "center", gap: 6 }}>
+                <span>🔒</span> Account Access Restricted
+              </div>
+              <div style={{ fontSize: 12, color: "rgba(248,113,113,0.85)", lineHeight: 1.7 }}>
+                Following your cancellation, <strong style={{ color: "#f87171" }}>you cannot create a new account</strong> on this platform. To regain access, either resubscribe below or contact your workspace administrator to request management approval for reinstatement.
+              </div>
+            </div>
+          )}
+          {isNewUser && daysLeft !== undefined && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, padding: "10px 14px", borderRadius: 10, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: 13, color: "#10b981", fontWeight: 600 }}>
+              <span>⏱</span>
+              <span>Free trial: <strong>{daysLeft} day{daysLeft === 1 ? "" : "s"} remaining</strong> &mdash; no charge until it ends</span>
+            </div>
+          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+            {["Unlimited tasks & team members", "AI-powered task creation from Slack", "Compliance & ownership reports", "Cancel anytime, no commitment"].map(f => (
+              <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--color-text-secondary)" }}>
+                <div style={{ width: 18, height: 18, borderRadius: 5, background: "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, flexShrink: 0 }}>✓</div>
+                {f}
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: "14px 18px", background: isNewUser ? "rgba(16,185,129,0.08)" : "rgba(59,130,246,0.08)", border: isNewUser ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(59,130,246,0.2)", borderRadius: 12, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{isNewUser ? "Free for 7 days, then" : "Monthly subscription"}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#f1f3fc", marginTop: 2 }}>$20 <span style={{ fontSize: 13, fontWeight: 400, color: "var(--color-text-secondary)" }}>/ user / month</span></div>
+            </div>
+            <div style={{ fontSize: 11, color: isNewUser ? "#10b981" : "#22d3ee", background: isNewUser ? "rgba(16,185,129,0.1)" : "rgba(34,211,238,0.1)", padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>{isNewUser ? "7 days FREE" : "Cancel anytime"}</div>
+          </div>
+
+          {error && <div style={{ fontSize: 12, color: "#f43f5e", padding: "8px 12px", background: "rgba(244,63,94,0.1)", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
+
+          <button
+            onClick={goToCheckout}
+            disabled={loading}
+            style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: loading ? "rgba(59,130,246,0.5)" : "linear-gradient(135deg, #3b82f6, #8b5cf6)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 4px 20px rgba(59,130,246,0.4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+          >
+            {loading
+              ? <><span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /> Redirecting to checkout…</>
+              : isNewUser ? "Continue to Secure Checkout →" : isPastDue ? "Update Payment Method →" : "Subscribe Now →"
+            }
+          </button>
+          <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--color-text-tertiary)" }}>🔒 Secured by Lemon Squeezy · No charge for 7 days</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// -- Authenticated shell — wraps Dashboard with Sidebar ------------------------
+function AuthenticatedApp() {
+  const { user, isOnboarded, token } = useAuth();
+  const [activeNav, setActiveNav]     = useState(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const winWidth = useWindowWidth();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  // Local override: set true once user finishes onboarding so we don't loop
+  // back even if AuthContext hasn't re-fetched isOnboarded from the server yet.
+  const [onboardingDone, setOnboardingDone] = useState(false);
+  const [showTour, setShowTour]       = useState(() => !localStorage.getItem("aw_tour_done"));
+  const [billing, setBilling]         = useState(null);   // null=loading, object=loaded
+  const [billingChecked, setBillingChecked] = useState(false);
+
+  // -- Check billing status on mount ------------------------------------------
+  useEffect(() => {
+    if (!token || !user) return;
+    // Exempt: your admin email(s) never see billing wall
+    const adminEmails = (process.env.REACT_APP_ADMIN_EMAILS || "").split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+    if (adminEmails.includes(user.email?.toLowerCase())) {
+      setBilling({ status: "exempt", show_wall: false });
+      setBillingChecked(true);
+      return;
+    }
+    // On return from Lemon Squeezy checkout, clean the URL but STILL re-fetch
+    // from the backend — the webhook may not have fired yet, so we poll with backoff
+    const params = new URLSearchParams(window.location.search);
+    const fromCheckout = params.get("billing") === "success" || params.get("billing") === "test_success";
+    if (fromCheckout) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    const checkBilling = (retriesLeft = 0) => {
+      fetch(`${BASE_URL}/auth/billing-status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.json())
+        .then(d => {
+          // If returning from checkout but webhook hasn't updated the DB yet, retry up to 4×
+          if (fromCheckout && d.show_wall && retriesLeft < 4) {
+            setTimeout(() => checkBilling(retriesLeft + 1), 1500 * (retriesLeft + 1));
+            return;
+          }
+          setBilling(d);
+          setBillingChecked(true);
+        })
+        .catch(() => {
+          setBilling({ status: "trialing", show_wall: false });
+          setBillingChecked(true);
+        });
+    };
+
+    checkBilling();
+  }, [token, user]);
+
+  // ✅ Role-based task filters passed to useTasks
+  const taskFilters = useMemo(() => {
+    if (!user) return {};
+    if (user.role === "architect") return { workspace_id: user.workspace?.id };
+    if (user.role === "navigator") return { workspace_id: user.workspace?.id, team_name: user.team_name };
+    if (user.role === "operator") return { owner_id: user.id };
+    if (user.role === "solo")     return { owner_id: user.id };
+    return {};
+  }, [user]);
+
+  const { tasks, total, loading, error, submitting, moveTask, removeTask, addTask, reload, clearError } = useTasks(taskFilters);
+
+  // -- Live nav badges derived from tasks --------------------------------------
+  const navBadges = useMemo(() => {
+    if (!tasks?.length) return {};
+    const totalCount      = tasks.length;
+    const inProgress      = tasks.filter(t => t.status === "in_progress").length;
+    const completed       = tasks.filter(t => t.status === "completed").length;
+    const now             = Date.now();
+    const overdue         = tasks.filter(t => t.deadline && parseDeadline(t.deadline) < now && t.status !== "completed" && t.status !== "cancelled").length;
+    const unassigned      = tasks.filter(t => !t.assignee).length;
+    const stale           = tasks.filter(t => {
+      const d = t.updated_at || t.created_at;
+      return d && (now - new Date(d)) > 7 * 86400000 && t.status !== "completed" && t.status !== "cancelled";
+    }).length;
+    const highNotStarted  = tasks.filter(t => (t.priority === "high" || t.priority === "critical") && t.status === "to_do").length;
+    const complianceIssues = overdue + unassigned + stale + highNotStarted;
+    const owners          = new Set(tasks.map(t => t.assignee).filter(Boolean)).size;
+
+    return {
+      0:  inProgress   || null,   // Dashboard  — active tasks
+      1:  totalCount   || null,   // Tasks      — total count
+      2:  complianceIssues || null, // Compliance — issues
+      4:  completed    || null,   // Reports    — completed
+      5:  owners       || null,   // Ownership  — owners
+    };
+  }, [tasks]);
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === "Escape") document.activeElement?.blur();
+  }, []);
+
+  // Check if Slack OAuth returned a token in the URL (after Slack login)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get("token");
+    if (urlToken) {
+      // Clean URL
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  // Step 1 — Billing: check subscription/trial before anything else
+  // Show spinner while billing status is being fetched
+  if (!billingChecked) {
+    return (
+      <div style={{ minHeight: "100vh", background: "var(--bg-page)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid rgba(59,130,246,0.2)", borderTopColor: "#3b82f6", animation: "spin 0.8s linear infinite" }} />
+      </div>
+    );
+  }
+
+  // Show billing wall for: new users (no card on file), expired trials, lapsed subscriptions
+  if (billing?.show_wall) {
+    return (
+      <BillingWall
+        user={user}
+        token={token}
+        status={billing.status}
+        isNewUser={!billing.card_on_file && billing.status === "trialing"}
+        daysLeft={billing.days_left}
+        trialEndsAt={billing.trial_ends_at}
+        onSuccess={() => setBilling({ status: "active", show_wall: false })}
+      />
+    );
+  }
+
+  // Step 2 — Onboarding: after billing is sorted, new users complete role selection
+  // onboardingDone is a local override so we don't loop back if AuthContext
+  // hasn't re-fetched is_onboarded from the server yet after completion.
+  if ((!isOnboarded && !onboardingDone) || showOnboarding) {
+    return (
+      <OnboardingPage
+        onComplete={() => {
+          setOnboardingDone(true);
+          setShowOnboarding(false);
+          // Always force the feature tour after role selection — clear any old skip flag
+          localStorage.removeItem("aw_tour_done");
+          setShowTour(true);
+        }}
+      />
+    );
+  }
+
+  const currentNavLabel = NAV_ITEMS[activeNav]?.label;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)", position: "relative" }} onKeyDown={handleKeyDown}>
+      {showTour && <TourOverlay onComplete={() => setShowTour(false)} onSkip={() => { setShowTour(false); setActiveNav(3); }} />}
+
+      {/* Trial countdown banner */}
+      {billing?.status === "trialing" && billing?.days_left !== undefined && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 9000,
+          background: billing.days_left === 0 ? "linear-gradient(90deg,#ef4444,#dc2626)" : "linear-gradient(90deg,#f59e0b,#d97706)",
+          padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap",
+          fontSize: 13, fontWeight: 600, color: "#fff",
+        }}>
+          <span>⏰ {billing.days_left === 0 ? "Your free trial expires today!" : `Your free trial ends in ${billing.days_left} day${billing.days_left === 1 ? "" : "s"}!`}</span>
+          <button onClick={async () => {
+            const res = await fetch(`${BASE_URL}/billing/checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+            const d = await res.json();
+            window.location.href = d.checkout_url;
+          }} style={{ padding: "5px 14px", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+            Subscribe Now →
+          </button>
+        </div>
+      )}
+
+      <FeedbackButton user={user} token={token} currentPage={NAV_ITEMS[activeNav]?.label} />
+      {/* Subtle dot grid background */}
+      <div style={{ position: "fixed", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "32px 32px", pointerEvents: "none", zIndex: 0 }} />
+      {/* Ambient top glow */}
+      <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+
+      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} navBadges={navBadges} />
+      <div style={{ paddingLeft: winWidth < 900 ? 64 : (sidebarCollapsed ? 64 : 228), display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1, transition: "padding-left 0.25s cubic-bezier(0.4,0,0.2,1)", minWidth: 0, overflowX: "auto" }}>
+        {activeNav === 0 ? (
+          <Dashboard
+            tasks={tasks} total={total} loading={loading} error={error}
+            submitting={submitting} moveTask={moveTask} removeTask={removeTask}
+            addTask={addTask} reload={reload} clearError={clearError}
+          />
+        ) : activeNav === 1 ? (
+          <TasksPage />
+        ) : activeNav === 2 ? (
+          <CompliancePage />
+        ) : activeNav === 3 ? (
+          <KnowledgePage />
+        ) : activeNav === 4 ? (
+          <ReportsPage />
+        ) : activeNav === 5 ? (
+          <OwnershipGraph />
+        ) : activeNav === 6 ? (
+          <IntegrationsPage />
+        ) : activeNav === 7 ? (
+          <LocalePage />
+        ) : activeNav === 8 ? (
+          <TeamsPage />
+        ) : activeNav === 9 ? (
+          <ApiPage />
+        ) : activeNav === 10 ? (
+          <SettingsPage />
+        ) : (
+          <PlaceholderPage label={currentNavLabel} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// -- Router — decides which page to show --------------------------------------
+
+// -- Freelancer Dashboard -------------------------------------------------------
+function FreelancerDashboard() {
+  const { user, token, logout } = useAuth();
+  const API = BASE_URL;
+  const hdrs = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  const [stats, setStats]       = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState(null);
+  const [copied, setCopied]     = useState(false);
+
+  useEffect(() => {
+    fetch(`${API}/referral/my-stats`, { headers: hdrs })
+      .then(r => r.ok ? r.json() : Promise.reject(r))
+      .then(d => setStats(d))
+      .catch(() => setError("Could not load your stats. Please refresh."))
+      .finally(() => setLoading(false));
+  }, []);  // eslint-disable-line
+
+  const copyLink = () => {
+    if (!stats?.referral_link) return;
+    navigator.clipboard.writeText(stats.referral_link);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const CARDS = stats ? [
+    { label: "Total Referred",  value: stats.total,     color: "#3b82f6", icon: "👥", bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)" },
+    { label: "On Trial",        value: stats.trialing,  color: "#f59e0b", icon: "⏱",  bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)" },
+    { label: "Paid",            value: stats.paid,      color: "#22d3a8", icon: "💰", bg: "rgba(34,211,168,0.1)",  border: "rgba(34,211,168,0.25)" },
+    { label: "Cancelled",       value: stats.cancelled, color: "#f87171", icon: "✕",  bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)" },
+  ] : [];
+
+  const convRate = stats && stats.total > 0
+    ? Math.round((stats.paid / stats.total) * 100)
+    : 0;
+
+  return (
+    <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)", position: "relative" }}>
+      {/* Ambient background */}
+      <div style={{ position: "fixed", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "32px 32px", pointerEvents: "none", zIndex: 0 }} />
+      <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 860, margin: "0 auto", padding: "clamp(20px,4vw,48px) clamp(16px,3vw,32px)" }}>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36 }}>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: "var(--color-text-primary)", fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>
+              👋 Hi, {user?.name?.split(" ")[0] || "there"}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--color-text-tertiary)", marginTop: 4 }}>
+              Your referral dashboard — share your link and track every signup
+            </div>
+          </div>
+          <button onClick={logout} style={{ height: 36, padding: "0 16px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)", background: "transparent", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            Sign Out
+          </button>
+        </div>
+
+        {/* Error */}
+        {error && (
+          <div style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171", fontSize: 13, marginBottom: 24 }}>
+            ⚠ {error}
+          </div>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--color-text-tertiary)", fontSize: 13, padding: "40px 0" }}>
+            <span style={{ width: 18, height: 18, border: "2px solid rgba(255,255,255,0.1)", borderTopColor: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+            Loading your stats…
+          </div>
+        )}
+
+        {!loading && stats && (
+          <>
+            {/* Referral link card */}
+            <div style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.1))", border: "1px solid rgba(59,130,246,0.25)", borderRadius: 18, padding: "24px 28px", marginBottom: 28 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
+                🔗 Your Unique Referral Link
+              </div>
+              <div style={{ fontSize: 13, color: "var(--color-text-tertiary)", marginBottom: 14, lineHeight: 1.6 }}>
+                Share this link. Every user who signs up through it is automatically counted under your name.
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 200, padding: "10px 14px", background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontFamily: "monospace", fontSize: 13, color: "#a5b4fc", letterSpacing: "0.02em", wordBreak: "break-all" }}>
+                  {stats.referral_link}
+                </div>
+                <button onClick={copyLink}
+                  style={{ height: 42, padding: "0 20px", borderRadius: 10, border: "none", background: copied ? "rgba(34,211,168,0.2)" : "linear-gradient(135deg,#3b82f6,#8b5cf6)", color: copied ? "#22d3a8" : "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s", border: copied ? "1px solid rgba(34,211,168,0.4)" : "none" }}>
+                  {copied ? "✓ Copied!" : "Copy Link"}
+                </button>
+              </div>
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Your code:</span>
+                <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#a5b4fc", background: "rgba(99,102,241,0.15)", padding: "2px 10px", borderRadius: 6 }}>
+                  {stats.referral_code}
+                </span>
+              </div>
+            </div>
+
+            {/* Stats cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 28 }}>
+              {CARDS.map(card => (
+                <div key={card.label} style={{ background: card.bg, border: `1px solid ${card.border}`, borderRadius: 14, padding: "20px 20px 18px" }}>
+                  <div style={{ fontSize: 22, marginBottom: 8 }}>{card.icon}</div>
+                  <div style={{ fontSize: 30, fontWeight: 800, color: card.color, fontFamily: "var(--font-display)", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                    {card.value}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 6, fontWeight: 500 }}>
+                    {card.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Conversion rate bar */}
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", borderRadius: 14, padding: "20px 24px" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>
+                  Trial → Paid Conversion
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: convRate >= 50 ? "#22d3a8" : convRate >= 25 ? "#f59e0b" : "#f87171", fontFamily: "var(--font-display)" }}>
+                  {convRate}%
+                </div>
+              </div>
+              <div style={{ height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${convRate}%`, borderRadius: 999, background: convRate >= 50 ? "linear-gradient(90deg,#22d3a8,#0ea5e9)" : convRate >= 25 ? "linear-gradient(90deg,#f59e0b,#ef4444)" : "#f87171", transition: "width 0.8s ease" }} />
+              </div>
+              <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 10 }}>
+                {stats.paid} paid out of {stats.total} total referrals
+                {stats.total === 0 && " — share your link to get started!"}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// -- Invite landing page — /invite/:slug --------------------------------------
+function InvitePage() {
+  const slug = window.location.pathname.replace(/^\/invite\/?/, "").trim();
+  const API  = BASE_URL;
+
+  const [status, setStatus] = React.useState("loading"); // loading | found | notfound
+  const [name,   setName]   = React.useState("");
+
+  React.useEffect(() => {
+    if (!slug) { setStatus("notfound"); return; }
+    fetch(`${API}/referral/resolve-slug/${encodeURIComponent(slug)}`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then(d => {
+        if (d.valid) {
+          setName(d.name);
+          setStatus("found");
+          // Redirect to register with the referral code after a short delay
+          setTimeout(() => {
+            window.location.href = `/?ref=${encodeURIComponent(d.referral_code)}`;
+          }, 1800);
+        } else {
+          setStatus("notfound");
+        }
+      })
+      .catch(() => setStatus("notfound"));
+  }, [slug]);
+
+  const containerStyle = {
+    minHeight: "100vh", display: "flex", flexDirection: "column",
+    alignItems: "center", justifyContent: "center",
+    background: "linear-gradient(135deg, #020812 0%, #040f1e 100%)",
+    fontFamily: "'Share Tech Mono', monospace",
+  };
+
+  if (status === "loading") return (
+    <div style={containerStyle}>
+      <div style={{ fontSize: 13, color: "rgba(0,229,255,0.5)", letterSpacing: "0.2em" }}>RESOLVING INVITE…</div>
+    </div>
+  );
+
+  if (status === "notfound") return (
+    <div style={containerStyle}>
+      <div style={{ fontSize: 22, color: "#ff2d55", marginBottom: 12 }}>✕</div>
+      <div style={{ fontSize: 13, color: "rgba(255,45,85,0.8)", letterSpacing: "0.15em" }}>INVITE LINK NOT FOUND</div>
+      <a href="/" style={{ marginTop: 20, fontSize: 11, color: "rgba(0,229,255,0.5)", textDecoration: "none", letterSpacing: "0.1em" }}>← GO HOME</a>
+    </div>
+  );
+
+  return (
+    <div style={containerStyle}>
+      <div style={{ textAlign: "center", padding: 40, border: "1px solid rgba(0,229,255,0.2)", borderRadius: 8, background: "rgba(0,229,255,0.03)", maxWidth: 360 }}>
+        <div style={{ fontSize: 28, marginBottom: 10 }}>◈</div>
+        <div style={{ fontSize: 11, color: "rgba(0,229,255,0.4)", letterSpacing: "0.2em", marginBottom: 16 }}>YOU WERE INVITED BY</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#00e5ff", letterSpacing: "0.05em", marginBottom: 20, fontFamily: "'Orbitron', monospace" }}>{name}</div>
+        <div style={{ fontSize: 11, color: "rgba(0,229,255,0.5)", letterSpacing: "0.12em" }}>Redirecting to registration…</div>
+        <div style={{ marginTop: 16, height: 2, background: "rgba(0,229,255,0.1)", borderRadius: 1, overflow: "hidden" }}>
+          <div style={{ height: "100%", background: "#00e5ff", animation: "invite-progress 1.8s linear forwards" }} />
+        </div>
+        <style>{`@keyframes invite-progress { from { width: 0% } to { width: 100% } }`}</style>
+        <a href={`/?ref=${slug}`} style={{ display: "block", marginTop: 14, fontSize: 10, color: "rgba(0,229,255,0.3)", textDecoration: "none" }}>Click here if not redirected</a>
+      </div>
+    </div>
+  );
+}
+
+function AppRouter() {
+  const { isAuthenticated, loading, user } = useAuth();
+
+  // Handle /invite/:slug before auth check — public route
+  if (window.location.pathname.startsWith("/invite/")) {
+    return <InvitePage />;
+  }
+
+  if (loading) return <AppLoader />;
+  if (!isAuthenticated) return <AuthPage />;
+
+  // Super-admin → show admin dashboard, bypass all other pages
+  if (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+    return <AdminDashboard />;
+  }
+
+  // Freelancer → show their personal referral dashboard
+  if (user?.subscription_status === "freelancer") {
+    return <FreelancerDashboard />;
+  }
+
+  return <AuthenticatedApp />;
+}
+
+// -- Root App — wraps everything in AuthProvider -------------------------------
+export default function App() {
+  return (
+    <>
+      <style>{GLOBAL_STYLES}</style>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
+    </>
+  );
+}
