@@ -741,8 +741,8 @@ function StepVisual({ stepId, color }) {
   return null;
 }
 
-// -- Main Tour Overlay — MANDATORY, no skip ------------------------------------
-function TourOverlay({ onComplete }) {
+// -- Main Tour Overlay — with optional skip -----------------------------------
+function TourOverlay({ onComplete, onSkip }) {
   const [step, setStep]             = useState(0);
   const [xp, setXp]                 = useState(0);
   const [exiting, setExiting]       = useState(false);
@@ -750,6 +750,17 @@ function TourOverlay({ onComplete }) {
   const [shownChars, setShownChars] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [btnHover, setBtnHover]     = useState(false);
+  const [showSkipNotice, setShowSkipNotice] = useState(false);
+
+  const skipIntro = () => {
+    localStorage.setItem("aw_tour_done", "1");
+    setShowSkipNotice(true);
+  };
+
+  const dismissSkipNotice = () => {
+    setExiting(true);
+    setTimeout(() => onSkip(), 450);
+  };
 
   const current = TOUR_STEPS[step];
   const isFirst = step === 0;
@@ -806,6 +817,87 @@ function TourOverlay({ onComplete }) {
     }}>
       {showConfetti && <ConfettiBurst />}
 
+      {/* ── Skip Intro Notice Modal ── */}
+      {showSkipNotice && (
+        <div style={{
+          position: "absolute", inset: 0, zIndex: 10001,
+          background: "rgba(4,5,12,0.92)", backdropFilter: "blur(12px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
+        }}>
+          <div style={{
+            width: "100%", maxWidth: 500,
+            background: "linear-gradient(160deg,#111526 0%,#0c0f1e 60%,#080a16 100%)",
+            border: "1px solid rgba(79,142,247,0.35)", borderRadius: 24,
+            padding: "36px 32px", boxShadow: "0 40px 100px rgba(0,0,0,0.8), 0 0 60px rgba(79,142,247,0.08)",
+            textAlign: "center", animation: "fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both",
+          }}>
+            {/* Icon */}
+            <div style={{
+              width: 72, height: 72, borderRadius: 20, margin: "0 auto 20px",
+              background: "rgba(79,142,247,0.12)", border: "1.5px solid rgba(79,142,247,0.35)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 32, boxShadow: "0 0 32px rgba(79,142,247,0.2)",
+            }}>📚</div>
+
+            {/* Heading */}
+            <div style={{
+              fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 10,
+              fontFamily: "var(--font-display)",
+              background: "linear-gradient(135deg, #f0f2ff 0%, #a5b4fc 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+            }}>Intro skipped — you're all set!</div>
+
+            {/* Body */}
+            <div style={{
+              fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.75, marginBottom: 24,
+            }}>
+              No worries — everything you need is in the{" "}
+              <span style={{ color: "#a5b4fc", fontWeight: 700 }}>Knowledge Panel</span>.{" "}
+              You can find it in the sidebar anytime. It contains all the info about how the software works, and you can also{" "}
+              <span style={{ color: "#a5b4fc", fontWeight: 600 }}>add notes for your team</span>{" "}
+              so everyone stays on the same page.
+            </div>
+
+            {/* Feature bullets */}
+            <div style={{
+              background: "rgba(79,142,247,0.06)", border: "1px solid rgba(79,142,247,0.18)",
+              borderRadius: 14, padding: "16px 20px", marginBottom: 28, textAlign: "left",
+            }}>
+              {[
+                ["📖", "Full software documentation & feature guides"],
+                ["📝", "Add & manage notes for your team"],
+                ["🔍", "Searchable — find any info instantly"],
+              ].map(([icon, text]) => (
+                <div key={text} style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  fontSize: 13, color: "var(--color-text-secondary)", padding: "6px 0",
+                }}>
+                  <span style={{ fontSize: 16, flexShrink: 0 }}>{icon}</span>
+                  <span>{text}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* CTA */}
+            <button
+              onClick={dismissSkipNotice}
+              style={{
+                width: "100%", height: 50, borderRadius: 13, border: "none",
+                background: "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)",
+                color: "#fff", fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 700,
+                cursor: "pointer", letterSpacing: "-0.01em",
+                boxShadow: "0 0 28px rgba(79,142,247,0.4), 0 8px 20px rgba(0,0,0,0.3)",
+                transition: "opacity 0.15s",
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
+              onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+            >
+              Go to Dashboard →
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Dynamic ambient glow — large, shifts color with step */}
       <div style={{
         position: "absolute", width: 900, height: 900, borderRadius: "50%",
@@ -820,14 +912,34 @@ function TourOverlay({ onComplete }) {
         top: "20%", left: "65%", pointerEvents: "none", transition: "background 0.6s ease",
       }} />
 
-      {/* -- Keyboard hint (top right) -- */}
+      {/* -- Keyboard hint + Skip Intro (top right) -- */}
       <div style={{
         position: "absolute", top: 20, right: 24,
-        fontSize: 11, color: "var(--color-text-muted)",
-        display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-mono)",
+        display: "flex", alignItems: "center", gap: 14,
       }}>
-        <kbd style={{ padding:"2px 7px",borderRadius:5,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",fontSize:10 }}>Space</kbd>
-        <span>to advance</span>
+        <div style={{
+          fontSize: 11, color: "var(--color-text-muted)",
+          display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-mono)",
+        }}>
+          <kbd style={{ padding:"2px 7px",borderRadius:5,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",fontSize:10 }}>Space</kbd>
+          <span>to advance</span>
+        </div>
+        <button
+          onClick={skipIntro}
+          style={{
+            height: 30, padding: "0 14px", borderRadius: 8,
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: "rgba(255,255,255,0.04)",
+            color: "var(--color-text-muted)",
+            fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 500,
+            cursor: "pointer", transition: "all 0.14s",
+            display: "flex", alignItems: "center", gap: 5,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.09)"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "var(--color-text-muted)"; }}
+        >
+          <span style={{ fontSize: 13 }}>⏭</span> Skip Intro
+        </button>
       </div>
 
       {/* -- Step counter (top left) -- */}
@@ -2461,21 +2573,26 @@ function CompliancePage() {
 // -- Knowledge Page ------------------------------------------------------------
 function KnowledgePage() {
   const { token, user, isArchitect, isNavigator } = useAuth();
-  const API = BASE_URL;
-  const hdrs = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
-  const [notes, setNotes]         = useState([]);
-  const [search, setSearch]       = useState("");
-  const [category, setCategory]   = useState("all");
-  const [showForm, setShowForm]   = useState(false);
-  const [editNote, setEditNote]   = useState(null);
-  const [viewNote, setViewNote]   = useState(null);
-  const [submitting, setSub]      = useState(false);
-  const [successMsg, setSuccess]  = useState(null);
-  const [form, setForm]           = useState({ title: "", body: "", category: "general", pinned: false });
+  const [activeTab, setActiveTab]   = useState("guide");   // "guide" | "notes"
+  const [notes, setNotes]           = useState([]);
+  const [search, setSearch]         = useState("");
+  const [category, setCategory]     = useState("all");
+  const [showForm, setShowForm]     = useState(false);
+  const [editNote, setEditNote]     = useState(null);
+  const [viewNote, setViewNote]     = useState(null);
+  const [submitting, setSub]        = useState(false);
+  const [successMsg, setSuccess]    = useState(null);
+  const [expandedSection, setExpandedSection] = useState(null);
+  const [form, setForm]             = useState({ title: "", body: "", category: "general", pinned: false });
 
-  // Knowledge base is stored locally in localStorage (no backend endpoint needed)
   const STORAGE_KEY = `kb_notes_${user?.workspace?.id || "default"}`;
+
+  const SAMPLE_NOTES = [
+    { id: 1, title: "How to create tasks via Slack", body: "Mention the bot with: @bot create task @assignee task title by YYYY-MM-DD\n\nPriority keywords: URGENT, HIGH PRIORITY, LOW PRIORITY\n\nThe bot will auto-assign based on @mention.", category: "guide", pinned: true, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 2, title: "Role permissions overview", body: "Architect — Full access: create, edit, delete tasks, manage workspace, view all reports.\n\nNavigator — Team lead: create and edit tasks for their team, view team reports.\n\nOperator — Team member: view and update status of assigned tasks only.", category: "policy", pinned: true, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    { id: 3, title: "API integration guide", body: "Use the API page to generate an API key.\n\nEndpoints:\nPOST /api/v1/tasks — create a task\nGET /api/v1/tasks — list tasks\nPUT /api/v1/tasks/{id} — update a task\n\nPass your key in: X-API-Key: your_key_here", category: "technical", pinned: false, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+  ];
 
   const loadNotes = useCallback(() => {
     try {
@@ -2490,12 +2607,6 @@ function KnowledgePage() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     setNotes(updated);
   };
-
-  const SAMPLE_NOTES = [
-    { id: 1, title: "How to create tasks via Slack", body: "Mention the bot with: @bot create task @assignee task title by YYYY-MM-DD\n\nPriority keywords: URGENT, HIGH PRIORITY, LOW PRIORITY\n\nThe bot will auto-assign based on @mention.", category: "guide", pinned: true, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-    { id: 2, title: "Role permissions overview", body: "Architect — Full access: create, edit, delete tasks, manage workspace, view all reports.\n\nNavigator — Team lead: create and edit tasks for their team, view team reports.\n\nOperator — Team member: view and update status of assigned tasks only.", category: "policy", pinned: true, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-    { id: 3, title: "API integration guide", body: "Use the API page to generate an API key.\n\nEndpoints:\nPOST /api/v1/tasks — create a task\nGET /api/v1/tasks — list tasks\nPUT /api/v1/tasks/{id} — update a task\n\nPass your key in: X-API-Key: your_key_here", category: "technical", pinned: false, author: "System", created_at: new Date().toISOString(), updated_at: new Date().toISOString() },
-  ];
 
   const CATEGORIES = [
     { value: "all",       label: "All Notes" },
@@ -2592,91 +2703,244 @@ function KnowledgePage() {
   const inputStyle = { width: "100%", padding: "9px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13, color: "var(--color-text-primary)", outline: "none", boxSizing: "border-box" };
   const labelStyle = { fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 5, display: "block" };
 
+  // ── Software Guide sections ────────────────────────────────────────────────
+  const GUIDE_SECTIONS = [
+    {
+      id: "overview",
+      icon: "🧠",
+      title: "What is AI Workflow Coordinator?",
+      color: "#4f8ef7",
+      body: `AI Workflow Coordinator is a smart task management platform built for teams. It combines role-based dashboards, AI-powered task extraction, Slack integration, and a compliance engine — all in one place.\n\nWhether you're a solo operator or managing a full workspace with multiple teams, the platform adapts to your role so you always see exactly what's relevant to you.`,
+    },
+    {
+      id: "roles",
+      icon: "👥",
+      title: "Roles & Permissions",
+      color: "#a78bfa",
+      body: `🏛️ Architect (Owner/Manager)\nFull access to all tasks, all team members, workspace settings, billing, and reports. Can create, edit, and delete anything. Manages invite codes and API keys.\n\n🧭 Navigator (Team Lead)\nSees all tasks assigned to their team. Can create and edit tasks. Has access to team reports and compliance.\n\n⚙️ Operator (Team Member)\nSees only tasks assigned to them. Can update task status and add comments.\n\n🚀 Solo\nPrivate task board with no team visibility. Perfect for freelancers or personal use.`,
+    },
+    {
+      id: "tasks",
+      icon: "✅",
+      title: "Managing Tasks",
+      color: "#22d3a8",
+      body: `Creating Tasks\n• Click "+ Add Task" on the Dashboard or Tasks page\n• Fill in title, assignee, priority, deadline, and category\n• AI can auto-extract tasks from plain text descriptions\n\nTask Statuses\n• To Do → In Progress → In Review → Completed\n• Cancelled is available for dropped tasks\n\nKanban Board\nDrag and drop tasks between columns on the Tasks page to update their status visually.\n\nPriorities\n• Critical — urgent blockers\n• High — important, should be done soon\n• Medium — normal priority\n• Low — do when time allows`,
+    },
+    {
+      id: "slack",
+      icon: "💬",
+      title: "Slack Integration",
+      color: "#f59e0b",
+      body: `Connect your workspace to Slack to manage tasks without leaving your chat.\n\nSetup\n1. Go to Settings → Integrations\n2. Click "Add to Slack" and authorize the bot\n3. Invite the bot to your channel: /invite @AIWorkflow\n\nSlack Commands\n• @bot create task @john Fix the login bug by 2025-06-01\n• @bot list tasks — shows open tasks\n• @bot status [task id] done — marks a task complete\n\nThe bot understands priority keywords automatically:\n• URGENT or CRITICAL → critical priority\n• HIGH PRIORITY → high\n• LOW PRIORITY → low`,
+    },
+    {
+      id: "compliance",
+      icon: "🛡️",
+      title: "Compliance & Reporting",
+      color: "#f87171",
+      body: `The Compliance page flags tasks that need attention:\n\n• Overdue — past their deadline and not completed\n• Unassigned — no owner set\n• Stale — not updated in 7+ days\n• High priority & not started — critical/high tasks still in To Do\n\nReports\nThe Reports page shows completed tasks, team performance, and output over time. Architects see workspace-wide data; Navigators see their team's data.\n\nUse compliance weekly to keep your team on track and catch bottlenecks early.`,
+    },
+    {
+      id: "api",
+      icon: "🔌",
+      title: "API & Integrations",
+      color: "#22d3a8",
+      body: `Generate an API Key\n1. Go to the API page in the sidebar\n2. Click "Generate API Key"\n3. Copy and store it securely — it won't be shown again\n\nKey Endpoints\nGET  /api/v1/tasks          — list tasks\nPOST /api/v1/tasks          — create a task\nPUT  /api/v1/tasks/{id}     — update a task\nDELETE /api/v1/tasks/{id}   — delete a task\n\nAuthentication\nSend your key in every request header:\nX-API-Key: your_key_here\n\nPagination\nUse ?skip=0&limit=50 to paginate large task lists.`,
+    },
+    {
+      id: "tips",
+      icon: "💡",
+      title: "Tips & Best Practices",
+      color: "#4f8ef7",
+      body: `🔔 Stay on top of work\n• Check the Compliance page weekly to catch overdue or unassigned tasks\n• Pin critical notes in the Knowledge Base so your team sees them first\n\n📋 Keep tasks clean\n• Always set a deadline and assignee when creating tasks\n• Use categories to group related work\n• Archive completed sprints using bulk status updates\n\n🤝 Team collaboration\n• Navigators: use the Team Notes tab to document processes your team follows\n• Architects: share the workspace invite code via Settings so new members can join\n• Use Slack integration to reduce context-switching`,
+    },
+  ];
+
   return (
     <>
       {/* Topbar */}
       <header className="page-header">
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Knowledge Base</div>
-          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{notes.length} notes · team wiki & guides</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>Knowledge Panel</div>
+          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Software guides · team notes · documentation</div>
         </div>
 
-        {/* Search */}
-        <div style={{ flex: 1, maxWidth: 320, position: "relative" }}>
-          <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", width: 13, height: 13, color: "var(--color-text-tertiary)", pointerEvents: "none" }} viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.3"/><path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search notes…" style={{ ...inputStyle, paddingLeft: 30, borderRadius: 999, padding: "0 14px 0 30px", height: 36 }} />
-        </div>
-
-        {/* Category filter */}
-        <select value={category} onChange={e => setCategory(e.target.value)} style={{ height: 34, padding: "0 10px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--color-text-primary)", cursor: "pointer", outline: "none" }}>
-          {CATEGORIES.map(c => (
-            <option key={c.value} value={c.value} style={{ background: "#1e2140", color: "#f0f2ff" }}>
-              {c.label} {c.value !== "all" && catCounts[c.value] ? `(${catCounts[c.value]})` : ""}
-            </option>
+        {/* Tab toggle */}
+        <div style={{ display: "flex", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: 3, gap: 3 }}>
+          {[
+            { id: "guide", label: "📖 Software Guide" },
+            { id: "notes", label: "📝 Team Notes" },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                height: 32, padding: "0 16px", borderRadius: 8, border: "none",
+                fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600,
+                cursor: "pointer", transition: "all 0.18s",
+                background: activeTab === tab.id ? "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)" : "transparent",
+                color: activeTab === tab.id ? "#fff" : "var(--color-text-muted)",
+                boxShadow: activeTab === tab.id ? "0 0 16px rgba(79,142,247,0.3)" : "none",
+              }}
+            >{tab.label}</button>
           ))}
-        </select>
+        </div>
 
-        <button onClick={openCreate} style={{ height: 36, padding: "0 18px", borderRadius: 999, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 0 24px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.12)", marginLeft: "auto" }}>
-          + New Note
-        </button>
+        {/* Notes tab extras */}
+        {activeTab === "notes" && (
+          <>
+            <div style={{ flex: 1, maxWidth: 280, position: "relative" }}>
+              <svg style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", width: 13, height: 13, color: "var(--color-text-tertiary)", pointerEvents: "none" }} viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.3"/><path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search notes…" style={{ ...inputStyle, paddingLeft: 30, borderRadius: 999, padding: "0 14px 0 30px", height: 36 }} />
+            </div>
+            <select value={category} onChange={e => setCategory(e.target.value)} style={{ height: 34, padding: "0 10px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--color-text-primary)", cursor: "pointer", outline: "none" }}>
+              {CATEGORIES.map(c => (
+                <option key={c.value} value={c.value} style={{ background: "#1e2140", color: "#f0f2ff" }}>
+                  {c.label} {c.value !== "all" && catCounts[c.value] ? `(${catCounts[c.value]})` : ""}
+                </option>
+              ))}
+            </select>
+            <button onClick={openCreate} style={{ height: 36, padding: "0 18px", borderRadius: 999, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 0 24px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.12)", marginLeft: "auto" }}>
+              + New Note
+            </button>
+          </>
+        )}
       </header>
 
       <main style={{ flex: 1, padding: "clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", gap: 20 }}>
 
-        {/* Left — note grid */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
-          {successMsg && (
-            <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.3)", color: "#22d3a8", fontSize: 13, fontWeight: 600 }}>✓ {successMsg}</div>
-          )}
+        {/* ── SOFTWARE GUIDE TAB ── */}
+        {activeTab === "guide" && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
 
-          {filtered.length === 0 ? (
-            <div style={{ textAlign: "center", padding: "60px 0", color: "var(--color-text-tertiary)" }}>
-              <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>◉</div>
-              <div style={{ fontSize: 14, marginBottom: 6 }}>No notes found</div>
-              <div style={{ fontSize: 12 }}>Try a different search or create a new note</div>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14, alignContent: "start" }}>
-              {filtered.map(note => (
-                <div key={note.id}
-                  onClick={() => setViewNote(note)}
-                  className="pcard"
-                  style={{ padding: "18px 20px", cursor: "pointer", position: "relative", overflow: "hidden",
-                    border: `1px solid ${viewNote?.id === note.id ? "rgba(59,130,246,0.5)" : "var(--border-glass)"}`,
-                    background: viewNote?.id === note.id ? "rgba(59,130,246,0.06)" : "rgba(255,255,255,0.032)",
-                  }}>
-
-                  {/* Category top stripe */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2.5, background: CAT_COLOR[note.category] || "#3b82f6" }} />
-                  {/* Ambient glow */}
-                  <div className="glow-orb" style={{ top: -20, right: -20, width: 80, height: 80, background: CAT_COLOR[note.category] || "#3b82f6", opacity: 0.05 }} />
-
-                  {/* Header */}
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.35, flex: 1 }}>{note.title}</div>
-                    {note.pinned && <span title="Pinned" style={{ fontSize: 13, flexShrink: 0 }}>📌</span>}
-                  </div>
-
-                  {/* Preview */}
-                  <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 14, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
-                    {note.body}
-                  </div>
-
-                  {/* Footer */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span className="badge" style={{ background: `${CAT_COLOR[note.category] || "#3b82f6"}18`, color: CAT_COLOR[note.category] || "#3b82f6", borderColor: `${CAT_COLOR[note.category] || "#3b82f6"}33`, textTransform: "capitalize" }}>{note.category}</span>
-                    <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{formatDate(note.updated_at)}</span>
-                  </div>
+            {/* Intro banner */}
+            <div style={{
+              padding: "20px 24px", borderRadius: 16,
+              background: "linear-gradient(135deg, rgba(79,142,247,0.1) 0%, rgba(123,92,240,0.08) 100%)",
+              border: "1px solid rgba(79,142,247,0.25)",
+              display: "flex", alignItems: "center", gap: 18,
+            }}>
+              <div style={{ fontSize: 36, flexShrink: 0 }}>📚</div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", marginBottom: 4, fontFamily: "var(--font-display)" }}>
+                  Everything you need to know about AI Workflow Coordinator
                 </div>
-              ))}
+                <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+                  Click any section below to expand it. Use the <strong style={{ color: "#a5b4fc" }}>Team Notes</strong> tab to add your own notes for your team.
+                </div>
+              </div>
             </div>
-          )}
-        </div>
 
-        {/* Right — note viewer */}
-        {viewNote && (
+            {/* Accordion sections */}
+            {GUIDE_SECTIONS.map((section) => {
+              const isOpen = expandedSection === section.id;
+              return (
+                <div
+                  key={section.id}
+                  style={{
+                    borderRadius: 14,
+                    border: `1px solid ${isOpen ? section.color + "40" : "rgba(255,255,255,0.07)"}`,
+                    background: isOpen ? `${section.color}08` : "rgba(255,255,255,0.025)",
+                    overflow: "hidden",
+                    transition: "border-color 0.2s, background 0.2s",
+                  }}
+                >
+                  {/* Section header — always visible */}
+                  <button
+                    onClick={() => setExpandedSection(isOpen ? null : section.id)}
+                    style={{
+                      width: "100%", padding: "16px 20px",
+                      display: "flex", alignItems: "center", gap: 14,
+                      background: "transparent", border: "none", cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div style={{
+                      width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                      background: `${section.color}15`, border: `1px solid ${section.color}30`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 20,
+                    }}>{section.icon}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.01em" }}>{section.title}</div>
+                    </div>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: "50%",
+                      border: "1px solid rgba(255,255,255,0.12)",
+                      background: "rgba(255,255,255,0.04)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, color: "var(--color-text-muted)",
+                      transition: "transform 0.2s",
+                      transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                      flexShrink: 0,
+                    }}>▼</div>
+                  </button>
+
+                  {/* Expanded body */}
+                  {isOpen && (
+                    <div style={{
+                      padding: "0 20px 20px 76px",
+                      fontSize: 13, color: "var(--color-text-secondary)",
+                      lineHeight: 1.85, whiteSpace: "pre-wrap",
+                      borderTop: `1px solid ${section.color}18`,
+                      paddingTop: 16,
+                      animation: "fadeUp 0.25s ease both",
+                    }}>
+                      {section.body}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── TEAM NOTES TAB ── */}
+        {activeTab === "notes" && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
+            {successMsg && (
+              <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.3)", color: "#22d3a8", fontSize: 13, fontWeight: 600 }}>✓ {successMsg}</div>
+            )}
+
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 0", color: "var(--color-text-tertiary)" }}>
+                <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.3 }}>◉</div>
+                <div style={{ fontSize: 14, marginBottom: 6 }}>No notes found</div>
+                <div style={{ fontSize: 12 }}>Try a different search or create a new note</div>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14, alignContent: "start" }}>
+                {filtered.map(note => (
+                  <div key={note.id}
+                    onClick={() => setViewNote(note)}
+                    className="pcard"
+                    style={{ padding: "18px 20px", cursor: "pointer", position: "relative", overflow: "hidden",
+                      border: `1px solid ${viewNote?.id === note.id ? "rgba(59,130,246,0.5)" : "var(--border-glass)"}`,
+                      background: viewNote?.id === note.id ? "rgba(59,130,246,0.06)" : "rgba(255,255,255,0.032)",
+                    }}>
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2.5, background: CAT_COLOR[note.category] || "#3b82f6" }} />
+                    <div className="glow-orb" style={{ top: -20, right: -20, width: 80, height: 80, background: CAT_COLOR[note.category] || "#3b82f6", opacity: 0.05 }} />
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.35, flex: 1 }}>{note.title}</div>
+                      {note.pinned && <span title="Pinned" style={{ fontSize: 13, flexShrink: 0 }}>📌</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 14, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" }}>
+                      {note.body}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span className="badge" style={{ background: `${CAT_COLOR[note.category] || "#3b82f6"}18`, color: CAT_COLOR[note.category] || "#3b82f6", borderColor: `${CAT_COLOR[note.category] || "#3b82f6"}33`, textTransform: "capitalize" }}>{note.category}</span>
+                      <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{formatDate(note.updated_at)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Right — note viewer (notes tab only) */}
+        {activeTab === "notes" && viewNote && (
           <div style={{ width: "clamp(280px, 30vw, 380px)", flexShrink: 0, background: "linear-gradient(160deg, rgba(20,22,46,0.95) 0%, rgba(14,17,36,0.98) 100%)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "var(--radius-xl)", padding: "24px 24px 20px", height: "fit-content", position: "sticky", top: 80, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
-            {/* Category top stripe */}
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: CAT_COLOR[viewNote.category] || "#3b82f6", borderRadius: "16px 16px 0 0" }} />
             <div className="glow-orb" style={{ top: -30, right: -30, width: 120, height: 120, background: CAT_COLOR[viewNote.category] || "#3b82f6", opacity: 0.06 }} />
 
@@ -2708,13 +2972,13 @@ function KnowledgePage() {
         )}
       </main>
 
-      {/* Create / Edit Modal */}
+      {/* Create / Edit Note Modal */}
       {showForm && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowForm(false); }}>
           <div className="modal-box" style={{ width: "min(540px, 100%)", padding: "30px 30px 26px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
               <div>
-                <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>{editNote ? "Edit Note" : "New Note"}</div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)" }}>{editNote ? "Edit Note" : "New Team Note"}</div>
                 <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Knowledge base entry</div>
               </div>
               <button onClick={() => setShowForm(false)} style={{ width: 32, height: 32, borderRadius: "50%", border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.04)", color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
@@ -2761,6 +3025,7 @@ function KnowledgePage() {
     </>
   );
 }
+
 
 
 // -- Settings Page -------------------------------------------------------------
@@ -5073,7 +5338,7 @@ function AuthenticatedApp() {
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)", position: "relative" }} onKeyDown={handleKeyDown}>
-      {showTour && <TourOverlay onComplete={() => setShowTour(false)} />}
+      {showTour && <TourOverlay onComplete={() => setShowTour(false)} onSkip={() => { setShowTour(false); setActiveNav(3); }} />}
 
       {/* Trial countdown banner */}
       {billing?.status === "trialing" && billing?.days_left !== undefined && (
