@@ -1951,6 +1951,14 @@ function UsersTable({ showToast, onUserClick }) {
     showToast?.(!cur ? `${name || "User"} activated` : `${name || "User"} deactivated`, !cur ? "success" : "warning");
   };
 
+  const handleDeleteUser = async (id, name) => {
+    if (!window.confirm(`Delete user "${name || "this user"}"? This action cannot be undone.`)) return;
+    const token = localStorage.getItem("access_token");
+    await fetch(`${API}/admin/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    refetch();
+    showToast?.(`${name || "User"} deleted`, "error");
+  };
+
   const handleBulkActivate = async (activate) => {
     if (selected.size === 0) return;
     setBulkLoading(true);
@@ -2261,31 +2269,51 @@ function UsersTable({ showToast, onUserClick }) {
                         ♛ PROTECTED
                       </div>
                     ) : (
-                      <button onClick={() => handleToggleActive(u.id, u.is_active, u.name)}
-                        style={{
-                          display: "inline-flex", alignItems: "center", gap: 6,
-                          fontSize: 7, fontWeight: 700, padding: "5px 12px",
-                          border: "none", cursor: "pointer",
-                          fontFamily: "'Share Tech Mono', monospace",
-                          letterSpacing: "0.12em",
-                          background: u.is_active
-                            ? "linear-gradient(135deg, rgba(0,255,157,0.1) 0%, rgba(0,255,157,0.04) 100%)"
-                            : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
-                          color: u.is_active ? "#00ff9d" : "#ff2d55",
-                          border: `1px solid ${u.is_active ? "rgba(0,255,157,0.4)" : "rgba(255,45,85,0.4)"}`,
-                          borderRadius: 3,
-                          clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
-                          boxShadow: u.is_active
-                            ? "0 0 14px rgba(0,255,157,0.15), inset 0 1px 0 rgba(255,255,255,0.07)"
-                            : "0 0 14px rgba(255,45,85,0.15), inset 0 1px 0 rgba(255,255,255,0.07)",
-                          transition: "all 0.2s",
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
-                      >
-                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", boxShadow: "0 0 6px currentColor", animation: u.is_active ? "pulse-glow 1.5s infinite" : "none" }} />
-                        {u.is_active ? "ONLINE" : "OFFLINE"}
-                      </button>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <button onClick={() => handleToggleActive(u.id, u.is_active, u.name)}
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 6,
+                            fontSize: 7, fontWeight: 700, padding: "5px 12px",
+                            border: "none", cursor: "pointer",
+                            fontFamily: "'Share Tech Mono', monospace",
+                            letterSpacing: "0.12em",
+                            background: u.is_active
+                              ? "linear-gradient(135deg, rgba(0,255,157,0.1) 0%, rgba(0,255,157,0.04) 100%)"
+                              : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
+                            color: u.is_active ? "#00ff9d" : "#ff2d55",
+                            border: `1px solid ${u.is_active ? "rgba(0,255,157,0.4)" : "rgba(255,45,85,0.4)"}`,
+                            borderRadius: 3,
+                            clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                            boxShadow: u.is_active
+                              ? "0 0 14px rgba(0,255,157,0.15), inset 0 1px 0 rgba(255,255,255,0.07)"
+                              : "0 0 14px rgba(255,45,85,0.15), inset 0 1px 0 rgba(255,255,255,0.07)",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+                        >
+                          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", boxShadow: "0 0 6px currentColor", animation: u.is_active ? "pulse-glow 1.5s infinite" : "none" }} />
+                          {u.is_active ? "ONLINE" : "OFFLINE"}
+                        </button>
+                        <button onClick={() => handleDeleteUser(u.id, u.name)}
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 5,
+                            fontSize: 7, fontWeight: 700, padding: "5px 10px",
+                            cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
+                            background: "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
+                            color: "#ff2d55",
+                            border: "1px solid rgba(255,45,85,0.4)",
+                            borderRadius: 3,
+                            clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                            boxShadow: "0 0 14px rgba(255,45,85,0.15), inset 0 1px 0 rgba(255,255,255,0.07)",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.22) 0%, rgba(255,45,85,0.1) 100%)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"; }}
+                        >
+                          ✕ DEL
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -2335,6 +2363,14 @@ function WorkspacesTable({ showToast }) {
     await fetch(`${API}/admin/workspaces/${wsId}`, { method: "PATCH", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify({ is_active: !cur }) });
     refetch();
     showToast?.(!cur ? `${name} activated` : `${name} suspended`, !cur ? "success" : "warning");
+  };
+
+  const handleDelete = async (wsId, name) => {
+    if (!window.confirm(`Delete workspace "${name}"? This action cannot be undone.`)) return;
+    const token = localStorage.getItem("access_token");
+    await fetch(`${API}/admin/workspaces/${wsId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+    refetch();
+    showToast?.(`${name} deleted`, "error");
   };
 
   if (loading) return <HoloLoader />;
@@ -2487,29 +2523,49 @@ function WorkspacesTable({ showToast }) {
                         ♛ PROTECTED
                       </div>
                     ) : (
-                      <button onClick={() => handleToggle(ws.id, isActive, ws.name)}
-                        style={{
-                          display: "inline-flex", alignItems: "center", gap: 6,
-                          fontSize: 7, fontWeight: 700, padding: "5px 12px",
-                          cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
-                          background: isActive
-                            ? "linear-gradient(135deg, rgba(191,95,255,0.12) 0%, rgba(191,95,255,0.04) 100%)"
-                            : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
-                          color: isActive ? "#bf5fff" : "#ff2d55",
-                          border: `1px solid ${isActive ? "rgba(191,95,255,0.4)" : "rgba(255,45,85,0.4)"}`,
-                          borderRadius: 3,
-                          clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
-                          boxShadow: isActive
-                            ? "0 0 14px rgba(191,95,255,0.15)"
-                            : "0 0 14px rgba(255,45,85,0.15)",
-                          transition: "all 0.2s",
-                        }}
-                        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
-                        onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
-                      >
-                        <div style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", animation: isActive ? "pulse-glow 1.5s infinite" : "none" }} />
-                        {isActive ? "ACTIVE" : "HALTED"}
-                      </button>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <button onClick={() => handleToggle(ws.id, isActive, ws.name)}
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 6,
+                            fontSize: 7, fontWeight: 700, padding: "5px 12px",
+                            cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
+                            background: isActive
+                              ? "linear-gradient(135deg, rgba(191,95,255,0.12) 0%, rgba(191,95,255,0.04) 100%)"
+                              : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
+                            color: isActive ? "#bf5fff" : "#ff2d55",
+                            border: `1px solid ${isActive ? "rgba(191,95,255,0.4)" : "rgba(255,45,85,0.4)"}`,
+                            borderRadius: 3,
+                            clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                            boxShadow: isActive
+                              ? "0 0 14px rgba(191,95,255,0.15)"
+                              : "0 0 14px rgba(255,45,85,0.15)",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; }}
+                        >
+                          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "currentColor", animation: isActive ? "pulse-glow 1.5s infinite" : "none" }} />
+                          {isActive ? "ACTIVE" : "HALTED"}
+                        </button>
+                        <button onClick={() => handleDelete(ws.id, ws.name)}
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 5,
+                            fontSize: 7, fontWeight: 700, padding: "5px 10px",
+                            cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
+                            background: "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
+                            color: "#ff2d55",
+                            border: "1px solid rgba(255,45,85,0.4)",
+                            borderRadius: 3,
+                            clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
+                            boxShadow: "0 0 14px rgba(255,45,85,0.15)",
+                            transition: "all 0.2s",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.22) 0%, rgba(255,45,85,0.1) 100%)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"; }}
+                        >
+                          ✕ DEL
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
