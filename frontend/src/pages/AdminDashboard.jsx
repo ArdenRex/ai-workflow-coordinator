@@ -1956,9 +1956,22 @@ function UsersTable({ showToast, onUserClick }) {
     if (confirmDeleteId !== id) { setConfirmDeleteId(id); return; }
     setConfirmDeleteId(null);
     const token = localStorage.getItem("access_token");
+    const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
     try {
-      const res = await fetch(`${API}/admin/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Try bulk-action first (some backends don't implement DELETE on individual resources)
+      let res = await fetch(`${API}/admin/bulk-action`, {
+        method: "POST", headers,
+        body: JSON.stringify({ action: "delete", type: "user", ids: [id] }),
+      });
+      // Fall back to DELETE on the resource if bulk-action not found
+      if (res.status === 404 || res.status === 405) {
+        res = await fetch(`${API}/admin/users/${id}`, { method: "DELETE", headers });
+      }
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { const j = await res.json(); detail = j.detail || j.message || j.error || detail; } catch {}
+        throw new Error(detail);
+      }
       refetch();
       showToast?.(`${name || "User"} deleted`, "error");
     } catch (err) {
@@ -2379,9 +2392,21 @@ function WorkspacesTable({ showToast }) {
     if (confirmDeleteId !== wsId) { setConfirmDeleteId(wsId); return; }
     setConfirmDeleteId(null);
     const token = localStorage.getItem("access_token");
+    const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
     try {
-      const res = await fetch(`${API}/admin/workspaces/${wsId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Try bulk-action first
+      let res = await fetch(`${API}/admin/bulk-action`, {
+        method: "POST", headers,
+        body: JSON.stringify({ action: "delete", type: "workspace", ids: [wsId] }),
+      });
+      if (res.status === 404 || res.status === 405) {
+        res = await fetch(`${API}/admin/workspaces/${wsId}`, { method: "DELETE", headers });
+      }
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { const j = await res.json(); detail = j.detail || j.message || j.error || detail; } catch {}
+        throw new Error(detail);
+      }
       refetch();
       showToast?.(`${name} deleted`, "error");
     } catch (err) {
