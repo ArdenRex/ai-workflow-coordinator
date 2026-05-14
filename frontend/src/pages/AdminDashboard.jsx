@@ -1941,6 +1941,8 @@ function UsersTable({ showToast, onUserClick }) {
   const [selected, setSelected] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  // Track locally-deleted user IDs so rows disappear immediately from the UI
+  const [deletedIds, setDeletedIds] = useState(new Set());
   const { dark } = useTheme();
   const cyan = dark ? "0,229,255" : "0,120,200";
   const cyanHex = dark ? "#00e5ff" : "#0088cc";
@@ -1958,22 +1960,19 @@ function UsersTable({ showToast, onUserClick }) {
     const token = localStorage.getItem("access_token");
     const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
     try {
-      // Try bulk-action first (some backends don't implement DELETE on individual resources)
-      let res = await fetch(`${API}/admin/bulk-action`, {
-        method: "POST", headers,
-        body: JSON.stringify({ action: "delete", type: "user", ids: [id] }),
+      // Backend only supports PATCH — soft-delete by deactivating the user
+      const res = await fetch(`${API}/admin/users/${id}`, {
+        method: "PATCH", headers,
+        body: JSON.stringify({ is_active: false }),
       });
-      // Fall back to DELETE on the resource if bulk-action not found
-      if (res.status === 404 || res.status === 405) {
-        res = await fetch(`${API}/admin/users/${id}`, { method: "DELETE", headers });
-      }
       if (!res.ok) {
         let detail = `HTTP ${res.status}`;
         try { const j = await res.json(); detail = j.detail || j.message || j.error || detail; } catch {}
         throw new Error(detail);
       }
-      refetch();
-      showToast?.(`${name || "User"} deleted`, "error");
+      // Remove the row from the UI immediately without waiting for a refetch
+      setDeletedIds(prev => new Set([...prev, id]));
+      showToast?.(`${name || "User"} removed`, "error");
     } catch (err) {
       showToast?.(`Delete failed: ${err.message}`, "error");
     }
@@ -2023,6 +2022,7 @@ function UsersTable({ showToast, onUserClick }) {
   if (loading) return <HoloLoader />;
 
   let rows = data?.users?.filter(u => {
+    if (deletedIds.has(u.id)) return false;
     if (filter === "active" && !u.is_active) return false;
     if (filter === "inactive" && u.is_active) return false;
     if (filter === "paid" && u.subscription_status !== "paid") return false;
@@ -2031,10 +2031,11 @@ function UsersTable({ showToast, onUserClick }) {
     return true;
   }) || [];
 
-  // Stats strip
-  const total = data?.users?.length || 0;
-  const paid = data?.users?.filter(u => u.subscription_status === "paid").length || 0;
-  const active = data?.users?.filter(u => u.is_active).length || 0;
+  // Stats strip — exclude locally-deleted rows
+  const liveUsers = data?.users?.filter(u => !deletedIds.has(u.id)) || [];
+  const total = liveUsers.length;
+  const paid = liveUsers.filter(u => u.subscription_status === "paid").length;
+  const active = liveUsers.filter(u => u.is_active).length;
 
   const COLS = ["☑", "#", "Identity", "Contact", "Tier", "Role", "Joined", "Control"];
 
@@ -2046,7 +2047,7 @@ function UsersTable({ showToast, onUserClick }) {
           { label: "Total", value: total, color: "#00e5ff", rgb: "0,229,255" },
           { label: "Online", value: active, color: "#00ff9d", rgb: "0,255,157" },
           { label: "Paid", value: paid, color: "#ffd060", rgb: "255,208,96" },
-          { label: "Trialing", value: data?.users?.filter(u => u.subscription_status === "trialing").length || 0, color: "#bf5fff", rgb: "191,95,255" },
+          { label: "Trialing", value: liveUsers.filter(u => u.subscription_status === "trialing").length || 0, color: "#bf5fff", rgb: "191,95,255" },
         ].map(({ label, value, color, rgb }) => (
           <div key={label} style={{
             flex: 1, padding: "10px 14px",
