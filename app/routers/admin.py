@@ -291,6 +291,43 @@ def update_user(
     return {"ok": True, "user_id": user_id, "updated": list(payload.keys())}
 
 
+# ── DELETE /admin/users/{id} ─────────────────────────────────────────────────
+
+@router.delete("/users/{user_id}", summary="Permanently delete a user and their data")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> dict:
+    user = db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # Prevent deleting an admin account
+    if user.email.lower() in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Cannot delete an admin account.")
+
+    # Delete all tasks belonging to this user
+    user_tasks = list(db.scalars(select(Task).where(Task.user_id == user_id)).all())
+    for task in user_tasks:
+        db.delete(task)
+
+    # If this user owns a workspace, clear the owner_id to avoid FK constraint
+    owned_workspaces = list(db.scalars(select(Workspace).where(Workspace.owner_id == user_id)).all())
+    for ws in owned_workspaces:
+        ws.owner_id = None
+
+    # Detach user from their workspace
+    user.workspace_id = None
+
+    db.flush()
+    db.delete(user)
+    db.commit()
+
+    logger.info("Admin %s permanently deleted user id=%s", admin.email, user_id)
+    return {"ok": True, "deleted_user_id": user_id}
+
+
 # ── GET /admin/workspaces ─────────────────────────────────────────────────────
 
 @router.get("/workspaces", summary="All workspaces with stats")
@@ -349,6 +386,45 @@ def update_workspace(
     db.commit()
     db.refresh(ws)
     return {"ok": True, "workspace_id": workspace_id, "updated": list(payload.keys())}
+
+
+# ── DELETE /admin/workspaces/{id} ────────────────────────────────────────────
+
+@router.delete("/workspaces/{workspace_id}", summary="Permanently delete a workspace and its data")
+def delete_workspace(
+    workspace_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+) -> dict:
+    ws = db.get(Workspace, workspace_id)
+    if not ws:
+        raise HTTPException(status_code=404, detail="Workspace not found.")
+
+    # Prevent deleting a workspace owned by an admin
+    owner = db.get(User, ws.owner_id) if ws.owner_id else None
+    if owner and owner.email.lower() in ADMIN_EMAILS:
+        raise HTTPException(status_code=403, detail="Cannot delete an admin workspace.")
+
+    # Delete all tasks in this workspace
+    ws_tasks = list(db.scalars(select(Task).where(Task.workspace_id == workspace_id)).all())
+    for task in ws_tasks:
+        db.delete(task)
+
+    # Delete workspace settings if they exist
+    if ws.settings:
+        db.delete(ws.settings)
+
+    # Detach all members from this workspace
+    members = list(db.scalars(select(User).where(User.workspace_id == workspace_id)).all())
+    for member in members:
+        member.workspace_id = None
+
+    db.flush()
+    db.delete(ws)
+    db.commit()
+
+    logger.info("Admin %s permanently deleted workspace id=%s", admin.email, workspace_id)
+    return {"ok": True, "deleted_workspace_id": workspace_id}
 
 
 # ── GET /admin/feedback ───────────────────────────────────────────────────────
@@ -475,4 +551,3 @@ def action_freelancer_request(
 
         logger.info("Freelancer request denied/revoked: email=%s", req.email)
         return {"message": f"Access denied for {req.email}."}
-
