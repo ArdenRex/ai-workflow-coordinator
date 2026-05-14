@@ -1940,6 +1940,7 @@ function UsersTable({ showToast, onUserClick }) {
   // Multi-select state
   const [selected, setSelected] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const { dark } = useTheme();
   const cyan = dark ? "0,229,255" : "0,120,200";
   const cyanHex = dark ? "#00e5ff" : "#0088cc";
@@ -1952,11 +1953,17 @@ function UsersTable({ showToast, onUserClick }) {
   };
 
   const handleDeleteUser = async (id, name) => {
-    if (!window.confirm(`Delete user "${name || "this user"}"? This action cannot be undone.`)) return;
+    if (confirmDeleteId !== id) { setConfirmDeleteId(id); return; }
+    setConfirmDeleteId(null);
     const token = localStorage.getItem("access_token");
-    await fetch(`${API}/admin/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-    refetch();
-    showToast?.(`${name || "User"} deleted`, "error");
+    try {
+      const res = await fetch(`${API}/admin/users/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      refetch();
+      showToast?.(`${name || "User"} deleted`, "error");
+    } catch (err) {
+      showToast?.(`Delete failed: ${err.message}`, "error");
+    }
   };
 
   const handleBulkActivate = async (activate) => {
@@ -2300,18 +2307,20 @@ function UsersTable({ showToast, onUserClick }) {
                             display: "inline-flex", alignItems: "center", gap: 5,
                             fontSize: 7, fontWeight: 700, padding: "5px 10px",
                             cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
-                            background: "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
+                            background: confirmDeleteId === u.id
+                              ? "linear-gradient(135deg, rgba(255,45,85,0.35) 0%, rgba(255,45,85,0.2) 100%)"
+                              : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
                             color: "#ff2d55",
-                            border: "1px solid rgba(255,45,85,0.4)",
+                            border: confirmDeleteId === u.id ? "1px solid rgba(255,45,85,0.9)" : "1px solid rgba(255,45,85,0.4)",
                             borderRadius: 3,
                             clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
                             boxShadow: "0 0 14px rgba(255,45,85,0.15), inset 0 1px 0 rgba(255,255,255,0.07)",
                             transition: "all 0.2s",
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.22) 0%, rgba(255,45,85,0.1) 100%)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"; }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; if (confirmDeleteId !== u.id) e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.22) 0%, rgba(255,45,85,0.1) 100%)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; if (confirmDeleteId !== u.id) e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"; }}
                         >
-                          ✕ DEL
+                          {confirmDeleteId === u.id ? "⚠ CONFIRM?" : "✕ DEL"}
                         </button>
                       </div>
                     )}
@@ -2357,6 +2366,7 @@ function WorkspacesTable({ showToast }) {
   const { data, loading, refetch } = useAdminFetch("/admin/workspaces?limit=100");
   const [hovRow, setHovRow] = useState(null);
   const [search, setSearch] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const handleToggle = async (wsId, cur, name) => {
     const token = localStorage.getItem("access_token");
@@ -2366,11 +2376,17 @@ function WorkspacesTable({ showToast }) {
   };
 
   const handleDelete = async (wsId, name) => {
-    if (!window.confirm(`Delete workspace "${name}"? This action cannot be undone.`)) return;
+    if (confirmDeleteId !== wsId) { setConfirmDeleteId(wsId); return; }
+    setConfirmDeleteId(null);
     const token = localStorage.getItem("access_token");
-    await fetch(`${API}/admin/workspaces/${wsId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-    refetch();
-    showToast?.(`${name} deleted`, "error");
+    try {
+      const res = await fetch(`${API}/admin/workspaces/${wsId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      refetch();
+      showToast?.(`${name} deleted`, "error");
+    } catch (err) {
+      showToast?.(`Delete failed: ${err.message}`, "error");
+    }
   };
 
   if (loading) return <HoloLoader />;
@@ -2552,18 +2568,20 @@ function WorkspacesTable({ showToast }) {
                             display: "inline-flex", alignItems: "center", gap: 5,
                             fontSize: 7, fontWeight: 700, padding: "5px 10px",
                             cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
-                            background: "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
+                            background: confirmDeleteId === ws.id
+                              ? "linear-gradient(135deg, rgba(255,45,85,0.35) 0%, rgba(255,45,85,0.2) 100%)"
+                              : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
                             color: "#ff2d55",
-                            border: "1px solid rgba(255,45,85,0.4)",
+                            border: confirmDeleteId === ws.id ? "1px solid rgba(255,45,85,0.9)" : "1px solid rgba(255,45,85,0.4)",
                             borderRadius: 3,
                             clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
                             boxShadow: "0 0 14px rgba(255,45,85,0.15)",
                             transition: "all 0.2s",
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.22) 0%, rgba(255,45,85,0.1) 100%)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"; }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; if (confirmDeleteId !== ws.id) e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.22) 0%, rgba(255,45,85,0.1) 100%)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; if (confirmDeleteId !== ws.id) e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"; }}
                         >
-                          ✕ DEL
+                          {confirmDeleteId === ws.id ? "⚠ CONFIRM?" : "✕ DEL"}
                         </button>
                       </div>
                     )}
