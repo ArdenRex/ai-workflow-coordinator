@@ -308,7 +308,7 @@ def delete_user(
         raise HTTPException(status_code=403, detail="Cannot delete an admin account.")
 
     # Delete all tasks belonging to this user
-    user_tasks = list(db.scalars(select(Task).where(Task.user_id == user_id)).all())
+    user_tasks = list(db.scalars(select(Task).where(Task.owner_id == user_id)).all())
     for task in user_tasks:
         db.delete(task)
 
@@ -551,3 +551,4 @@ def action_freelancer_request(
 
         logger.info("Freelancer request denied/revoked: email=%s", req.email)
         return {"message": f"Access denied for {req.email}."}
+
