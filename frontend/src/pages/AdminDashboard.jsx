@@ -1930,6 +1930,90 @@ function RoleChip({ role }) {
   );
 }
 
+// ── DELETE CHOICE MODAL ───────────────────────────────────────────────────────
+function DeleteChoiceModal({ name, onDashboardOnly, onDataAndDashboard, onCancel }) {
+  const { dark } = useTheme();
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      background: "rgba(0,0,0,0.72)", backdropFilter: "blur(6px)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }} onClick={onCancel}>
+      <div onClick={e => e.stopPropagation()} style={{
+        background: dark ? "linear-gradient(135deg,rgba(8,18,32,0.98) 0%,rgba(4,12,24,0.99) 100%)" : "rgba(225,238,255,0.98)",
+        border: "1px solid rgba(255,45,85,0.4)",
+        borderRadius: 10, padding: "30px 32px", minWidth: 340, maxWidth: 420,
+        boxShadow: "0 0 60px rgba(255,45,85,0.18), 0 20px 60px rgba(0,0,0,0.6)",
+        fontFamily: "'Share Tech Mono', monospace",
+      }}>
+        {/* Icon + title */}
+        <div style={{ textAlign: "center", marginBottom: 18 }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>⚠</div>
+          <div style={{ fontSize: 13, color: "#ff2d55", letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700 }}>
+            Delete Confirmation
+          </div>
+          <div style={{ marginTop: 8, fontSize: 11, color: dark ? "rgba(255,255,255,0.55)" : "rgba(0,20,60,0.6)", letterSpacing: "0.06em" }}>
+            Choose how to remove <span style={{ color: dark ? "#00e5ff" : "#0088cc" }}>{name || "this record"}</span>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: 1, background: "linear-gradient(90deg,transparent,rgba(255,45,85,0.3),transparent)", margin: "16px 0" }} />
+
+        {/* Option 1 – Dashboard only */}
+        <button onClick={onDashboardOnly} style={{
+          width: "100%", marginBottom: 10, padding: "12px 16px",
+          background: "linear-gradient(135deg,rgba(0,229,255,0.08) 0%,rgba(0,229,255,0.04) 100%)",
+          border: "1px solid rgba(0,229,255,0.3)", borderRadius: 6, cursor: "pointer",
+          color: dark ? "#00e5ff" : "#0088cc", fontSize: 11, letterSpacing: "0.1em",
+          textTransform: "uppercase", textAlign: "left",
+          transition: "all 0.2s",
+        }}
+          onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(0,229,255,0.18) 0%,rgba(0,229,255,0.1) 100%)"; e.currentTarget.style.borderColor = "rgba(0,229,255,0.6)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(0,229,255,0.08) 0%,rgba(0,229,255,0.04) 100%)"; e.currentTarget.style.borderColor = "rgba(0,229,255,0.3)"; }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 3 }}>◎  Dashboard Only</div>
+          <div style={{ fontSize: 9, opacity: 0.7, letterSpacing: "0.05em", textTransform: "none" }}>
+            Hide from view · Record stays in database (soft-delete)
+          </div>
+        </button>
+
+        {/* Option 2 – Data + Dashboard */}
+        <button onClick={onDataAndDashboard} style={{
+          width: "100%", marginBottom: 16, padding: "12px 16px",
+          background: "linear-gradient(135deg,rgba(255,45,85,0.1) 0%,rgba(255,45,85,0.05) 100%)",
+          border: "1px solid rgba(255,45,85,0.35)", borderRadius: 6, cursor: "pointer",
+          color: "#ff2d55", fontSize: 11, letterSpacing: "0.1em",
+          textTransform: "uppercase", textAlign: "left",
+          transition: "all 0.2s",
+        }}
+          onMouseEnter={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(255,45,85,0.22) 0%,rgba(255,45,85,0.12) 100%)"; e.currentTarget.style.borderColor = "rgba(255,45,85,0.7)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "linear-gradient(135deg,rgba(255,45,85,0.1) 0%,rgba(255,45,85,0.05) 100%)"; e.currentTarget.style.borderColor = "rgba(255,45,85,0.35)"; }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 3 }}>✕  Data &amp; Dashboard</div>
+          <div style={{ fontSize: 9, opacity: 0.7, letterSpacing: "0.05em", textTransform: "none" }}>
+            Permanently deleted · Cannot be undone
+          </div>
+        </button>
+
+        {/* Cancel */}
+        <button onClick={onCancel} style={{
+          width: "100%", padding: "9px 16px",
+          background: "transparent", border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: 6, cursor: "pointer", color: dark ? "rgba(255,255,255,0.4)" : "rgba(0,20,60,0.4)",
+          fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase",
+          transition: "all 0.2s",
+        }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; e.currentTarget.style.color = dark ? "rgba(255,255,255,0.7)" : "rgba(0,20,60,0.7)"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = dark ? "rgba(255,255,255,0.4)" : "rgba(0,20,60,0.4)"; }}
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function UsersTable({ showToast, onUserClick }) {
   const { data, loading, refetch } = useAdminFetch("/admin/users?limit=100");
   const [search, setSearch] = useState("");
@@ -1940,9 +2024,8 @@ function UsersTable({ showToast, onUserClick }) {
   // Multi-select state
   const [selected, setSelected] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  // Track locally-deleted user IDs so rows disappear immediately from the UI
-  const [deletedIds, setDeletedIds] = useState(new Set());
+  // deleteModal: { id, name } | null
+  const [deleteModal, setDeleteModal] = useState(null);
   const { dark } = useTheme();
   const cyan = dark ? "0,229,255" : "0,120,200";
   const cyanHex = dark ? "#00e5ff" : "#0088cc";
@@ -1954,25 +2037,50 @@ function UsersTable({ showToast, onUserClick }) {
     showToast?.(!cur ? `${name || "User"} activated` : `${name || "User"} deactivated`, !cur ? "success" : "warning");
   };
 
-  const handleDeleteUser = async (id, name) => {
-    if (confirmDeleteId !== id) { setConfirmDeleteId(id); return; }
-    setConfirmDeleteId(null);
+  // Called when user clicks ✕ DEL — opens the choice modal
+  const handleDeleteUser = (id, name) => setDeleteModal({ id, name });
+
+  // Option 1: soft-delete (dashboard only)
+  const handleDeleteDashboardOnly = async () => {
+    const { id, name } = deleteModal;
+    setDeleteModal(null);
+    const token = localStorage.getItem("access_token");
+    try {
+      const res = await fetch(`${API}/admin/users/${id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: false }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      refetch();
+      showToast?.(`${name || "User"} hidden from dashboard`, "warning");
+    } catch (err) {
+      showToast?.(`Failed: ${err.message}`, "error");
+    }
+  };
+
+  // Option 2: hard-delete (data + dashboard)
+  const handleDeleteDataAndDashboard = async () => {
+    const { id, name } = deleteModal;
+    setDeleteModal(null);
     const token = localStorage.getItem("access_token");
     const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
     try {
-      // Backend only supports PATCH — soft-delete by deactivating the user
-      const res = await fetch(`${API}/admin/users/${id}`, {
-        method: "PATCH", headers,
-        body: JSON.stringify({ is_active: false }),
-      });
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`;
-        try { const j = await res.json(); detail = j.detail || j.message || j.error || detail; } catch {}
-        throw new Error(detail);
+      const res = await fetch(`${API}/admin/users/${id}`, { method: "DELETE", headers });
+      if (res.status === 405 || res.status === 404) {
+        // Backend has no DELETE — fall back to soft-delete + refetch
+        const res2 = await fetch(`${API}/admin/users/${id}`, {
+          method: "PATCH", headers,
+          body: JSON.stringify({ is_active: false }),
+        });
+        if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
+        refetch();
+        showToast?.(`${name || "User"} removed (soft-delete — backend has no DELETE endpoint)`, "warning");
+        return;
       }
-      // Remove the row from the UI immediately without waiting for a refetch
-      setDeletedIds(prev => new Set([...prev, id]));
-      showToast?.(`${name || "User"} removed`, "error");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      refetch();
+      showToast?.(`${name || "User"} permanently deleted`, "error");
     } catch (err) {
       showToast?.(`Delete failed: ${err.message}`, "error");
     }
@@ -2022,7 +2130,6 @@ function UsersTable({ showToast, onUserClick }) {
   if (loading) return <HoloLoader />;
 
   let rows = data?.users?.filter(u => {
-    if (deletedIds.has(u.id)) return false;
     if (filter === "active" && !u.is_active) return false;
     if (filter === "inactive" && u.is_active) return false;
     if (filter === "paid" && u.subscription_status !== "paid") return false;
@@ -2031,8 +2138,7 @@ function UsersTable({ showToast, onUserClick }) {
     return true;
   }) || [];
 
-  // Stats strip — exclude locally-deleted rows
-  const liveUsers = data?.users?.filter(u => !deletedIds.has(u.id)) || [];
+  const liveUsers = data?.users || [];
   const total = liveUsers.length;
   const paid = liveUsers.filter(u => u.subscription_status === "paid").length;
   const active = liveUsers.filter(u => u.is_active).length;
@@ -2321,20 +2427,18 @@ function UsersTable({ showToast, onUserClick }) {
                             display: "inline-flex", alignItems: "center", gap: 5,
                             fontSize: 7, fontWeight: 700, padding: "5px 10px",
                             cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
-                            background: confirmDeleteId === u.id
-                              ? "linear-gradient(135deg, rgba(255,45,85,0.35) 0%, rgba(255,45,85,0.2) 100%)"
-                              : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
+                            background: "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
                             color: "#ff2d55",
-                            border: confirmDeleteId === u.id ? "1px solid rgba(255,45,85,0.9)" : "1px solid rgba(255,45,85,0.4)",
+                            border: "1px solid rgba(255,45,85,0.4)",
                             borderRadius: 3,
                             clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
                             boxShadow: "0 0 14px rgba(255,45,85,0.15), inset 0 1px 0 rgba(255,255,255,0.07)",
                             transition: "all 0.2s",
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; if (confirmDeleteId !== u.id) e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.22) 0%, rgba(255,45,85,0.1) 100%)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; if (confirmDeleteId !== u.id) e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"; }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.22) 0%, rgba(255,45,85,0.1) 100%)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"; }}
                         >
-                          {confirmDeleteId === u.id ? "⚠ CONFIRM?" : "✕ DEL"}
+                          ✕ DEL
                         </button>
                       </div>
                     )}
@@ -2350,6 +2454,14 @@ function UsersTable({ showToast, onUserClick }) {
           </div>
         )}
       </div>
+      {deleteModal && (
+        <DeleteChoiceModal
+          name={deleteModal.name}
+          onDashboardOnly={handleDeleteDashboardOnly}
+          onDataAndDashboard={handleDeleteDataAndDashboard}
+          onCancel={() => setDeleteModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -2380,8 +2492,7 @@ function WorkspacesTable({ showToast }) {
   const { data, loading, refetch } = useAdminFetch("/admin/workspaces?limit=100");
   const [hovRow, setHovRow] = useState(null);
   const [search, setSearch] = useState("");
-  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
-  const [deletedWsIds, setDeletedWsIds] = useState(new Set());
+  const [deleteModal, setDeleteModal] = useState(null);
 
   const handleToggle = async (wsId, cur, name) => {
     const token = localStorage.getItem("access_token");
@@ -2390,23 +2501,46 @@ function WorkspacesTable({ showToast }) {
     showToast?.(!cur ? `${name} activated` : `${name} suspended`, !cur ? "success" : "warning");
   };
 
-  const handleDelete = async (wsId, name) => {
-    if (confirmDeleteId !== wsId) { setConfirmDeleteId(wsId); return; }
-    setConfirmDeleteId(null);
+  const handleDelete = (wsId, name) => setDeleteModal({ id: wsId, name });
+
+  const handleDeleteDashboardOnly = async () => {
+    const { id, name } = deleteModal;
+    setDeleteModal(null);
+    const token = localStorage.getItem("access_token");
+    try {
+      const res = await fetch(`${API}/admin/workspaces/${id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: false }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      refetch();
+      showToast?.(`${name} hidden from dashboard`, "warning");
+    } catch (err) {
+      showToast?.(`Failed: ${err.message}`, "error");
+    }
+  };
+
+  const handleDeleteDataAndDashboard = async () => {
+    const { id, name } = deleteModal;
+    setDeleteModal(null);
     const token = localStorage.getItem("access_token");
     const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
     try {
-      const res = await fetch(`${API}/admin/workspaces/${wsId}`, {
-        method: "PATCH", headers,
-        body: JSON.stringify({ is_active: false }),
-      });
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`;
-        try { const j = await res.json(); detail = j.detail || j.message || j.error || detail; } catch {}
-        throw new Error(detail);
+      const res = await fetch(`${API}/admin/workspaces/${id}`, { method: "DELETE", headers });
+      if (res.status === 405 || res.status === 404) {
+        const res2 = await fetch(`${API}/admin/workspaces/${id}`, {
+          method: "PATCH", headers,
+          body: JSON.stringify({ is_active: false }),
+        });
+        if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
+        refetch();
+        showToast?.(`${name} removed (soft-delete — backend has no DELETE endpoint)`, "warning");
+        return;
       }
-      setDeletedWsIds(prev => new Set([...prev, wsId]));
-      showToast?.(`${name} removed`, "error");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      refetch();
+      showToast?.(`${name} permanently deleted`, "error");
     } catch (err) {
       showToast?.(`Delete failed: ${err.message}`, "error");
     }
@@ -2414,7 +2548,7 @@ function WorkspacesTable({ showToast }) {
 
   if (loading) return <HoloLoader />;
 
-  const allWs = (data?.workspaces || []).filter(ws => !deletedWsIds.has(ws.id));
+  const allWs = data?.workspaces || [];
   const rows = search
     ? allWs.filter(ws => ws.name?.toLowerCase().includes(search.toLowerCase()) || ws.owner_email?.toLowerCase().includes(search.toLowerCase()))
     : allWs;
@@ -2591,20 +2725,18 @@ function WorkspacesTable({ showToast }) {
                             display: "inline-flex", alignItems: "center", gap: 5,
                             fontSize: 7, fontWeight: 700, padding: "5px 10px",
                             cursor: "pointer", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em",
-                            background: confirmDeleteId === ws.id
-                              ? "linear-gradient(135deg, rgba(255,45,85,0.35) 0%, rgba(255,45,85,0.2) 100%)"
-                              : "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
+                            background: "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)",
                             color: "#ff2d55",
-                            border: confirmDeleteId === ws.id ? "1px solid rgba(255,45,85,0.9)" : "1px solid rgba(255,45,85,0.4)",
+                            border: "1px solid rgba(255,45,85,0.4)",
                             borderRadius: 3,
                             clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%)",
                             boxShadow: "0 0 14px rgba(255,45,85,0.15)",
                             transition: "all 0.2s",
                           }}
-                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; if (confirmDeleteId !== ws.id) e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.22) 0%, rgba(255,45,85,0.1) 100%)"; }}
-                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; if (confirmDeleteId !== ws.id) e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"; }}
+                          onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.22) 0%, rgba(255,45,85,0.1) 100%)"; }}
+                          onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,45,85,0.1) 0%, rgba(255,45,85,0.04) 100%)"; }}
                         >
-                          {confirmDeleteId === ws.id ? "⚠ CONFIRM?" : "✕ DEL"}
+                          ✕ DEL
                         </button>
                       </div>
                     )}
@@ -2622,6 +2754,14 @@ function WorkspacesTable({ showToast }) {
         <span style={{ color: "#bf5fff", fontFamily: "'Orbitron', monospace", fontWeight: 700, textShadow: "0 0 10px rgba(191,95,255,0.5)" }}>{data?.total}</span>
         <span>workspace nodes indexed in network</span>
       </div>
+      {deleteModal && (
+        <DeleteChoiceModal
+          name={deleteModal.name}
+          onDashboardOnly={handleDeleteDashboardOnly}
+          onDataAndDashboard={handleDeleteDataAndDashboard}
+          onCancel={() => setDeleteModal(null)}
+        />
+      )}
     </div>
   );
 }
