@@ -2381,6 +2381,7 @@ function WorkspacesTable({ showToast }) {
   const [hovRow, setHovRow] = useState(null);
   const [search, setSearch] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+  const [deletedWsIds, setDeletedWsIds] = useState(new Set());
 
   const handleToggle = async (wsId, cur, name) => {
     const token = localStorage.getItem("access_token");
@@ -2395,21 +2396,17 @@ function WorkspacesTable({ showToast }) {
     const token = localStorage.getItem("access_token");
     const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
     try {
-      // Try bulk-action first
-      let res = await fetch(`${API}/admin/bulk-action`, {
-        method: "POST", headers,
-        body: JSON.stringify({ action: "delete", type: "workspace", ids: [wsId] }),
+      const res = await fetch(`${API}/admin/workspaces/${wsId}`, {
+        method: "PATCH", headers,
+        body: JSON.stringify({ is_active: false }),
       });
-      if (res.status === 404 || res.status === 405) {
-        res = await fetch(`${API}/admin/workspaces/${wsId}`, { method: "DELETE", headers });
-      }
       if (!res.ok) {
         let detail = `HTTP ${res.status}`;
         try { const j = await res.json(); detail = j.detail || j.message || j.error || detail; } catch {}
         throw new Error(detail);
       }
-      refetch();
-      showToast?.(`${name} deleted`, "error");
+      setDeletedWsIds(prev => new Set([...prev, wsId]));
+      showToast?.(`${name} removed`, "error");
     } catch (err) {
       showToast?.(`Delete failed: ${err.message}`, "error");
     }
@@ -2417,7 +2414,7 @@ function WorkspacesTable({ showToast }) {
 
   if (loading) return <HoloLoader />;
 
-  const allWs = data?.workspaces || [];
+  const allWs = (data?.workspaces || []).filter(ws => !deletedWsIds.has(ws.id));
   const rows = search
     ? allWs.filter(ws => ws.name?.toLowerCase().includes(search.toLowerCase()) || ws.owner_email?.toLowerCase().includes(search.toLowerCase()))
     : allWs;
