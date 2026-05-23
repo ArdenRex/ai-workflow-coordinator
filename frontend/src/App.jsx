@@ -5089,7 +5089,7 @@ function cardBrand(n) {
   return "💳";
 }
 
-function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, onSuccess }) {
+function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, onSuccess, inlineMode = false }) {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState("");
 
@@ -5129,6 +5129,37 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
       setLoading(false);
     }
   };
+
+  // Inline mode — just render the checkout button for use inside popup
+  if (inlineMode) {
+    return (
+      <div>
+        {error && (
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171", fontSize: 12, marginBottom: 12 }}>
+            ⚠ {error}
+          </div>
+        )}
+        <button
+          onClick={goToCheckout}
+          disabled={loading}
+          style={{
+            width: "100%", height: 52, borderRadius: 14, border: "none",
+            background: loading ? "rgba(79,142,247,0.5)" : "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)",
+            color: "#fff", fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 700,
+            cursor: loading ? "not-allowed" : "pointer", letterSpacing: "-0.01em",
+            boxShadow: "0 0 28px rgba(79,142,247,0.4), 0 8px 20px rgba(0,0,0,0.3)",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          }}
+        >
+          {loading
+            ? <><span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /> Redirecting to checkout…</>
+            : "💳 Activate Free Trial →"
+          }
+        </button>
+        <div style={{ marginTop: 10, fontSize: 11, color: "var(--color-text-tertiary)" }}>🔒 Secured by Lemon Squeezy · No charge for 7 days</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -5228,6 +5259,7 @@ function AuthenticatedApp() {
   const [showTour, setShowTour]       = useState(() => !localStorage.getItem("aw_tour_done"));
   const [billing, setBilling]         = useState(null);   // null=loading, object=loaded
   const [billingChecked, setBillingChecked] = useState(false);
+  const [showBillingPopup, setShowBillingPopup] = useState(false);
 
   // -- Check billing status on mount ------------------------------------------
   useEffect(() => {
@@ -5269,6 +5301,14 @@ function AuthenticatedApp() {
 
     checkBilling();
   }, [token, user]);
+
+  // Show billing popup for new trial users after 3 seconds on dashboard
+  useEffect(() => {
+    if (billing?.show_wall && !billing?.card_on_file && billing?.status === "trialing") {
+      const timer = setTimeout(() => setShowBillingPopup(true), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [billing]);
 
   // ✅ Role-based task filters passed to useTasks
   const taskFilters = useMemo(() => {
@@ -5332,14 +5372,18 @@ function AuthenticatedApp() {
     );
   }
 
-  // Show billing wall for: new users (no card on file), expired trials, lapsed subscriptions
-  if (billing?.show_wall) {
+  // Show billing wall for: expired/cancelled/past_due — still full screen
+  // For new trialing users — show dashboard first then popup
+  const isNewTrialUser = billing?.show_wall && !billing?.card_on_file && billing?.status === "trialing";
+  const isHardWall = billing?.show_wall && !isNewTrialUser;
+
+  if (isHardWall) {
     return (
       <BillingWall
         user={user}
         token={token}
         status={billing.status}
-        isNewUser={!billing.card_on_file && billing.status === "trialing"}
+        isNewUser={false}
         daysLeft={billing.days_left}
         trialEndsAt={billing.trial_ends_at}
         onSuccess={() => setBilling({ status: "active", show_wall: false })}
@@ -5369,6 +5413,93 @@ function AuthenticatedApp() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)", position: "relative" }} onKeyDown={handleKeyDown}>
       {showTour && <TourOverlay onComplete={() => setShowTour(false)} onSkip={() => { setShowTour(false); setActiveNav(3); }} />}
+
+      {/* ── New Trial Billing Popup ── */}
+      {showBillingPopup && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 10000,
+          background: "rgba(4,5,12,0.85)", backdropFilter: "blur(12px)",
+          display: "flex", alignItems: "center", justifyContent: "center", padding: "20px",
+          animation: "fadeUp 0.35s cubic-bezier(0.16,1,0.3,1) both",
+        }}>
+          <div style={{
+            width: "100%", maxWidth: 480,
+            background: "linear-gradient(160deg,#111526 0%,#0c0f1e 60%,#080a16 100%)",
+            border: "1px solid rgba(79,142,247,0.35)", borderRadius: 24,
+            padding: "36px 32px",
+            boxShadow: "0 40px 100px rgba(0,0,0,0.8), 0 0 60px rgba(79,142,247,0.08)",
+            textAlign: "center",
+          }}>
+            {/* Icon */}
+            <div style={{
+              width: 70, height: 70, borderRadius: 20, margin: "0 auto 20px",
+              background: "rgba(79,142,247,0.12)", border: "1.5px solid rgba(79,142,247,0.35)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 30, boxShadow: "0 0 32px rgba(79,142,247,0.2)",
+            }}>🚀</div>
+
+            {/* Heading */}
+            <div style={{
+              fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 10,
+              fontFamily: "var(--font-display)",
+              background: "linear-gradient(135deg, #f0f2ff 0%, #a5b4fc 100%)",
+              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
+            }}>You are in! Activate your free trial</div>
+
+            {/* Body */}
+            <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.75, marginBottom: 20 }}>
+              You have full access to explore the dashboard. To keep using AI Workflow Coordinator after 7 days, add your card details below. <strong style={{ color: "#a5b4fc" }}>You will not be charged for 7 days.</strong>
+            </div>
+
+            {/* Feature bullets */}
+            <div style={{
+              background: "rgba(79,142,247,0.06)", border: "1px solid rgba(79,142,247,0.18)",
+              borderRadius: 14, padding: "14px 18px", marginBottom: 24, textAlign: "left",
+            }}>
+              {[
+                ["✅", "Full access for 7 days — completely free"],
+                ["💳", "Card saved securely — cancel anytime"],
+                ["💰", "Just $20/month flat after trial ends"],
+              ].map(([icon, text]) => (
+                <div key={text} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  fontSize: 13, color: "var(--color-text-secondary)", padding: "5px 0",
+                }}>
+                  <span style={{ fontSize: 15, flexShrink: 0 }}>{icon}</span>
+                  <span>{text}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* CTA */}
+            <BillingWall
+              user={user}
+              token={token}
+              status={billing?.status}
+              isNewUser={true}
+              daysLeft={billing?.days_left}
+              trialEndsAt={billing?.trial_ends_at}
+              onSuccess={() => {
+                setBilling({ status: "active", show_wall: false });
+                setShowBillingPopup(false);
+              }}
+              inlineMode={true}
+            />
+
+            {/* Skip */}
+            <button
+              onClick={() => setShowBillingPopup(false)}
+              style={{
+                marginTop: 14, background: "none", border: "none",
+                color: "var(--color-text-tertiary)", fontSize: 12,
+                cursor: "pointer", textDecoration: "underline",
+              }}
+            >
+              Remind me later — continue exploring
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Trial countdown banner */}
       {billing?.status === "trialing" && billing?.days_left !== undefined && (
