@@ -1,5 +1,4 @@
 // src/pages/PrivacyPage.jsx
-import { useNavigate } from "react-router-dom";
 
 const STYLES = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap');
@@ -184,7 +183,6 @@ const STYLES = `
 `;
 
 export default function PrivacyPage() {
-  const navigate = useNavigate();
 
   return (
     <>
@@ -192,7 +190,7 @@ export default function PrivacyPage() {
       <div className="legal-root">
         <div className="legal-card">
 
-          <button className="legal-back" onClick={() => navigate(-1)}>
+          <button className="legal-back" onClick={() => window.history.back()}>
             ← Back
           </button>
 
