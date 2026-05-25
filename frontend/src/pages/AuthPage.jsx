@@ -313,6 +313,29 @@ const STYLES = `
     75%      { transform: translateX(6px); }
   }
 
+  /* Footer links */
+  .auth-footer {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 12px;
+    color: #555a80;
+  }
+
+  .auth-footer a {
+    color: #555a80;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .auth-footer a:hover {
+    color: #a5b4fc;
+  }
+
+  .auth-footer-sep {
+    margin: 0 8px;
+    opacity: 0.4;
+  }
+
   /* Success banner */
   .auth-success {
     padding: 12px 14px;
@@ -530,6 +553,16 @@ export default function AuthPage({ onAuthSuccess }) {
           </button>
 
         </div>
+
+        {/* Footer links */}
+        <div className="auth-footer">
+          <a href="/terms">Terms of Service</a>
+          <span className="auth-footer-sep">·</span>
+          <a href="/privacy">Privacy Policy</a>
+          <span className="auth-footer-sep">·</span>
+          <a href="/refund">Refund Policy</a>
+        </div>
+
       </div>
     </>
   );
