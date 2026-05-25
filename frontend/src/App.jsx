@@ -4,6 +4,9 @@ import { AuthProvider, useAuth } from "./context/AuthContext";   // ✅ NEW
 import AuthPage from "./pages/AuthPage";                          // ✅ NEW
 import OnboardingPage from "./pages/OnboardingPage";             // ✅ NEW
 import AdminDashboard from "./pages/AdminDashboard";             // ✅ Super-admin
+import TermsPage from "./pages/TermsPage";                        // ✅ Legal
+import PrivacyPage from "./pages/PrivacyPage";                    // ✅ Legal
+import RefundPage from "./pages/RefundPage";                      // ✅ Legal
 import { useTasks } from "./hooks/useTasks";
 import KanbanColumn from "./components/KanbanColumn";
 import AddTaskModal from "./components/AddTaskModal";
@@ -5773,6 +5776,11 @@ function InvitePage() {
 
 function AppRouter() {
   const { isAuthenticated, loading, user } = useAuth();
+
+  // Public legal routes — no auth required
+  if (window.location.pathname === "/terms")   return <TermsPage />;
+  if (window.location.pathname === "/privacy") return <PrivacyPage />;
+  if (window.location.pathname === "/refund")  return <RefundPage />;
 
   // Handle /invite/:slug before auth check — public route
   if (window.location.pathname.startsWith("/invite/")) {
