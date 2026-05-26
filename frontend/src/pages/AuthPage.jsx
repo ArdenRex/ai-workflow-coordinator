@@ -13,6 +13,7 @@ const STYLES = `
     min-height: 100vh;
     background: #0d0f1e;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
     font-family: 'Inter', system-ui, sans-serif;
@@ -316,60 +317,87 @@ const STYLES = `
   /* Footer links */
   .auth-footer-wrapper {
     position: relative;
-    margin-top: 28px;
-    padding-top: 18px;
+    width: 100%;
+    max-width: 440px;
+    margin-top: 16px;
+    padding: 14px 20px 6px;
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-radius: 16px;
+    background: rgba(139, 92, 246, 0.04);
+    backdrop-filter: blur(10px);
+    box-shadow:
+      0 0 20px rgba(139, 92, 246, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
   }
 
   .auth-footer-wrapper::before {
     content: '';
     position: absolute;
-    top: 0;
+    top: -1px;
     left: 50%;
     transform: translateX(-50%);
-    width: 90%;
+    width: 60%;
     height: 1px;
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(139, 92, 246, 0.15) 20%,
-      rgba(139, 92, 246, 0.5) 50%,
-      rgba(139, 92, 246, 0.15) 80%,
+      rgba(139, 92, 246, 0.8) 50%,
       transparent 100%
     );
-    box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+    box-shadow: 0 0 12px 2px rgba(139, 92, 246, 0.5);
+    border-radius: 50%;
+  }
+
+  .auth-footer-wrapper::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(99, 102, 241, 0.4) 50%,
+      transparent 100%
+    );
   }
 
   .auth-footer {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 4px;
     flex-wrap: wrap;
     text-align: center;
     font-size: 11.5px;
   }
 
   .auth-footer a {
-    color: #6b7280;
+    color: #7c84a8;
     text-decoration: none;
-    padding: 4px 10px;
+    padding: 4px 12px;
     border-radius: 20px;
     border: 1px solid transparent;
-    transition: all 0.2s ease;
-    letter-spacing: 0.01em;
+    transition: all 0.22s ease;
+    letter-spacing: 0.02em;
   }
 
   .auth-footer a:hover {
-    color: #a5b4fc;
-    border-color: rgba(139, 92, 246, 0.35);
-    background: rgba(139, 92, 246, 0.08);
-    box-shadow: 0 0 10px rgba(139, 92, 246, 0.2), inset 0 0 8px rgba(139, 92, 246, 0.05);
-    text-shadow: 0 0 8px rgba(165, 180, 252, 0.5);
+    color: #c4b5fd;
+    border-color: rgba(139, 92, 246, 0.45);
+    background: rgba(139, 92, 246, 0.1);
+    box-shadow:
+      0 0 14px rgba(139, 92, 246, 0.25),
+      inset 0 0 10px rgba(139, 92, 246, 0.07);
+    text-shadow: 0 0 10px rgba(196, 181, 253, 0.6);
   }
 
   .auth-footer-sep {
-    color: rgba(139, 92, 246, 0.3);
-    font-size: 10px;
+    color: rgba(139, 92, 246, 0.4);
+    font-size: 14px;
+    line-height: 1;
     user-select: none;
   }
 
@@ -591,17 +619,17 @@ export default function AuthPage({ onAuthSuccess }) {
 
         </div>
 
-        {/* Footer links */}
-        <div className="auth-footer-wrapper">
-          <div className="auth-footer">
-            <a href="/terms">Terms of Service</a>
-            <span className="auth-footer-sep">•</span>
-            <a href="/privacy">Privacy Policy</a>
-            <span className="auth-footer-sep">•</span>
-            <a href="/refund">Refund Policy</a>
-          </div>
-        </div>
+      </div>
 
+      {/* Footer links */}
+      <div className="auth-footer-wrapper">
+        <div className="auth-footer">
+          <a href="/terms">Terms of Service</a>
+          <span className="auth-footer-sep">•</span>
+          <a href="/privacy">Privacy Policy</a>
+          <span className="auth-footer-sep">•</span>
+          <a href="/refund">Refund Policy</a>
+        </div>
       </div>
     </>
   );
