@@ -230,7 +230,7 @@ export default function TermsPage() {
           <div className="legal-section">
             <div className="legal-h2">4. Billing & Payments</div>
             <p className="legal-p">
-              Subscriptions are billed monthly. Payments are processed securely through Dodo Payments. By subscribing, you authorize us to charge your payment method on a recurring basis until you cancel.
+              Subscriptions are billed monthly. Payments are processed securely through Polar. By subscribing, you authorize us to charge your payment method on a recurring basis until you cancel.
             </p>
             <ul className="legal-ul">
               <li>All prices are listed in USD.</li>
