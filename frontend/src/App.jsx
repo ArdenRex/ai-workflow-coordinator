@@ -3499,6 +3499,51 @@ function SettingsPage() {
                         </div>
                       )}
 
+                      {/* ── Re-enter card banner (migrated trial users only) ── */}
+                      {isTrialing && !billingStatus.card_on_file && (
+                        <div style={{
+                          padding: "18px 20px",
+                          borderRadius: 14,
+                          background: "linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.08))",
+                          border: "1px solid rgba(139,92,246,0.35)",
+                          boxShadow: "0 0 24px rgba(139,92,246,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
+                          marginBottom: 16,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+                            <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>💳</div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: "#c4b5fd", marginBottom: 4 }}>Action required — Add your payment details</div>
+                              <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.65, marginBottom: 14 }}>
+                                We recently migrated our payment system. Your trial and all your data are intact, but we need your card details to continue your subscription after the trial ends. No charge until your trial expires.
+                              </div>
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const r = await fetch(`${API}/billing/checkout`, { method: "POST", headers: hdrs });
+                                    const d = await r.json();
+                                    if (d.checkout_url) window.location.href = d.checkout_url;
+                                    else flash("Could not open checkout. Please try again.", true);
+                                  } catch { flash("Could not open checkout. Please try again.", true); }
+                                }}
+                                style={{
+                                  height: 38, padding: "0 20px", borderRadius: 9,
+                                  border: "none",
+                                  background: "linear-gradient(135deg,#7c3aed,#3b82f6)",
+                                  color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13,
+                                  fontWeight: 700, cursor: "pointer",
+                                  boxShadow: "0 4px 14px rgba(124,58,237,0.4)",
+                                  transition: "opacity 0.15s",
+                                }}
+                                onMouseOver={e => e.currentTarget.style.opacity = "0.88"}
+                                onMouseOut={e => e.currentTarget.style.opacity = "1"}
+                              >
+                                Add Payment Details →
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Action buttons */}
                       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
