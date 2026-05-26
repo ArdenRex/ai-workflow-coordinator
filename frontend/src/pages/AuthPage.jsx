@@ -314,26 +314,63 @@ const STYLES = `
   }
 
   /* Footer links */
+  .auth-footer-wrapper {
+    position: relative;
+    margin-top: 28px;
+    padding-top: 18px;
+  }
+
+  .auth-footer-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(139, 92, 246, 0.15) 20%,
+      rgba(139, 92, 246, 0.5) 50%,
+      rgba(139, 92, 246, 0.15) 80%,
+      transparent 100%
+    );
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.3);
+  }
+
   .auth-footer {
-    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
     text-align: center;
-    font-size: 12px;
-    color: #555a80;
+    font-size: 11.5px;
   }
 
   .auth-footer a {
-    color: #555a80;
+    color: #6b7280;
     text-decoration: none;
-    transition: color 0.15s;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+    letter-spacing: 0.01em;
   }
 
   .auth-footer a:hover {
     color: #a5b4fc;
+    border-color: rgba(139, 92, 246, 0.35);
+    background: rgba(139, 92, 246, 0.08);
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.2), inset 0 0 8px rgba(139, 92, 246, 0.05);
+    text-shadow: 0 0 8px rgba(165, 180, 252, 0.5);
   }
 
   .auth-footer-sep {
-    margin: 0 8px;
-    opacity: 0.4;
+    color: rgba(139, 92, 246, 0.3);
+    font-size: 10px;
+    user-select: none;
   }
 
   /* Success banner */
@@ -555,12 +592,14 @@ export default function AuthPage({ onAuthSuccess }) {
         </div>
 
         {/* Footer links */}
-        <div className="auth-footer">
-          <a href="/terms">Terms of Service</a>
-          <span className="auth-footer-sep">·</span>
-          <a href="/privacy">Privacy Policy</a>
-          <span className="auth-footer-sep">·</span>
-          <a href="/refund">Refund Policy</a>
+        <div className="auth-footer-wrapper">
+          <div className="auth-footer">
+            <a href="/terms">Terms of Service</a>
+            <span className="auth-footer-sep">•</span>
+            <a href="/privacy">Privacy Policy</a>
+            <span className="auth-footer-sep">•</span>
+            <a href="/refund">Refund Policy</a>
+          </div>
         </div>
 
       </div>
