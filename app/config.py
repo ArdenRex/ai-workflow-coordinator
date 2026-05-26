@@ -66,18 +66,18 @@ class Settings(BaseSettings):
         description="Refresh token expiry in days (used for Remember Me).",
     )
 
-    # ── Dodo Payments Billing (Segment 15) ───────────────────────────────────
-    dodo_api_key: str = Field(
+    # ── Polar Billing ─────────────────────────────────────────────────────────
+    polar_api_key: str = Field(
         default="",
-        description="Dodo Payments API key. Get one at https://dashboard.dodopayments.com",
+        description="Polar API key. Get one at https://polar.sh/dashboard",
     )
-    dodo_product_id: str = Field(
+    polar_product_id: str = Field(
         default="",
-        description="Dodo Payments Product ID for the $20/month subscription.",
+        description="Polar Product ID for the $20/month subscription.",
     )
-    dodo_webhook_secret: str = Field(
+    polar_webhook_secret: str = Field(
         default="",
-        description="Dodo Payments webhook signing secret.",
+        description="Polar webhook signing secret.",
     )
     frontend_url: str = Field(
         default="",
@@ -153,10 +153,10 @@ def _safe_db_host(url: str) -> str:
 def get_settings() -> Settings:
     settings = Settings()
     logger.info(
-        "Config loaded | env=%s | db_host=%s | slack_channel=%s | dodo_product=%s",
+        "Config loaded | env=%s | db_host=%s | slack_channel=%s | polar_product=%s",
         settings.app_env,
         _safe_db_host(settings.database_url),
         settings.slack_channel_id or "(all channels)",
-        settings.dodo_product_id or "(not configured)",
+        settings.polar_product_id or "(not configured)",
     )
     return settings
