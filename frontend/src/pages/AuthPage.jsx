@@ -17,7 +17,7 @@ const STYLES = `
     align-items: center;
     justify-content: center;
     font-family: 'Inter', system-ui, sans-serif;
-    padding: clamp(12px, 3vw, 24px);
+    padding: clamp(12px, 3vw, 24px) clamp(12px, 3vw, 24px) 80px;
     position: relative;
     overflow: hidden;
   }
@@ -316,18 +316,20 @@ const STYLES = `
 
   /* Footer links */
   .auth-footer-wrapper {
-    position: relative;
-    width: 100%;
-    max-width: 440px;
-    margin-top: 16px;
-    padding: 14px 20px 6px;
-    border: 1px solid rgba(139, 92, 246, 0.25);
-    border-radius: 16px;
-    background: rgba(139, 92, 246, 0.04);
-    backdrop-filter: blur(10px);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    padding: 12px 24px 14px;
+    background: rgba(13, 15, 30, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(139, 92, 246, 0.3);
     box-shadow:
-      0 0 20px rgba(139, 92, 246, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      0 -1px 0 rgba(139, 92, 246, 0.15),
+      0 -8px 32px rgba(139, 92, 246, 0.07),
+      inset 0 1px 0 rgba(139, 92, 246, 0.12);
   }
 
   .auth-footer-wrapper::before {
@@ -336,32 +338,15 @@ const STYLES = `
     top: -1px;
     left: 50%;
     transform: translateX(-50%);
-    width: 60%;
+    width: 280px;
     height: 1px;
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(139, 92, 246, 0.8) 50%,
+      rgba(139, 92, 246, 0.9) 50%,
       transparent 100%
     );
-    box-shadow: 0 0 12px 2px rgba(139, 92, 246, 0.5);
-    border-radius: 50%;
-  }
-
-  .auth-footer-wrapper::after {
-    content: '';
-    position: absolute;
-    bottom: -1px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 40%;
-    height: 1px;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(99, 102, 241, 0.4) 50%,
-      transparent 100%
-    );
+    box-shadow: 0 0 16px 3px rgba(139, 92, 246, 0.5);
   }
 
   .auth-footer {
@@ -371,7 +356,7 @@ const STYLES = `
     gap: 4px;
     flex-wrap: wrap;
     text-align: center;
-    font-size: 11.5px;
+    font-size: 12px;
   }
 
   .auth-footer a {
@@ -395,10 +380,11 @@ const STYLES = `
   }
 
   .auth-footer-sep {
-    color: rgba(139, 92, 246, 0.4);
-    font-size: 14px;
+    color: rgba(139, 92, 246, 0.45);
+    font-size: 16px;
     line-height: 1;
     user-select: none;
+    margin: 0 2px;
   }
 
   /* Success banner */
