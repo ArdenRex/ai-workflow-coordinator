@@ -3504,7 +3504,7 @@ function SettingsPage() {
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Manage payment & invoices</div>
-                            <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Update card, view billing history via Lemon Squeezy portal</div>
+                            <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Update card, view billing history via Dodo Payments portal</div>
                           </div>
                           <button onClick={goToPortal} disabled={saving} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid var(--border-glass)", background: "transparent", color: "var(--color-text-secondary)", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
                             {saving ? "Opening…" : "Open Portal →"}
@@ -5099,7 +5099,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
   const isPastDue   = status === "past_due";
   const isCancelled = status === "cancelled";
 
-  // Redirect user to Lemon Squeezy's real hosted checkout page.
+  // Redirect user to Dodo Payments hosted checkout page.
   // Card details are entered securely on LS — never on our side.
   const goToCheckout = async () => {
     setError("");
@@ -5124,7 +5124,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
           throw new Error("Test mode: billing status not updated. Check backend logs.");
         }
       } else {
-        // Live mode: redirect to Lemon Squeezy hosted checkout
+        // Live mode: redirect to Dodo Payments hosted checkout
         window.location.href = data.checkout_url;
       }
     } catch (err) {
@@ -5159,7 +5159,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
             : "💳 Activate Free Trial →"
           }
         </button>
-        <div style={{ marginTop: 10, fontSize: 11, color: "var(--color-text-tertiary)" }}>🔒 Secured by Lemon Squeezy · No charge for 7 days</div>
+        <div style={{ marginTop: 10, fontSize: 11, color: "var(--color-text-tertiary)" }}>🔒 Secured by Dodo Payments · No charge for 7 days</div>
       </div>
     );
   }
@@ -5242,7 +5242,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
               : isNewUser ? "Continue to Secure Checkout →" : isPastDue ? "Update Payment Method →" : "Subscribe Now →"
             }
           </button>
-          <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--color-text-tertiary)" }}>🔒 Secured by Lemon Squeezy · No charge for 7 days</div>
+          <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--color-text-tertiary)" }}>🔒 Secured by Dodo Payments · No charge for 7 days</div>
         </div>
       </div>
     </div>
@@ -5274,7 +5274,7 @@ function AuthenticatedApp() {
       setBillingChecked(true);
       return;
     }
-    // On return from Lemon Squeezy checkout, clean the URL but STILL re-fetch
+    // On return from Dodo Payments checkout, clean the URL but STILL re-fetch
     // from the backend — the webhook may not have fired yet, so we poll with backoff
     const params = new URLSearchParams(window.location.search);
     const fromCheckout = params.get("billing") === "success" || params.get("billing") === "test_success";
