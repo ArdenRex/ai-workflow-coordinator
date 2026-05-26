@@ -1,9 +1,10 @@
 """
 routers/billing.py  —  Segment 15
 ────────────────────────────────────
-POST /billing/checkout        →  create Lemon Squeezy checkout URL
-POST /billing/webhook         →  handle LS subscription events
+POST /billing/checkout        →  create Dodo Payments checkout URL
+POST /billing/webhook         →  handle Dodo subscription lifecycle events
 GET  /billing/portal          →  get customer portal URL
+POST /billing/cancel          →  cancel active subscription
 """
 
 import hashlib
@@ -26,45 +27,45 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
-LS_API_BASE = "https://api.lemonsqueezy.com/v1"
+DODO_API_BASE = "https://api.dodopayments.com"
 
 
-def _ls_headers() -> dict:
-    """Build Lemon Squeezy auth headers from current settings."""
+def _dodo_headers() -> dict:
+    """Build Dodo Payments auth headers from current settings."""
     settings = get_settings()
     return {
-        "Authorization": f"Bearer {settings.lemonsqueezy_api_key}",
-        "Accept":        "application/vnd.api+json",
-        "Content-Type":  "application/vnd.api+json",
+        "Authorization": f"Bearer {settings.dodo_api_key}",
+        "Content-Type":  "application/json",
+        "Accept":        "application/json",
     }
 
 
-def _ls_configured() -> bool:
+def _dodo_configured() -> bool:
     s = get_settings()
-    return bool(s.lemonsqueezy_api_key and s.lemonsqueezy_store_id and s.lemonsqueezy_variant_id)
+    return bool(s.dodo_api_key and s.dodo_product_id)
 
 
 # ── Checkout ──────────────────────────────────────────────────────────────────
 
 @router.post(
     "/checkout",
-    summary="Create a Lemon Squeezy checkout URL for the current user",
+    summary="Create a Dodo Payments checkout URL for the current user",
 )
 def create_checkout(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
     """
-    Creates a Lemon Squeezy hosted checkout URL.
-    The user is redirected to LS to enter their real card details.
-    After payment LS redirects back to the dashboard.
+    Creates a Dodo Payments hosted checkout URL.
+    The user is redirected to Dodo to enter their real card details.
+    After payment Dodo redirects back to the dashboard.
     """
     settings = get_settings()
     frontend_url = settings.frontend_url.rstrip("/")
 
-    if not _ls_configured():
+    if not _dodo_configured():
         # Test / dev mode — mark user active immediately so you can test the flow
-        logger.warning("Lemon Squeezy not configured — simulating subscription in test mode")
+        logger.warning("Dodo Payments not configured — simulating subscription in test mode")
         try:
             current_user.subscription_status = "active"
             current_user.ls_customer_id      = f"test_customer_{current_user.id}"
@@ -82,54 +83,35 @@ def create_checkout(
 
     try:
         payload = {
-            "data": {
-                "type": "checkouts",
-                "attributes": {
-                    "checkout_data": {
-                        "email":  current_user.email,
-                        "name":   current_user.name,
-                        "custom": {
-                            "user_id": str(current_user.id),
-                        },
-                    },
-                    "checkout_options": {
-                        "embed": False,
-                    },
-                    "product_options": {
-                        "redirect_url": f"{frontend_url}?billing=success",
-                        "receipt_thank_you_note": (
-                            "Welcome to AI Workflow Coordinator! "
-                            "Your 7-day free trial is now active."
-                        ),
-                    },
-                },
-                "relationships": {
-                    "store": {
-                        "data": {"type": "stores", "id": str(settings.lemonsqueezy_store_id)},
-                    },
-                    "variant": {
-                        "data": {"type": "variants", "id": str(settings.lemonsqueezy_variant_id)},
-                    },
-                },
-            }
+            "product_id": settings.dodo_product_id,
+            "payment_link": True,
+            "customer": {
+                "email": current_user.email,
+                "name":  current_user.name or current_user.email,
+            },
+            "metadata": {
+                "user_id": str(current_user.id),
+            },
+            "success_url": f"{frontend_url}?billing=success",
+            "cancel_url":  frontend_url,
         }
 
         response = httpx.post(
-            f"{LS_API_BASE}/checkouts",
-            headers=_ls_headers(),
+            f"{DODO_API_BASE}/subscriptions",
+            headers=_dodo_headers(),
             json=payload,
             timeout=15,
         )
 
         if response.status_code not in (200, 201):
-            logger.error("LS checkout failed: %d %s", response.status_code, response.text)
+            logger.error("Dodo checkout failed: %d %s", response.status_code, response.text)
             raise HTTPException(
                 status_code=http_status.HTTP_502_BAD_GATEWAY,
                 detail="Payment provider error. Please try again.",
             )
 
         data = response.json()
-        checkout_url = data["data"]["attributes"]["url"]
+        checkout_url = data.get("payment_link") or data.get("checkout_url", "")
         logger.info("Checkout URL created for user_id=%d", current_user.id)
         return {"checkout_url": checkout_url, "test_mode": False}
 
@@ -147,7 +129,7 @@ def create_checkout(
 
 @router.get(
     "/portal",
-    summary="Get Lemon Squeezy customer portal URL",
+    summary="Get Dodo Payments customer portal URL",
 )
 def get_portal(
     current_user: User = Depends(get_current_user),
@@ -162,46 +144,38 @@ def get_portal(
             detail="No billing account found. Please complete checkout first.",
         )
 
-    if not settings.lemonsqueezy_api_key:
+    if not settings.dodo_api_key:
         return {"portal_url": f"{frontend_url}?billing=portal_test"}
 
     try:
         response = httpx.get(
-            f"{LS_API_BASE}/customers/{current_user.ls_customer_id}",
-            headers=_ls_headers(),
+            f"{DODO_API_BASE}/customers/{current_user.ls_customer_id}/portal",
+            headers=_dodo_headers(),
             timeout=10,
         )
         data = response.json()
-        portal_url = (
-            data.get("data", {})
-                .get("attributes", {})
-                .get("urls", {})
-                .get("customer_portal")
-        )
-        return {"portal_url": portal_url or frontend_url}
+        portal_url = data.get("url") or data.get("portal_url") or frontend_url
+        return {"portal_url": portal_url}
     except Exception as exc:
         logger.warning("Portal URL fetch failed: %s", exc)
         return {"portal_url": frontend_url}
-
-
-# ── Webhook ───────────────────────────────────────────────────────────────────
 
 
 # ── Cancel subscription ───────────────────────────────────────────────────────
 
 @router.post(
     "/cancel",
-    summary="Cancel the current user's active Lemon Squeezy subscription",
+    summary="Cancel the current user's active Dodo Payments subscription",
 )
 def cancel_subscription(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
     """
-    Cancels the user's active subscription via the Lemon Squeezy API.
+    Cancels the user's active subscription via the Dodo Payments API.
     The subscription remains active until the end of the billing period,
-    then LS fires subscription_cancelled which sets status = 'cancelled'.
-    In test / dev mode (no LS key) we immediately mark status = 'cancelled'.
+    then Dodo fires subscription.cancelled which sets status = 'cancelled'.
+    In test / dev mode (no Dodo key) we immediately mark status = 'cancelled'.
     """
     settings = get_settings()
 
@@ -218,8 +192,8 @@ def cancel_subscription(
         )
 
     # ── Test / dev mode ───────────────────────────────────────────────────────
-    if not settings.lemonsqueezy_api_key:
-        logger.warning("Lemon Squeezy not configured — simulating cancellation in test mode")
+    if not settings.dodo_api_key:
+        logger.warning("Dodo Payments not configured — simulating cancellation in test mode")
         try:
             current_user.subscription_status = "cancelled"
             db.commit()
@@ -230,17 +204,17 @@ def cancel_subscription(
             logger.warning("Test mode cancel DB update failed: %s", exc)
         return {"cancelled": True, "test_mode": True, "message": "Subscription cancelled (test mode)."}
 
-    # ── Live mode — call Lemon Squeezy DELETE /subscriptions/{id} ─────────────
+    # ── Live mode — call Dodo DELETE /subscriptions/{id} ─────────────────────
     try:
         response = httpx.delete(
-            f"{LS_API_BASE}/subscriptions/{current_user.ls_subscription_id}",
-            headers=_ls_headers(),
+            f"{DODO_API_BASE}/subscriptions/{current_user.ls_subscription_id}",
+            headers=_dodo_headers(),
             timeout=15,
         )
 
         if response.status_code not in (200, 204):
             logger.error(
-                "LS cancel failed: %d %s", response.status_code, response.text
+                "Dodo cancel failed: %d %s", response.status_code, response.text
             )
             raise HTTPException(
                 status_code=http_status.HTTP_502_BAD_GATEWAY,
@@ -248,10 +222,9 @@ def cancel_subscription(
             )
 
         logger.info(
-            "Subscription cancelled via LS for user_id=%d sub_id=%s",
+            "Subscription cancelled via Dodo for user_id=%d sub_id=%s",
             current_user.id, current_user.ls_subscription_id,
         )
-        # LS will fire subscription_cancelled webhook which updates the DB.
         return {
             "cancelled": True,
             "test_mode": False,
@@ -268,110 +241,127 @@ def cancel_subscription(
         )
 
 
+# ── Webhook ───────────────────────────────────────────────────────────────────
+
 @router.post(
     "/webhook",
-    summary="Lemon Squeezy webhook — handles subscription lifecycle events",
+    summary="Dodo Payments webhook — handles subscription lifecycle events",
     status_code=http_status.HTTP_200_OK,
 )
-async def lemon_squeezy_webhook(
+async def dodo_webhook(
     request: Request,
-    x_signature: str = Header(default="", alias="X-Signature"),
+    webhook_id: str = Header(default="", alias="webhook-id"),
+    webhook_timestamp: str = Header(default="", alias="webhook-timestamp"),
+    webhook_signature: str = Header(default="", alias="webhook-signature"),
     db: Session = Depends(get_db),
 ) -> dict:
     """
-    Handles these LS events:
-      subscription_created        → status = active / trialing
-      subscription_updated        → sync status
-      subscription_resumed        → status = active
-      subscription_cancelled      → status = cancelled
-      subscription_expired        → status = cancelled
-      subscription_payment_failed → status = past_due
-      subscription_payment_success → status = active
+    Handles these Dodo events:
+      subscription.active          → status = active
+      subscription.on_trial        → status = trialing
+      subscription.paused          → status = past_due
+      subscription.cancelled       → status = cancelled
+      subscription.failed          → status = past_due
+      payment.succeeded            → status = active
+      payment.failed               → status = past_due
     """
     settings = get_settings()
     body = await request.body()
 
-    # ── Verify HMAC-SHA256 signature ──────────────────────────────────────────
-    if settings.lemonsqueezy_webhook_secret:
-        expected = hmac.new(
-            settings.lemonsqueezy_webhook_secret.encode(),
-            body,
-            hashlib.sha256,
-        ).hexdigest()
-        if not hmac.compare_digest(expected, x_signature):
-            logger.warning("LS webhook signature mismatch — possible spoofed request")
-            raise HTTPException(
-                status_code=http_status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid webhook signature.",
-            )
+    # ── Verify HMAC-SHA256 signature (Dodo standard verification) ─────────────
+    if settings.dodo_webhook_secret:
+        try:
+            signed_content = f"{webhook_id}.{webhook_timestamp}.{body.decode('utf-8')}"
+            expected = hmac.new(
+                settings.dodo_webhook_secret.encode(),
+                signed_content.encode(),
+                hashlib.sha256,
+            ).hexdigest()
+            # Dodo sends comma-separated signatures (v1,<hash>)
+            sigs = [s.split(",")[-1] for s in webhook_signature.split(" ") if s]
+            if not any(hmac.compare_digest(expected, sig) for sig in sigs):
+                logger.warning("Dodo webhook signature mismatch — possible spoofed request")
+                raise HTTPException(
+                    status_code=http_status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid webhook signature.",
+                )
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("Webhook signature verification error: %s", exc)
 
     try:
         event = json.loads(body)
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON payload.")
 
-    event_name = event.get("meta", {}).get("event_name", "")
+    event_type = event.get("type", "") or event.get("event_type", "")
     data       = event.get("data", {})
-    attributes = data.get("attributes", {})
-    custom     = event.get("meta", {}).get("custom_data", {})
+    metadata   = data.get("metadata", {}) or event.get("metadata", {})
 
-    user_id        = custom.get("user_id")
-    ls_customer_id = str(attributes.get("customer_id", ""))
-    ls_sub_id      = str(data.get("id", ""))
-    ls_status      = attributes.get("status", "")
+    user_id        = metadata.get("user_id")
+    dodo_customer  = str(data.get("customer_id", "") or data.get("customer", {}).get("id", ""))
+    dodo_sub_id    = str(data.get("id", "") or data.get("subscription_id", ""))
+    dodo_status    = data.get("status", "")
 
     logger.info(
-        "LS webhook received | event=%s user_id=%s ls_status=%s",
-        event_name, user_id, ls_status,
+        "Dodo webhook received | event=%s user_id=%s status=%s",
+        event_type, user_id, dodo_status,
     )
 
-    # LS status → our DB status
+    # Dodo status → our DB status
     STATUS_MAP = {
         "active":    "active",
         "on_trial":  "trialing",
+        "trialing":  "trialing",
         "paused":    "past_due",
         "past_due":  "past_due",
         "unpaid":    "past_due",
+        "failed":    "past_due",
         "cancelled": "cancelled",
         "expired":   "cancelled",
     }
 
     if not user_id:
-        logger.warning("LS webhook missing user_id in custom_data — skipping")
+        logger.warning("Dodo webhook missing user_id in metadata — skipping")
         return {"received": True}
 
     try:
         user = db.query(User).filter(User.id == int(user_id)).first()
         if not user:
-            logger.warning("LS webhook: user_id=%s not found in DB", user_id)
+            logger.warning("Dodo webhook: user_id=%s not found in DB", user_id)
             return {"received": True}
 
-        # Exempt accounts (e.g. your own admin) are never touched by billing
         if user.subscription_status == "exempt":
             return {"received": True}
 
-        if event_name in ("subscription_created", "subscription_updated", "subscription_resumed"):
-            user.subscription_status = STATUS_MAP.get(ls_status, "active")
-            user.ls_customer_id      = ls_customer_id or user.ls_customer_id
-            user.ls_subscription_id  = ls_sub_id or user.ls_subscription_id
+        if event_type in (
+            "subscription.active", "subscription.on_trial",
+            "subscription.created", "subscription.updated", "subscription.resumed",
+        ):
+            user.subscription_status = STATUS_MAP.get(dodo_status, "active")
+            user.ls_customer_id      = dodo_customer or user.ls_customer_id
+            user.ls_subscription_id  = dodo_sub_id or user.ls_subscription_id
 
-        elif event_name in ("subscription_cancelled", "subscription_expired"):
+        elif event_type in ("subscription.cancelled", "subscription.expired"):
             user.subscription_status = "cancelled"
 
-        elif event_name == "subscription_payment_failed":
+        elif event_type in ("subscription.failed", "payment.failed"):
             user.subscription_status = "past_due"
 
-        elif event_name == "subscription_payment_success":
+        elif event_type in ("payment.succeeded", "subscription_payment_success"):
             user.subscription_status = "active"
+            user.ls_customer_id      = dodo_customer or user.ls_customer_id
+            user.ls_subscription_id  = dodo_sub_id or user.ls_subscription_id
 
         db.commit()
         logger.info(
             "User id=%d subscription → %s (event: %s)",
-            user.id, user.subscription_status, event_name,
+            user.id, user.subscription_status, event_type,
         )
 
     except Exception as exc:
         db.rollback()
-        logger.exception("LS webhook DB error for user_id=%s: %s", user_id, exc)
+        logger.exception("Dodo webhook DB error for user_id=%s: %s", user_id, exc)
 
     return {"received": True}
