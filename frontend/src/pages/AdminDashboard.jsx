@@ -10122,7 +10122,7 @@ export default function AdminDashboard() {
                           </div>
                         ))}
                         <div style={{ marginTop: 12, padding: "8px 12px", background: `rgba(${rc.rgb},0.03)`, border: `1px solid rgba(${rc.rgb},0.08)`, borderRadius: 2, fontSize: 8, color: `rgba(${rc.rgb},0.35)`, letterSpacing: "0.05em", lineHeight: 1.8, fontFamily: "'Share Tech Mono', monospace" }}>
-                          ▲ Revenue at ${m.revenue.plan_price}/user/mo · Connect Dodo Payments webhook for live sync
+                          ▲ Revenue at ${m.revenue.plan_price}/user/mo · Connect Polar webhook for live sync
                         </div>
                       </div>
                     </div>
