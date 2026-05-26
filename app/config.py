@@ -66,22 +66,18 @@ class Settings(BaseSettings):
         description="Refresh token expiry in days (used for Remember Me).",
     )
 
-    # ── Lemon Squeezy Billing (Segment 15) ───────────────────────────────────
-    lemonsqueezy_api_key: str = Field(
+    # ── Dodo Payments Billing (Segment 15) ───────────────────────────────────
+    dodo_api_key: str = Field(
         default="",
-        description="Lemon Squeezy API key. Get one at https://app.lemonsqueezy.com/settings/api",
+        description="Dodo Payments API key. Get one at https://dashboard.dodopayments.com",
     )
-    lemonsqueezy_store_id: str = Field(
-        default="362748",
-        description="Lemon Squeezy Store ID.",
-    )
-    lemonsqueezy_variant_id: str = Field(
-        default="1601865",
-        description="Lemon Squeezy Variant ID for the $20/month subscription.",
-    )
-    lemonsqueezy_webhook_secret: str = Field(
+    dodo_product_id: str = Field(
         default="",
-        description="Lemon Squeezy webhook signing secret.",
+        description="Dodo Payments Product ID for the $20/month subscription.",
+    )
+    dodo_webhook_secret: str = Field(
+        default="",
+        description="Dodo Payments webhook signing secret.",
     )
     frontend_url: str = Field(
         default="",
@@ -157,10 +153,10 @@ def _safe_db_host(url: str) -> str:
 def get_settings() -> Settings:
     settings = Settings()
     logger.info(
-        "Config loaded | env=%s | db_host=%s | slack_channel=%s | ls_store=%s",
+        "Config loaded | env=%s | db_host=%s | slack_channel=%s | dodo_product=%s",
         settings.app_env,
         _safe_db_host(settings.database_url),
         settings.slack_channel_id or "(all channels)",
-        settings.lemonsqueezy_store_id or "(not configured)",
+        settings.dodo_product_id or "(not configured)",
     )
     return settings
