@@ -185,7 +185,7 @@ class User(Base):
     timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default="UTC")
     currency: Mapped[Optional[str]] = mapped_column(String(8), nullable=True, default="USD")
 
-    # Segment 15 — Billing / Lemon Squeezy
+    # Segment 15 — Billing / Dodo Payments
     trial_ends_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True), nullable=True,
     )
