@@ -218,7 +218,7 @@ export default function PrivacyPage() {
             <p className="legal-p">We collect the following types of information:</p>
             <ul className="legal-ul">
               <li>Account information: name, email address, and password when you register.</li>
-              <li>Billing information: processed securely by Dodo Payments — we do not store your card details.</li>
+              <li>Billing information: processed securely by Polar — we do not store your card details.</li>
               <li>Usage data: features used, session duration, and interaction logs to improve the Service.</li>
               <li>Technical data: IP address, browser type, and device information.</li>
             </ul>
@@ -241,7 +241,7 @@ export default function PrivacyPage() {
               We do not sell your personal data. We share data only with trusted third-party service providers necessary to operate the Service, including:
             </p>
             <ul className="legal-ul">
-              <li>Dodo Payments — payment processing.</li>
+              <li>Polar — payment processing.</li>
               <li>Hosting and infrastructure providers.</li>
               <li>Analytics tools (anonymised data only).</li>
             </ul>
