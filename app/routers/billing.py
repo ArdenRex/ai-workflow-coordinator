@@ -1,12 +1,13 @@
 """
-routers/billing.py  —  Segment 15
+routers/billing.py
 ────────────────────────────────────
-POST /billing/checkout        →  create Dodo Payments checkout URL
-POST /billing/webhook         →  handle Dodo subscription lifecycle events
+POST /billing/checkout        →  create Polar checkout URL
+POST /billing/webhook         →  handle Polar subscription lifecycle events
 GET  /billing/portal          →  get customer portal URL
 POST /billing/cancel          →  cancel active subscription
 """
 
+import base64
 import hashlib
 import hmac
 import json
@@ -27,45 +28,45 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
-DODO_API_BASE = "https://api.dodopayments.com"
+POLAR_API_BASE = "https://api.polar.sh/v1"
 
 
-def _dodo_headers() -> dict:
-    """Build Dodo Payments auth headers from current settings."""
+def _polar_headers() -> dict:
+    """Build Polar auth headers from current settings."""
     settings = get_settings()
     return {
-        "Authorization": f"Bearer {settings.dodo_api_key}",
+        "Authorization": f"Bearer {settings.polar_api_key}",
         "Content-Type":  "application/json",
         "Accept":        "application/json",
     }
 
 
-def _dodo_configured() -> bool:
+def _polar_configured() -> bool:
     s = get_settings()
-    return bool(s.dodo_api_key and s.dodo_product_id)
+    return bool(s.polar_api_key and s.polar_product_id)
 
 
 # ── Checkout ──────────────────────────────────────────────────────────────────
 
 @router.post(
     "/checkout",
-    summary="Create a Dodo Payments checkout URL for the current user",
+    summary="Create a Polar checkout URL for the current user",
 )
 def create_checkout(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
     """
-    Creates a Dodo Payments hosted checkout URL.
-    The user is redirected to Dodo to enter their real card details.
-    After payment Dodo redirects back to the dashboard.
+    Creates a Polar hosted checkout URL.
+    The user is redirected to Polar to enter their real card details.
+    After payment Polar redirects back to the dashboard.
     """
     settings = get_settings()
     frontend_url = settings.frontend_url.rstrip("/")
 
-    if not _dodo_configured():
+    if not _polar_configured():
         # Test / dev mode — mark user active immediately so you can test the flow
-        logger.warning("Dodo Payments not configured — simulating subscription in test mode")
+        logger.warning("Polar not configured — simulating subscription in test mode")
         try:
             current_user.subscription_status = "active"
             current_user.ls_customer_id      = f"test_customer_{current_user.id}"
@@ -83,35 +84,31 @@ def create_checkout(
 
     try:
         payload = {
-            "product_id": settings.dodo_product_id,
-            "payment_link": True,
-            "customer": {
-                "email": current_user.email,
-                "name":  current_user.name or current_user.email,
-            },
+            "product_id": settings.polar_product_id,
+            "customer_email": current_user.email,
+            "customer_name": current_user.name or current_user.email,
             "metadata": {
                 "user_id": str(current_user.id),
             },
             "success_url": f"{frontend_url}?billing=success",
-            "cancel_url":  frontend_url,
         }
 
         response = httpx.post(
-            f"{DODO_API_BASE}/subscriptions",
-            headers=_dodo_headers(),
+            f"{POLAR_API_BASE}/checkouts",
+            headers=_polar_headers(),
             json=payload,
             timeout=15,
         )
 
         if response.status_code not in (200, 201):
-            logger.error("Dodo checkout failed: %d %s", response.status_code, response.text)
+            logger.error("Polar checkout failed: %d %s", response.status_code, response.text)
             raise HTTPException(
                 status_code=http_status.HTTP_502_BAD_GATEWAY,
                 detail="Payment provider error. Please try again.",
             )
 
         data = response.json()
-        checkout_url = data.get("payment_link") or data.get("checkout_url", "")
+        checkout_url = data.get("url") or data.get("checkout_url", "")
         logger.info("Checkout URL created for user_id=%d", current_user.id)
         return {"checkout_url": checkout_url, "test_mode": False}
 
@@ -129,7 +126,7 @@ def create_checkout(
 
 @router.get(
     "/portal",
-    summary="Get Dodo Payments customer portal URL",
+    summary="Get Polar customer portal URL",
 )
 def get_portal(
     current_user: User = Depends(get_current_user),
@@ -144,17 +141,18 @@ def get_portal(
             detail="No billing account found. Please complete checkout first.",
         )
 
-    if not settings.dodo_api_key:
+    if not settings.polar_api_key:
         return {"portal_url": f"{frontend_url}?billing=portal_test"}
 
     try:
-        response = httpx.get(
-            f"{DODO_API_BASE}/customers/{current_user.ls_customer_id}/portal",
-            headers=_dodo_headers(),
+        response = httpx.post(
+            f"{POLAR_API_BASE}/customer-sessions",
+            headers=_polar_headers(),
+            json={"customer_id": current_user.ls_customer_id},
             timeout=10,
         )
         data = response.json()
-        portal_url = data.get("url") or data.get("portal_url") or frontend_url
+        portal_url = data.get("customer_portal_url") or frontend_url
         return {"portal_url": portal_url}
     except Exception as exc:
         logger.warning("Portal URL fetch failed: %s", exc)
@@ -165,17 +163,17 @@ def get_portal(
 
 @router.post(
     "/cancel",
-    summary="Cancel the current user's active Dodo Payments subscription",
+    summary="Cancel the current user's active Polar subscription",
 )
 def cancel_subscription(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
     """
-    Cancels the user's active subscription via the Dodo Payments API.
+    Cancels the user's active subscription via the Polar API.
     The subscription remains active until the end of the billing period,
-    then Dodo fires subscription.cancelled which sets status = 'cancelled'.
-    In test / dev mode (no Dodo key) we immediately mark status = 'cancelled'.
+    then Polar fires subscription.canceled which sets status = 'cancelled'.
+    In test / dev mode (no Polar key) we immediately mark status = 'cancelled'.
     """
     settings = get_settings()
 
@@ -192,8 +190,8 @@ def cancel_subscription(
         )
 
     # ── Test / dev mode ───────────────────────────────────────────────────────
-    if not settings.dodo_api_key:
-        logger.warning("Dodo Payments not configured — simulating cancellation in test mode")
+    if not settings.polar_api_key:
+        logger.warning("Polar not configured — simulating cancellation in test mode")
         try:
             current_user.subscription_status = "cancelled"
             db.commit()
@@ -204,17 +202,17 @@ def cancel_subscription(
             logger.warning("Test mode cancel DB update failed: %s", exc)
         return {"cancelled": True, "test_mode": True, "message": "Subscription cancelled (test mode)."}
 
-    # ── Live mode — call Dodo DELETE /subscriptions/{id} ─────────────────────
+    # ── Live mode — call Polar DELETE /subscriptions/{id} ────────────────────
     try:
         response = httpx.delete(
-            f"{DODO_API_BASE}/subscriptions/{current_user.ls_subscription_id}",
-            headers=_dodo_headers(),
+            f"{POLAR_API_BASE}/subscriptions/{current_user.ls_subscription_id}",
+            headers=_polar_headers(),
             timeout=15,
         )
 
         if response.status_code not in (200, 204):
             logger.error(
-                "Dodo cancel failed: %d %s", response.status_code, response.text
+                "Polar cancel failed: %d %s", response.status_code, response.text
             )
             raise HTTPException(
                 status_code=http_status.HTTP_502_BAD_GATEWAY,
@@ -222,7 +220,7 @@ def cancel_subscription(
             )
 
         logger.info(
-            "Subscription cancelled via Dodo for user_id=%d sub_id=%s",
+            "Subscription cancelled via Polar for user_id=%d sub_id=%s",
             current_user.id, current_user.ls_subscription_id,
         )
         return {
@@ -245,10 +243,10 @@ def cancel_subscription(
 
 @router.post(
     "/webhook",
-    summary="Dodo Payments webhook — handles subscription lifecycle events",
+    summary="Polar webhook — handles subscription lifecycle events",
     status_code=http_status.HTTP_200_OK,
 )
-async def dodo_webhook(
+async def polar_webhook(
     request: Request,
     webhook_id: str = Header(default="", alias="webhook-id"),
     webhook_timestamp: str = Header(default="", alias="webhook-timestamp"),
@@ -256,31 +254,35 @@ async def dodo_webhook(
     db: Session = Depends(get_db),
 ) -> dict:
     """
-    Handles these Dodo events:
+    Handles these Polar events:
+      subscription.created         → status = trialing / active
       subscription.active          → status = active
-      subscription.on_trial        → status = trialing
-      subscription.paused          → status = past_due
-      subscription.cancelled       → status = cancelled
-      subscription.failed          → status = past_due
-      payment.succeeded            → status = active
-      payment.failed               → status = past_due
+      subscription.updated         → update status from payload
+      subscription.canceled        → status = cancelled
+      subscription.revoked         → status = cancelled
+      order.created                → status = active (renewal)
     """
     settings = get_settings()
     body = await request.body()
 
-    # ── Verify HMAC-SHA256 signature (Dodo standard verification) ─────────────
-    if settings.dodo_webhook_secret:
+    # ── Verify Standard Webhooks signature (Polar uses Standard Webhooks spec) ─
+    if settings.polar_webhook_secret:
         try:
+            # Standard Webhooks: HMAC-SHA256, secret is base64-decoded first
+            secret = settings.polar_webhook_secret
+            # Strip whsec_ prefix if present
+            if secret.startswith("whsec_"):
+                secret = secret[len("whsec_"):]
+            secret_bytes = base64.b64decode(secret) if _is_base64(secret) else secret.encode()
+
             signed_content = f"{webhook_id}.{webhook_timestamp}.{body.decode('utf-8')}"
-            expected = hmac.new(
-                settings.dodo_webhook_secret.encode(),
-                signed_content.encode(),
-                hashlib.sha256,
-            ).hexdigest()
-            # Dodo sends comma-separated signatures (v1,<hash>)
-            sigs = [s.split(",")[-1] for s in webhook_signature.split(" ") if s]
+            expected = base64.b64encode(
+                hmac.new(secret_bytes, signed_content.encode(), hashlib.sha256).digest()
+            ).decode()
+
+            sigs = [s.split(",", 1)[-1] for s in webhook_signature.split(" ") if s]
             if not any(hmac.compare_digest(expected, sig) for sig in sigs):
-                logger.warning("Dodo webhook signature mismatch — possible spoofed request")
+                logger.warning("Polar webhook signature mismatch — possible spoofed request")
                 raise HTTPException(
                     status_code=http_status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid webhook signature.",
@@ -295,64 +297,63 @@ async def dodo_webhook(
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON payload.")
 
-    event_type = event.get("type", "") or event.get("event_type", "")
+    event_type = event.get("type", "")
     data       = event.get("data", {})
-    metadata   = data.get("metadata", {}) or event.get("metadata", {})
+    metadata   = data.get("metadata", {}) or {}
 
-    user_id        = metadata.get("user_id")
-    dodo_customer  = str(data.get("customer_id", "") or data.get("customer", {}).get("id", ""))
-    dodo_sub_id    = str(data.get("id", "") or data.get("subscription_id", ""))
-    dodo_status    = data.get("status", "")
+    user_id       = metadata.get("user_id")
+    polar_customer = str(data.get("customer_id", "") or "")
+    polar_sub_id   = str(data.get("id", "") or "")
+    polar_status   = data.get("status", "")
 
     logger.info(
-        "Dodo webhook received | event=%s user_id=%s status=%s",
-        event_type, user_id, dodo_status,
+        "Polar webhook received | event=%s user_id=%s status=%s",
+        event_type, user_id, polar_status,
     )
 
-    # Dodo status → our DB status
+    # Polar status → our DB status
     STATUS_MAP = {
-        "active":    "active",
-        "on_trial":  "trialing",
-        "trialing":  "trialing",
-        "paused":    "past_due",
-        "past_due":  "past_due",
-        "unpaid":    "past_due",
-        "failed":    "past_due",
-        "cancelled": "cancelled",
-        "expired":   "cancelled",
+        "active":        "active",
+        "trialing":      "trialing",
+        "past_due":      "past_due",
+        "unpaid":        "past_due",
+        "canceled":      "cancelled",
+        "cancelled":     "cancelled",
+        "incomplete":    "past_due",
+        "revoked":       "cancelled",
     }
 
     if not user_id:
-        logger.warning("Dodo webhook missing user_id in metadata — skipping")
+        logger.warning("Polar webhook missing user_id in metadata — skipping")
         return {"received": True}
 
     try:
         user = db.query(User).filter(User.id == int(user_id)).first()
         if not user:
-            logger.warning("Dodo webhook: user_id=%s not found in DB", user_id)
+            logger.warning("Polar webhook: user_id=%s not found in DB", user_id)
             return {"received": True}
 
         if user.subscription_status == "exempt":
             return {"received": True}
 
         if event_type in (
-            "subscription.active", "subscription.on_trial",
-            "subscription.created", "subscription.updated", "subscription.resumed",
+            "subscription.created",
+            "subscription.active",
+            "subscription.updated",
         ):
-            user.subscription_status = STATUS_MAP.get(dodo_status, "active")
-            user.ls_customer_id      = dodo_customer or user.ls_customer_id
-            user.ls_subscription_id  = dodo_sub_id or user.ls_subscription_id
+            user.subscription_status = STATUS_MAP.get(polar_status, "active")
+            user.ls_customer_id      = polar_customer or user.ls_customer_id
+            user.ls_subscription_id  = polar_sub_id or user.ls_subscription_id
 
-        elif event_type in ("subscription.cancelled", "subscription.expired"):
+        elif event_type in ("subscription.canceled", "subscription.revoked"):
             user.subscription_status = "cancelled"
 
-        elif event_type in ("subscription.failed", "payment.failed"):
-            user.subscription_status = "past_due"
-
-        elif event_type in ("payment.succeeded", "subscription_payment_success"):
-            user.subscription_status = "active"
-            user.ls_customer_id      = dodo_customer or user.ls_customer_id
-            user.ls_subscription_id  = dodo_sub_id or user.ls_subscription_id
+        elif event_type == "order.created":
+            # Renewal payment — mark active
+            billing_reason = data.get("billing_reason", "")
+            if billing_reason in ("subscription_cycle", "subscription_create", "purchase"):
+                user.subscription_status = "active"
+                user.ls_customer_id      = polar_customer or user.ls_customer_id
 
         db.commit()
         logger.info(
@@ -362,6 +363,15 @@ async def dodo_webhook(
 
     except Exception as exc:
         db.rollback()
-        logger.exception("Dodo webhook DB error for user_id=%s: %s", user_id, exc)
+        logger.exception("Polar webhook DB error for user_id=%s: %s", user_id, exc)
 
     return {"received": True}
+
+
+def _is_base64(s: str) -> bool:
+    """Check if a string looks like valid base64."""
+    try:
+        base64.b64decode(s, validate=True)
+        return True
+    except Exception:
+        return False
