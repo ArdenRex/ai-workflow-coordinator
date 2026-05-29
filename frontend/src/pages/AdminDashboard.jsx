@@ -4880,17 +4880,26 @@ function UserDetailDrawer({ user, open, onClose, showToast, onToggleActive }) {
   const joinDate = user.created_at ? new Date(user.created_at) : null;
   const daysAgo = joinDate ? Math.floor((Date.now() - joinDate) / 86400000) : null;
 
-  // Simulated activity metrics
-  const seed = (user.id || 1);
-  const taskCount = ((seed * 17) % 80) + 5;
-  const sessionCount = ((seed * 11) % 40) + 3;
-  const lastActive = `${((seed * 7) % 23) + 1}h ago`;
+  // Real activity metrics from API
+  const taskCount = user.task_count ?? 0;
+
+  const lastActiveStr = (() => {
+    if (!user.updated_at) return "—";
+    const diff = Date.now() - new Date(user.updated_at);
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days}d ago`;
+  })();
 
   const statItems = [
     { label: "TASKS", value: taskCount, color: "#00e5ff", rgb: "0,229,255", icon: "✦" },
-    { label: "SESSIONS", value: sessionCount, color: "#bf5fff", rgb: "191,95,255", icon: "◎" },
-    { label: "LAST SEEN", value: lastActive, color: "#00ff9d", rgb: "0,255,157", icon: "◈", isText: true },
+    { label: "LAST ACTIVE", value: lastActiveStr, color: "#00ff9d", rgb: "0,255,157", icon: "◈", isText: true },
     { label: "TENURE", value: daysAgo != null ? `${daysAgo}d` : "—", color: "#ffd060", rgb: "255,208,96", icon: "⬡", isText: true },
+    { label: "ROLE", value: user.role?.toUpperCase() || "—", color: "#bf5fff", rgb: "191,95,255", icon: "◎", isText: true },
   ];
 
   return (
@@ -5030,7 +5039,7 @@ function UserDetailDrawer({ user, open, onClose, showToast, onToggleActive }) {
           }}>
             {[
               ["Registered", joinDate ? joinDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"],
-              ["Last Login", lastActive],
+              ["Last Active", lastActiveStr],
               ["Subscription", user.subscription_status?.toUpperCase() || "NONE"],
               ["Role Level", user.role?.toUpperCase() || "STANDARD"],
             ].map(([label, val]) => (
@@ -9785,13 +9794,14 @@ export default function AdminDashboard() {
 
                   {/* ── SYSTEM STATUS PULSE BAR ── */}
                   <div style={{ marginBottom: 18 }}>
+                    <div className="section-heading" style={{ marginBottom: 6 }}>System Status <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
                     <SystemStatusPulseBar />
                   </div>
 
                   {/* ── ACTIVITY FEED + TELEMETRY ROW ── */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 14, marginBottom: 22, marginTop: 4 }}>
                     <div>
-                      <div className="section-heading" style={{ marginBottom: 14 }}>Live Activity</div>
+                      <div className="section-heading" style={{ marginBottom: 14 }}>Live Activity <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
                       <ActivityFeed m={m} />
                     </div>
                     <div>
@@ -9818,49 +9828,31 @@ export default function AdminDashboard() {
 
                   {/* ── USER ACTIVITY HEATMAP ── */}
                   <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Login Density — 7×24 Heatmap</div>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Login Density — 7×24 Heatmap <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
                     <ActivityHeatmap m={m} />
                   </div>
 
                   {/* ── REVENUE FORECAST ── */}
                   <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Revenue Forecast — ML Projection</div>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Revenue Forecast — ML Projection <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
                     <RevenueForecastPanel m={m} />
-                  </div>
-
-                  {/* ── SESSION REPLAY LOG ── */}
-                  <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Session Replay — Admin Audit Trail</div>
-                    <SessionReplayLog />
                   </div>
 
                   {/* ── GEO-INTELLIGENCE MAP ── */}
                   <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Geo-Intelligence — User Density Choropleth</div>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Geo-Intelligence — User Density Choropleth <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
                     <GeoIntelligenceMap m={m} />
-                  </div>
-
-                  {/* ── TASK PIPELINE KANBAN ── */}
-                  <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Task Pipeline — Kanban Workflow</div>
-                    <TaskPipelineKanban />
                   </div>
 
                   {/* ── ALERT RULES ENGINE ── */}
                   <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Alert Rules Engine — Real-Time Thresholds</div>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Alert Rules Engine — Real-Time Thresholds <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
                     <AlertRulesEngine m={m} />
-                  </div>
-
-                  {/* ── COMMAND TELEMETRY STREAM ── */}
-                  <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Command Telemetry — Live API Stream</div>
-                    <CommandTelemetryStream />
                   </div>
 
                   {/* ── COHORT RETENTION MATRIX ── */}
                   <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Cohort Retention — Week-over-Week Matrix</div>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Cohort Retention — Week-over-Week Matrix <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
                     <CohortRetentionMatrix m={m} />
                   </div>
 
