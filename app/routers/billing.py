@@ -23,6 +23,7 @@ from app.auth import get_current_user
 from app.config import get_settings
 from app.database import get_db
 from app.models import User
+from app.notifications import notify_card_added
 
 logger = logging.getLogger(__name__)
 
@@ -344,6 +345,15 @@ async def polar_webhook(
             user.subscription_status = STATUS_MAP.get(polar_status, "active")
             user.ls_customer_id      = polar_customer or user.ls_customer_id
             user.ls_subscription_id  = polar_sub_id or user.ls_subscription_id
+
+            # Notify only on first-time subscription creation
+            if event_type == "subscription.created":
+                import threading
+                threading.Thread(
+                    target=notify_card_added,
+                    args=(user.name, user.email),
+                    daemon=True,
+                ).start()
 
         elif event_type in ("subscription.canceled", "subscription.revoked"):
             user.subscription_status = "cancelled"
