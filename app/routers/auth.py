@@ -34,6 +34,7 @@ from app.auth import (
 )
 from app.database import get_db
 from app.models import User, UserRole, FreelancerRequest, Freelancer
+from app.notifications import notify_new_signup
 from app.schemas import (
     LoginRequest,
     OnboardingRequest,
@@ -201,6 +202,12 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db), ref: str =
                 logger.warning("Could not save referral code: %s", exc)
 
     logger.info("New user registered: id=%d email=%s", user.id, user.email)
+
+    threading.Thread(
+        target=notify_new_signup,
+        args=(user.name, user.email),
+        daemon=True,
+    ).start()
 
     return RegisterResponse(
         message="Account created. Please complete onboarding.",
