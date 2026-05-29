@@ -84,6 +84,20 @@ class Settings(BaseSettings):
         description="Frontend URL — used for checkout redirect and webhook return URL.",
     )
 
+    # ── Notifications (Gmail) ─────────────────────────────────────────────────
+    gmail_user: str = Field(
+        default="",
+        description="Gmail address used to send notifications (e.g. you@gmail.com).",
+    )
+    gmail_app_password: str = Field(
+        default="",
+        description="Gmail App Password (not your main password). Generate at myaccount.google.com/apppasswords.",
+    )
+    notify_email: str = Field(
+        default="",
+        description="Email address that receives signup notifications (can be same as gmail_user).",
+    )
+
     # ── Validators ────────────────────────────────────────────────────────────
     @field_validator("database_url", mode="before")
     @classmethod
