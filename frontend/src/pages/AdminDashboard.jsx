@@ -55,53 +55,20 @@ const LIGHT_OVERRIDES = `
   .arcane-light .holo-feedback { background: rgba(220,238,255,0.9) !important; border-color: rgba(0,120,200,0.22) !important; }
 `;
 
-// ── ACTIVITY FEED DATA ────────────────────────────────────────────────────────
-const ACTIVITY_ICONS = { signup: "⬡", upgrade: "◎", cancel: "✕", task: "✦", feedback: "◆", login: "→" };
-const ACTIVITY_COLORS = { signup: "#00ff9d", upgrade: "#ffd060", cancel: "#ff2d55", task: "#00e5ff", feedback: "#bf5fff", login: "#00e5ff" };
-function makeActivity(id) {
-  const types = ["signup", "upgrade", "cancel", "task", "feedback", "login"];
-  const t = types[Math.floor(Math.random() * types.length)];
-  const names = ["nova_x", "cipher_7", "arc_user", "ghost_91", "data_77", "echo_k", "syn_44", "prism_2", "byte_z", "flux_9"];
-  const name = names[Math.floor(Math.random() * names.length)];
-  const msgs = {
-    signup: `${name} joined the network`, upgrade: `${name} upgraded to Pro`,
-    cancel: `${name} terminated subscription`, task: `${name} created 3 new tasks`,
-    feedback: `${name} submitted a transmission`, login: `${name} accessed terminal`,
-  };
-  return { id, type: t, msg: msgs[t], ts: Date.now(), fresh: true };
-}
-
-// ── REAL-TIME ACTIVITY FEED ───────────────────────────────────────────────────
-function ActivityFeed({ m }) {
-  const [events, setEvents] = useState(() => Array.from({ length: 7 }, (_, i) => ({ ...makeActivity(i), fresh: false, ts: Date.now() - i * 14000 })));
-  const idRef = useRef(100);
+// ── RECENT SIGNUPS FEED ──────────────────────────────────────────────────────
+function RecentSignupsFeed({ m }) {
   const { dark } = useTheme();
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const ev = makeActivity(idRef.current++);
-      setEvents(prev => [ev, ...prev.slice(0, 14)]);
-      // After 1s remove 'fresh' glow
-      setTimeout(() => setEvents(prev => prev.map(e => e.id === ev.id ? { ...e, fresh: false } : e)), 1200);
-    }, 3800 + Math.random() * 2400);
-    return () => clearInterval(interval);
-  }, []);
-
-  const timeAgo = (ts) => {
-    const s = Math.floor((Date.now() - ts) / 1000);
-    if (s < 5)  return "just now";
-    if (s < 60) return `${s}s ago`;
-    const m = Math.floor(s / 60);
-    if (m < 60) return `${m}m ago`;
-    return `${Math.floor(m / 60)}h ago`;
-  };
-
   const cyan = dark ? "0,229,255" : "0,120,200";
+  const cyanHex = dark ? "#00e5ff" : "#0088cc";
   const panelBg = dark
     ? "linear-gradient(160deg, rgba(0,4,18,0.98) 0%, rgba(0,10,28,0.95) 100%)"
     : "linear-gradient(160deg, rgba(220,238,255,0.97) 0%, rgba(200,228,252,0.94) 100%)";
   const textPrimary = dark ? "rgba(180,230,255,0.85)" : "rgba(10,40,80,0.85)";
   const textDim = dark ? "rgba(0,229,255,0.3)" : "rgba(0,100,180,0.45)";
+
+  const trend = m?.signup_trend || [];
+  const recentDays = trend.slice(-7);
+  const total = recentDays.reduce((s, d) => s + d.signups, 0);
 
   return (
     <div style={{
@@ -110,11 +77,9 @@ function ActivityFeed({ m }) {
       borderRadius: 8, overflow: "hidden",
       clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)",
       boxShadow: dark
-        ? `0 12px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05), inset 0 0 40px rgba(${cyan},0.02)`
+        ? `0 12px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05)`
         : `0 8px 30px rgba(0,80,180,0.1), inset 0 1px 0 rgba(255,255,255,0.6)`,
-      transition: "all 0.5s",
     }}>
-      {/* Header */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "14px 18px 12px",
@@ -124,70 +89,34 @@ function ActivityFeed({ m }) {
       }}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${cyan},0.6), rgba(0,255,157,0.3), transparent)` }} />
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 10px #00ff9d", animation: "pulse-glow 1.2s ease-in-out infinite" }} />
-          <span style={{ fontSize: 9, color: `rgba(${cyan},0.8)`, letterSpacing: "0.28em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", fontWeight: 700 }}>Live Activity Feed</span>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 10px #00ff9d" }} />
+          <span style={{ fontSize: 9, color: `rgba(${cyan},0.8)`, letterSpacing: "0.28em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", fontWeight: 700 }}>Signups — Last 7 Days</span>
         </div>
-        <div style={{ fontSize: 7, color: `rgba(${cyan},0.35)`, letterSpacing: "0.12em", fontFamily: "'Share Tech Mono', monospace" }}>
-          {events.length} EVENTS · AUTO-REFRESH
+        <div style={{ fontSize: 8, color: `rgba(${cyan},0.5)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>
+          {total} TOTAL
         </div>
       </div>
-
-      {/* Event stream */}
-      <div style={{ maxHeight: 320, overflowY: "auto", padding: "8px 0" }}>
-        {events.map((ev, i) => {
-          const col = ACTIVITY_COLORS[ev.type];
-          const icon = ACTIVITY_ICONS[ev.type];
-          return (
-            <div key={ev.id} style={{
-              display: "flex", alignItems: "center", gap: 12,
-              padding: "9px 18px",
-              borderLeft: ev.fresh ? `3px solid ${col}` : "3px solid transparent",
-              background: ev.fresh
-                ? dark ? `rgba(${col.replace("#","").match(/.{2}/g).map(h=>parseInt(h,16)).join(",")},0.08)` : `rgba(0,120,200,0.06)`
-                : i % 2 === 0 ? (dark ? "rgba(0,229,255,0.012)" : "rgba(0,120,200,0.025)") : "transparent",
-              transition: "all 0.6s cubic-bezier(0.16,1,0.3,1)",
-              animation: i === 0 && ev.fresh ? "activitySlide 0.4s cubic-bezier(0.16,1,0.3,1) both" : "none",
-              position: "relative",
-              overflow: "hidden",
-            }}>
-              {ev.fresh && <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg, rgba(${col.replace("#","").match(/.{2}/g)?.map(h=>parseInt(h,16)).join(",") || "0,229,255"},0.04), transparent)`, pointerEvents: "none" }} />}
-              {/* Type icon bubble */}
+      <div style={{ padding: "10px 16px" }}>
+        {recentDays.length === 0 ? (
+          <div style={{ fontSize: 10, color: textDim, padding: "12px 0", textAlign: "center", fontFamily: "'Share Tech Mono', monospace" }}>NO DATA</div>
+        ) : recentDays.map((day, i) => (
+          <div key={i} style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "7px 0",
+            borderBottom: i < recentDays.length - 1 ? `1px solid rgba(${cyan},0.06)` : "none",
+          }}>
+            <span style={{ fontSize: 9, color: textDim, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", width: 52 }}>{day.date}</span>
+            <div style={{ flex: 1, margin: "0 10px", height: 4, background: `rgba(${cyan},0.08)`, borderRadius: 2, overflow: "hidden" }}>
               <div style={{
-                width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: dark ? `rgba(${col.replace("#","").match(/.{2}/g)?.map(h=>parseInt(h,16)).join(",") || "0,229,255"},0.1)` : `rgba(0,120,200,0.1)`,
-                border: `1px solid ${ev.fresh ? col : `rgba(${col.replace("#","").match(/.{2}/g)?.map(h=>parseInt(h,16)).join(",") || "0,229,255"},0.3)`}`,
-                boxShadow: ev.fresh ? `0 0 12px ${col}44` : "none",
-                transition: "all 0.5s",
-                fontSize: 11, color: ev.fresh ? col : (dark ? `rgba(${col.replace("#","").match(/.{2}/g)?.map(h=>parseInt(h,16)).join(",") || "0,229,255"},0.6)` : `rgba(0,100,160,0.7)`),
-              }}>{icon}</div>
-              {/* Message */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: ev.fresh ? textPrimary : (dark ? "rgba(150,210,255,0.6)" : "rgba(10,40,80,0.65)"), fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {ev.msg}
-                </div>
-                <div style={{ fontSize: 7, color: textDim, marginTop: 2, letterSpacing: "0.1em" }}>{ev.type.toUpperCase()}</div>
-              </div>
-              {/* Time */}
-              <div style={{ fontSize: 8, color: textDim, fontFamily: "'Share Tech Mono', monospace", flexShrink: 0 }}>{timeAgo(ev.ts)}</div>
-              {/* Fresh pulse */}
-              {ev.fresh && <div style={{ width: 5, height: 5, borderRadius: "50%", background: col, boxShadow: `0 0 8px ${col}`, animation: "pulse-glow 0.8s ease-in-out 3", flexShrink: 0 }} />}
+                height: "100%", borderRadius: 2,
+                width: `${Math.min(100, (day.signups / Math.max(1, Math.max(...recentDays.map(d => d.signups)))) * 100)}%`,
+                background: day.signups > 0 ? `rgba(0,255,157,0.7)` : "transparent",
+                boxShadow: day.signups > 0 ? "0 0 6px rgba(0,255,157,0.4)" : "none",
+              }} />
             </div>
-          );
-        })}
-      </div>
-      {/* Footer strip */}
-      <div style={{ padding: "8px 18px", borderTop: `1px solid rgba(${cyan},0.08)`, display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {Object.entries(ACTIVITY_COLORS).map(([type, col]) => {
-          const count = events.filter(e => e.type === type).length;
-          return (
-            <div key={type} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 7, fontFamily: "'Share Tech Mono', monospace" }}>
-              <div style={{ width: 4, height: 4, borderRadius: "50%", background: col }} />
-              <span style={{ color: dark ? `rgba(180,230,255,0.35)` : "rgba(0,80,160,0.5)", letterSpacing: "0.08em" }}>{type.toUpperCase()}</span>
-              <span style={{ color: col, fontWeight: 700 }}>{count}</span>
-            </div>
-          );
-        })}
+            <span style={{ fontSize: 10, color: day.signups > 0 ? "#00ff9d" : textDim, fontFamily: "'Share Tech Mono', monospace", fontWeight: 700, width: 20, textAlign: "right" }}>{day.signups}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -5050,24 +4979,23 @@ function UserDetailDrawer({ user, open, onClose, showToast, onToggleActive }) {
             ))}
           </div>
 
-          {/* Activity waveform simulation */}
+          {/* Task count bar */}
           <div style={{ fontSize: 7, color: textDim, letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 3, height: 3, background: accentColor, borderRadius: "50%" }} />
-            Activity Pattern
+            Tasks Created
           </div>
-          <div style={{ display: "flex", gap: 3, alignItems: "flex-end", height: 48, marginBottom: 20, padding: "0 2px" }}>
-            {Array.from({ length: 28 }).map((_, i) => {
-              const h = Math.max(4, Math.sin(i * 0.7 + (seed % 10) * 0.4) * 18 + 20 + ((seed * i) % 12));
-              const active = i > 20;
-              return (
-                <div key={i} style={{
-                  flex: 1, height: h, borderRadius: 2,
-                  background: active ? `rgba(${accentRgb},0.7)` : `rgba(${cyan},0.12)`,
-                  boxShadow: active ? `0 0 6px rgba(${accentRgb},0.3)` : "none",
-                  transition: "height 0.3s",
-                }} />
-              );
-            })}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+            <div style={{ flex: 1, height: 8, background: `rgba(${cyan},0.08)`, borderRadius: 4, overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                width: `${Math.min(100, ((user.task_count || 0) / 50) * 100)}%`,
+                background: accentColor,
+                borderRadius: 4,
+                boxShadow: `0 0 8px ${accentColor}88`,
+                transition: "width 0.6s ease",
+              }} />
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: accentColor, fontFamily: "'Share Tech Mono', monospace", minWidth: 28 }}>{user.task_count ?? 0}</span>
           </div>
         </div>
 
@@ -5288,264 +5216,39 @@ function WorkspaceHealthMap({ workspaces }) {
 }
 
 // ── SYSTEM STATUS PULSE BAR — real-time API latency / uptime / error gauges ──
-function SystemStatusPulseBar() {
+function SystemStatusPulseBar({ m }) {
   const { dark } = useTheme();
   const cyan = dark ? "0,229,255" : "0,120,200";
   const cyanHex = dark ? "#00e5ff" : "#0088cc";
+  const textDim = dark ? "rgba(0,229,255,0.35)" : "rgba(0,100,180,0.45)";
 
-  // Simulate real-time telemetry
-  const [metrics, setMetrics] = useState({
-    apiLatency: 42,
-    uptime: 99.97,
-    errorRate: 0.03,
-    throughput: 1247,
-    p99: 118,
-    activeConns: 84,
-  });
-  const [history, setHistory] = useState({
-    latency: Array.from({ length: 28 }, () => 30 + Math.random() * 60),
-    errors:  Array.from({ length: 28 }, () => Math.random() * 0.08),
-  });
-  const [collapsed, setCollapsed] = useState(false);
-  const sparkRef = useRef(null);
-  const errRef = useRef(null);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      const lat = 28 + Math.random() * 90 + (Math.random() > 0.92 ? 200 : 0);
-      const err = Math.random() * 0.06 + (Math.random() > 0.96 ? 0.4 : 0);
-      setMetrics(prev => ({
-        apiLatency: Math.round(lat),
-        uptime: Math.min(100, prev.uptime + (Math.random() - 0.3) * 0.001),
-        errorRate: parseFloat(err.toFixed(3)),
-        throughput: Math.round(1100 + Math.random() * 400),
-        p99: Math.round(lat * 2.4),
-        activeConns: Math.round(60 + Math.random() * 60),
-      }));
-      setHistory(prev => ({
-        latency: [...prev.latency.slice(1), lat],
-        errors:  [...prev.errors.slice(1), err],
-      }));
-    }, 1800);
-    return () => clearInterval(id);
-  }, []);
-
-  // Draw sparkline
-  useEffect(() => {
-    [
-      { ref: sparkRef, data: history.latency, color: "#00e5ff", max: 250 },
-      { ref: errRef,   data: history.errors,  color: "#ff2d55", max: 0.5  },
-    ].forEach(({ ref, data, color, max }) => {
-      const canvas = ref.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      const W = canvas.width = canvas.offsetWidth * 2;
-      const H = canvas.height = canvas.offsetHeight * 2;
-      ctx.clearRect(0, 0, W, H);
-      const pts = data.map((v, i) => ({
-        x: (i / (data.length - 1)) * W,
-        y: H - (Math.min(v, max) / max) * H * 0.85 - H * 0.05,
-      }));
-      // Fill
-      const grad = ctx.createLinearGradient(0, 0, 0, H);
-      grad.addColorStop(0, color + "55");
-      grad.addColorStop(1, color + "00");
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, H);
-      pts.forEach((p, i) => {
-        if (i === 0) { ctx.lineTo(p.x, p.y); return; }
-        const prev = pts[i-1];
-        ctx.bezierCurveTo((prev.x+p.x)/2, prev.y, (prev.x+p.x)/2, p.y, p.x, p.y);
-      });
-      ctx.lineTo(pts[pts.length-1].x, H);
-      ctx.closePath();
-      ctx.fillStyle = grad;
-      ctx.fill();
-      // Line
-      ctx.beginPath();
-      ctx.moveTo(pts[0].x, pts[0].y);
-      pts.forEach((p, i) => {
-        if (i === 0) return;
-        const prev = pts[i-1];
-        ctx.bezierCurveTo((prev.x+p.x)/2, prev.y, (prev.x+p.x)/2, p.y, p.x, p.y);
-      });
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 8;
-      ctx.stroke();
-      // Last point dot
-      const last = pts[pts.length-1];
-      ctx.beginPath();
-      ctx.arc(last.x, last.y, 5, 0, Math.PI*2);
-      ctx.fillStyle = color;
-      ctx.shadowBlur = 16;
-      ctx.fill();
-    });
-  }, [history]);
-
-  const latencyStatus = metrics.apiLatency < 60 ? { color: "#00ff9d", rgb: "0,255,157", label: "OPTIMAL" }
-    : metrics.apiLatency < 120 ? { color: "#ffd060", rgb: "255,208,96", label: "ELEVATED" }
-    : { color: "#ff2d55", rgb: "255,45,85", label: "CRITICAL" };
-  const errorStatus = metrics.errorRate < 0.05 ? { color: "#00ff9d", rgb: "0,255,157", label: "NOMINAL" }
-    : metrics.errorRate < 0.2 ? { color: "#ffd060", rgb: "255,208,96", label: "WARN" }
-    : { color: "#ff2d55", rgb: "255,45,85", label: "ALERT" };
-
-  const panelBg = dark
-    ? "linear-gradient(180deg, rgba(0,3,14,0.99) 0%, rgba(0,8,22,0.97) 100%)"
-    : "linear-gradient(180deg, rgba(220,236,255,0.99) 0%, rgba(205,226,250,0.97) 100%)";
-  const textPrimary = dark ? "#e8f6ff" : "#0a1a2e";
+  const stats = [
+    { label: "TOTAL USERS",     value: m?.users?.total ?? "—",           color: "#00e5ff" },
+    { label: "PAID",            value: m?.users?.paid ?? "—",             color: "#00ff9d" },
+    { label: "TRIALING",        value: m?.users?.trialing ?? "—",         color: "#ffd060" },
+    { label: "TRIAL EXPIRED",   value: m?.users?.trial_expired ?? "—",    color: "#ff8c42" },
+    { label: "CANCELLED",       value: m?.users?.cancelled ?? "—",        color: "#ff2d55" },
+    { label: "TASKS TOTAL",     value: m?.tasks?.total ?? "—",            color: "#bf5fff" },
+    { label: "COMPLETION",      value: m?.tasks?.completion_rate != null ? `${m.tasks.completion_rate}%` : "—", color: "#00e5ff" },
+    { label: "MRR",             value: m?.revenue?.mrr != null ? `$${m.revenue.mrr.toLocaleString()}` : "—", color: "#00ff9d" },
+  ];
 
   return (
     <div style={{
-      background: panelBg,
-      border: `1px solid rgba(${cyan},0.18)`,
-      borderRadius: 6,
-      overflow: "hidden",
-      position: "relative",
-      transition: "all 0.4s cubic-bezier(0.16,1,0.3,1)",
-      boxShadow: dark
-        ? `0 4px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)`
-        : `0 4px 20px rgba(0,80,180,0.08)`,
+      display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8,
+      padding: "14px 0", marginBottom: 4,
     }}>
-      {/* Prismatic top edge */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${cyanHex}, #00ff9d, #ff2d55, ${cyanHex}, transparent)`, opacity: 0.7 }} />
-
-      {/* Header row */}
-      <div
-        onClick={() => setCollapsed(c => !c)}
-        style={{
-          display: "flex", alignItems: "center", gap: 12, padding: "10px 18px",
-          borderBottom: collapsed ? "none" : `1px solid rgba(${cyan},0.08)`,
-          cursor: "pointer",
-          background: dark ? `rgba(${cyan},0.025)` : `rgba(${cyan},0.04)`,
-          userSelect: "none",
+      {stats.map(({ label, value, color }) => (
+        <div key={label} style={{
+          background: dark ? "rgba(0,229,255,0.03)" : "rgba(0,120,200,0.05)",
+          border: `1px solid rgba(${cyan},0.12)`,
+          borderRadius: 4, padding: "10px 14px",
+          clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
         }}>
-        {/* Live pulse dot */}
-        <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 12px #00ff9d, 0 0 24px rgba(0,255,157,0.4)", animation: "pulse-glow 1s ease-in-out infinite", flexShrink: 0 }} />
-        <span style={{ fontSize: 8, color: `rgba(${cyan},0.75)`, letterSpacing: "0.26em", fontFamily: "'Share Tech Mono', monospace", fontWeight: 700 }}>SYSTEM STATUS PULSE</span>
-
-        {/* Quick status pills */}
-        <div style={{ display: "flex", gap: 6, flex: 1 }}>
-          {[
-            { label: `${metrics.apiLatency}ms`, color: latencyStatus.color, rgb: latencyStatus.rgb, icon: "◈" },
-            { label: `${metrics.uptime.toFixed(3)}%`, color: "#00ff9d", rgb: "0,255,157", icon: "◎" },
-            { label: `${metrics.errorRate.toFixed(3)}%`, color: errorStatus.color, rgb: errorStatus.rgb, icon: "✕" },
-            { label: `${metrics.throughput} req/s`, color: "#bf5fff", rgb: "191,95,255", icon: "→" },
-          ].map(({ label, color, rgb, icon }) => (
-            <div key={label} style={{
-              display: "flex", alignItems: "center", gap: 4,
-              padding: "2px 8px", borderRadius: 3,
-              background: `rgba(${rgb},0.06)`,
-              border: `1px solid rgba(${rgb},0.2)`,
-              fontSize: 8, color, fontFamily: "'Share Tech Mono', monospace",
-              letterSpacing: "0.06em",
-            }}>
-              <span style={{ fontSize: 7 }}>{icon}</span>
-              {label}
-            </div>
-          ))}
+          <div style={{ fontSize: 7, color: textDim, letterSpacing: "0.18em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>{label}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.04em" }}>{value}</div>
         </div>
-
-        {/* Collapse toggle */}
-        <div style={{
-          fontSize: 9, color: `rgba(${cyan},0.4)`, fontFamily: "'Share Tech Mono', monospace",
-          transform: collapsed ? "rotate(0deg)" : "rotate(180deg)",
-          transition: "transform 0.3s cubic-bezier(0.16,1,0.3,1)",
-        }}>▲</div>
-      </div>
-
-      {/* Expanded body */}
-      {!collapsed && (
-        <div style={{ padding: "16px 18px", display: "grid", gridTemplateColumns: "repeat(3, minmax(140px,1fr))", gap: 14 }}>
-
-          {/* API Latency gauge */}
-          <div style={{ position: "relative" }}>
-            <div style={{ fontSize: 7, color: `rgba(${cyan},0.45)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 4, height: 4, borderRadius: "50%", background: latencyStatus.color, boxShadow: `0 0 8px ${latencyStatus.color}` }} />
-              API LATENCY · {latencyStatus.label}
-            </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 8 }}>
-              <span style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Orbitron', monospace", color: latencyStatus.color, textShadow: `0 0 16px rgba(${latencyStatus.rgb},0.6)`, lineHeight: 1 }}>{metrics.apiLatency}</span>
-              <span style={{ fontSize: 9, color: `rgba(${latencyStatus.rgb},0.5)`, fontFamily: "'Share Tech Mono', monospace" }}>ms</span>
-              <span style={{ fontSize: 7, color: `rgba(${cyan},0.3)`, fontFamily: "'Share Tech Mono', monospace", marginLeft: "auto" }}>p99: {metrics.p99}ms</span>
-            </div>
-            {/* Gauge track */}
-            <div style={{ height: 4, background: dark ? "rgba(0,0,0,0.4)" : "rgba(0,80,160,0.1)", borderRadius: 2, overflow: "hidden", marginBottom: 8 }}>
-              <div style={{
-                height: "100%",
-                width: `${Math.min(metrics.apiLatency / 250 * 100, 100)}%`,
-                background: `linear-gradient(90deg, #00ff9d, ${latencyStatus.color})`,
-                borderRadius: 2, boxShadow: `0 0 8px ${latencyStatus.color}`,
-                transition: "width 1.5s cubic-bezier(0.4,0,0.2,1)",
-              }} />
-            </div>
-            <canvas ref={sparkRef} style={{ display: "block", width: "100%", height: 36, borderRadius: 3 }} />
-          </div>
-
-          {/* Uptime gauge */}
-          <div>
-            <div style={{ fontSize: 7, color: `rgba(${cyan},0.45)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 8px #00ff9d", animation: "pulse-glow 2s infinite" }} />
-              UPTIME / RELIABILITY
-            </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 8 }}>
-              <span style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Orbitron', monospace", color: "#00ff9d", textShadow: "0 0 16px rgba(0,255,157,0.6)", lineHeight: 1 }}>{metrics.uptime.toFixed(2)}</span>
-              <span style={{ fontSize: 9, color: "rgba(0,255,157,0.5)", fontFamily: "'Share Tech Mono', monospace" }}>%</span>
-            </div>
-            {/* Circular-ish uptime arcs */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-              {["30d", "7d", "24h", "1h"].map((label, i) => {
-                const upt = [99.97, 99.99, 100.0, 100.0][i];
-                const col = upt >= 100 ? "#00ff9d" : upt > 99.9 ? "#ffd060" : "#ff2d55";
-                return (
-                  <div key={label} style={{ flex: 1, textAlign: "center" }}>
-                    <div style={{ fontSize: 10, fontFamily: "'Orbitron', monospace", color: col, fontWeight: 700, textShadow: `0 0 8px ${col}` }}>{upt}%</div>
-                    <div style={{ fontSize: 6, color: `rgba(${cyan},0.3)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>{label}</div>
-                    <div style={{ height: 2, background: `rgba(${cyan},0.08)`, borderRadius: 1, marginTop: 3, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${upt}%`, background: col, borderRadius: 1, boxShadow: `0 0 4px ${col}` }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 8px", background: dark ? "rgba(0,255,157,0.03)" : "rgba(0,150,80,0.04)", border: "1px solid rgba(0,255,157,0.1)", borderRadius: 3 }}>
-              <span style={{ fontSize: 7, color: "rgba(0,255,157,0.4)", fontFamily: "'Share Tech Mono', monospace" }}>ACTIVE CONNECTIONS</span>
-              <span style={{ fontSize: 10, color: "#00ff9d", fontFamily: "'Orbitron', monospace", fontWeight: 700 }}>{metrics.activeConns}</span>
-            </div>
-          </div>
-
-          {/* Error Rate gauge */}
-          <div>
-            <div style={{ fontSize: 7, color: `rgba(${cyan},0.45)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 4, height: 4, borderRadius: "50%", background: errorStatus.color, boxShadow: `0 0 8px ${errorStatus.color}` }} />
-              ERROR RATE · {errorStatus.label}
-            </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 8 }}>
-              <span style={{ fontSize: 28, fontWeight: 900, fontFamily: "'Orbitron', monospace", color: errorStatus.color, textShadow: `0 0 16px rgba(${errorStatus.rgb},0.6)`, lineHeight: 1 }}>{(metrics.errorRate * 100).toFixed(2)}</span>
-              <span style={{ fontSize: 9, color: `rgba(${errorStatus.rgb},0.5)`, fontFamily: "'Share Tech Mono', monospace" }}>% err</span>
-            </div>
-            <div style={{ height: 4, background: dark ? "rgba(0,0,0,0.4)" : "rgba(0,80,160,0.1)", borderRadius: 2, overflow: "hidden", marginBottom: 8 }}>
-              <div style={{
-                height: "100%",
-                width: `${Math.min(metrics.errorRate / 0.5 * 100, 100)}%`,
-                background: `linear-gradient(90deg, #00ff9d, ${errorStatus.color})`,
-                borderRadius: 2, boxShadow: `0 0 8px ${errorStatus.color}`,
-                transition: "width 1.5s cubic-bezier(0.4,0,0.2,1)",
-              }} />
-            </div>
-            <canvas ref={errRef} style={{ display: "block", width: "100%", height: 36, borderRadius: 3 }} />
-            <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
-              {[["4xx", Math.round(metrics.throughput * metrics.errorRate * 0.7), "#ffd060"], ["5xx", Math.round(metrics.throughput * metrics.errorRate * 0.3), "#ff2d55"]].map(([code, count, col]) => (
-                <div key={code} style={{ flex: 1, padding: "4px 8px", background: dark ? `rgba(${col === "#ffd060" ? "255,208,96" : "255,45,85"},0.04)` : `rgba(${col === "#ffd060" ? "200,140,0" : "200,0,40"},0.04)`, border: `1px solid rgba(${col === "#ffd060" ? "255,208,96" : "255,45,85"},0.15)`, borderRadius: 3 }}>
-                  <div style={{ fontSize: 6, color: `${col}88`, fontFamily: "'Share Tech Mono', monospace" }}>{code}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: col, fontFamily: "'Orbitron', monospace", textShadow: `0 0 8px ${col}` }}>{count}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      ))}
     </div>
   );
 }
@@ -6115,161 +5818,39 @@ function KeyboardCheatsheet({ open, onClose }) {
 }
 
 // ── USER ACTIVITY HEATMAP — 7×24 login density grid ──────────────────────────
-function ActivityHeatmap({ m }) {
+function SignupTrendChart({ m }) {
   const { dark } = useTheme();
   const cyan = dark ? "0,229,255" : "0,120,200";
   const cyanHex = dark ? "#00e5ff" : "#0088cc";
-
-  // Generate synthetic 7×24 heatmap (days × hours)
-  const DAYS = ["MON","TUE","WED","THU","FRI","SAT","SUN"];
-  const heatData = useMemo(() => {
-    // Simulate realistic login patterns: peaks 9-11am, 2-4pm, dip nights/weekends
-    return DAYS.map((d, di) => {
-      const isWeekend = di >= 5;
-      return Array.from({ length: 24 }, (_, h) => {
-        const morningPeak  = Math.exp(-Math.pow(h - 9.5, 2) / 4) * (isWeekend ? 0.3 : 1);
-        const afternoonPeak= Math.exp(-Math.pow(h - 14, 2) / 5) * (isWeekend ? 0.25 : 0.85);
-        const eveningDip   = Math.exp(-Math.pow(h - 20, 2) / 6) * 0.2;
-        const raw = (morningPeak + afternoonPeak + eveningDip) * (0.7 + Math.random() * 0.6);
-        return Math.min(1, Math.max(0, raw));
-      });
-    });
-  }, []);
-
-  const maxVal = Math.max(...heatData.flat());
-  const [hovered, setHovered] = useState(null); // { d, h }
-
-  const getCellColor = (val) => {
-    if (val < 0.05) return dark ? "rgba(0,229,255,0.03)" : "rgba(0,120,200,0.04)";
-    const intensity = val / maxVal;
-    if (intensity < 0.2) return `rgba(0,229,255,${0.08 + intensity * 0.15})`;
-    if (intensity < 0.5) return `rgba(0,229,255,${0.15 + intensity * 0.3})`;
-    if (intensity < 0.75) return `rgba(0,255,157,${0.3 + intensity * 0.35})`;
-    return `rgba(255,208,96,${0.5 + intensity * 0.5})`;
-  };
-
-  const getCellGlow = (val) => {
-    const intensity = val / maxVal;
-    if (intensity < 0.2) return "none";
-    if (intensity < 0.5) return `0 0 6px rgba(0,229,255,${intensity * 0.3})`;
-    if (intensity < 0.75) return `0 0 10px rgba(0,255,157,${intensity * 0.4})`;
-    return `0 0 14px rgba(255,208,96,${intensity * 0.6})`;
-  };
-
-  const getTierLabel = (val) => {
-    const pct = (val / maxVal) * 100;
-    if (pct < 10) return "QUIET";
-    if (pct < 30) return "LOW";
-    if (pct < 60) return "MODERATE";
-    if (pct < 80) return "ACTIVE";
-    return "PEAK";
-  };
-
-  // Summary stats
-  const peakHour = heatData[0].reduce((best, v, h) => {
-    const avg = heatData.reduce((s, d) => s + d[h], 0) / 7;
-    return avg > best.avg ? { h, avg } : best;
-  }, { h: 0, avg: 0 });
-  const busyDay = DAYS[heatData.reduce((bi, d, i) => {
-    const sum = d.reduce((s, v) => s + v, 0);
-    return sum > heatData[bi].reduce((s, v) => s + v, 0) ? i : bi;
-  }, 0)];
+  const textDim = dark ? "rgba(0,229,255,0.35)" : "rgba(0,100,180,0.45)";
+  const trend = m?.signup_trend || [];
+  const maxVal = Math.max(1, ...trend.map(d => d.signups));
 
   return (
     <div style={{
-      background: dark
-        ? "linear-gradient(160deg, rgba(0,4,18,0.98) 0%, rgba(0,10,28,0.95) 100%)"
-        : "linear-gradient(160deg, rgba(220,238,255,0.97) 0%, rgba(200,228,252,0.94) 100%)",
-      border: `1px solid rgba(${cyan},0.18)`,
-      borderRadius: 8, overflow: "hidden",
-      clipPath: "polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)",
-      boxShadow: dark ? "0 12px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)" : "0 8px 30px rgba(0,80,180,0.1)",
+      background: dark ? "rgba(0,229,255,0.02)" : "rgba(0,120,200,0.04)",
+      border: `1px solid rgba(${cyan},0.14)`,
+      borderRadius: 6, padding: "16px 18px",
+      clipPath: "polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%)",
     }}>
-      {/* Header */}
-      <div style={{ padding: "14px 18px 12px", borderBottom: `1px solid rgba(${cyan},0.1)`, background: `rgba(${cyan},0.025)`, position: "relative" }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, transparent, rgba(${cyan},0.7), rgba(0,255,157,0.4), transparent)` }} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#ffd060", boxShadow: "0 0 10px #ffd060", animation: "pulse-glow 2s infinite" }} />
-            <span style={{ fontSize: 9, color: `rgba(${cyan},0.8)`, letterSpacing: "0.28em", fontFamily: "'Share Tech Mono', monospace", fontWeight: 700 }}>USER ACTIVITY HEATMAP</span>
-          </div>
-          <div style={{ display: "flex", gap: 14 }}>
-            {[
-              { label: "PEAK HOUR", value: `${peakHour.h}:00`, color: "#ffd060" },
-              { label: "BUSIEST DAY", value: busyDay, color: "#00ff9d" },
-            ].map(s => (
-              <div key={s.label} style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 7, color: `rgba(${cyan},0.28)`, letterSpacing: "0.16em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 2 }}>{s.label}</div>
-                <div style={{ fontSize: 10, color: s.color, fontFamily: "'Orbitron', monospace", fontWeight: 700, textShadow: `0 0 10px ${s.color}80` }}>{s.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Heatmap grid */}
-      <div style={{ padding: "16px 18px 14px" }}>
-        {/* Hour labels */}
-        <div style={{ display: "grid", gridTemplateColumns: "36px repeat(24, 1fr)", gap: 2, marginBottom: 4 }}>
-          <div />
-          {Array.from({ length: 24 }, (_, h) => (
-            <div key={h} style={{ fontSize: 6, color: `rgba(${cyan},0.22)`, fontFamily: "'Share Tech Mono', monospace", textAlign: "center", lineHeight: 1 }}>
-              {h % 3 === 0 ? `${h}h` : ""}
-            </div>
-          ))}
-        </div>
-
-        {/* Rows */}
-        {heatData.map((row, di) => (
-          <div key={di} style={{ display: "grid", gridTemplateColumns: "36px repeat(24, 1fr)", gap: 2, marginBottom: 2 }}>
-            {/* Day label */}
-            <div style={{ fontSize: 7, color: `rgba(${cyan},0.35)`, fontFamily: "'Share Tech Mono', monospace", display: "flex", alignItems: "center", letterSpacing: "0.04em" }}>{DAYS[di]}</div>
-            {/* Cells */}
-            {row.map((val, h) => {
-              const isHov = hovered?.d === di && hovered?.h === h;
-              return (
-                <div key={h}
-                  onMouseEnter={() => setHovered({ d: di, h })}
-                  onMouseLeave={() => setHovered(null)}
-                  title={`${DAYS[di]} ${h}:00 — ${getTierLabel(val)}`}
-                  style={{
-                    height: 13, borderRadius: 2,
-                    background: getCellColor(val),
-                    boxShadow: isHov ? `0 0 0 1px ${cyanHex}, ${getCellGlow(val)}` : getCellGlow(val),
-                    transition: "all 0.15s",
-                    transform: isHov ? "scale(1.3)" : "scale(1)",
-                    cursor: "crosshair",
-                    zIndex: isHov ? 2 : 0,
-                    position: "relative",
-                  }}
-                />
-              );
-            })}
-          </div>
+      <div style={{ fontSize: 8, color: `rgba(${cyan},0.6)`, letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 14 }}>SIGNUP TREND — LAST 30 DAYS</div>
+      <div style={{ display: "flex", gap: 2, alignItems: "flex-end", height: 56 }}>
+        {trend.map((day, i) => (
+          <div key={i} title={`${day.date}: ${day.signups} signups`} style={{
+            flex: 1,
+            height: `${Math.max(4, (day.signups / maxVal) * 100)}%`,
+            background: day.signups > 0
+              ? `rgba(0,255,157,${0.3 + (day.signups / maxVal) * 0.6})`
+              : `rgba(${cyan},0.08)`,
+            borderRadius: 2,
+            boxShadow: day.signups > 0 ? `0 0 6px rgba(0,255,157,${(day.signups / maxVal) * 0.4})` : "none",
+            cursor: "default",
+          }} />
         ))}
-
-        {/* Legend + hover tooltip */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
-          {/* Legend */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 7, color: `rgba(${cyan},0.25)`, fontFamily: "'Share Tech Mono', monospace" }}>LESS</span>
-            {[0.02, 0.2, 0.4, 0.65, 0.9].map((v, i) => (
-              <div key={i} style={{ width: 12, height: 12, borderRadius: 2, background: getCellColor(v * maxVal), boxShadow: getCellGlow(v * maxVal) }} />
-            ))}
-            <span style={{ fontSize: 7, color: `rgba(${cyan},0.25)`, fontFamily: "'Share Tech Mono', monospace" }}>MORE</span>
-          </div>
-
-          {/* Hover info */}
-          {hovered ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 8, fontFamily: "'Share Tech Mono', monospace" }}>
-              <span style={{ color: `rgba(${cyan},0.35)` }}>{DAYS[hovered.d]} · {hovered.h}:00–{hovered.h + 1}:00</span>
-              <span style={{ color: "#ffd060", fontWeight: 700 }}>{getTierLabel(heatData[hovered.d][hovered.h])}</span>
-              <span style={{ color: `rgba(${cyan},0.25)` }}>{Math.round(heatData[hovered.d][hovered.h] * 100)}% DENSITY</span>
-            </div>
-          ) : (
-            <span style={{ fontSize: 7, color: `rgba(${cyan},0.18)`, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>HOVER A CELL FOR DETAILS</span>
-          )}
-        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+        <span style={{ fontSize: 7, color: textDim, fontFamily: "'Share Tech Mono', monospace" }}>{trend[0]?.date || ""}</span>
+        <span style={{ fontSize: 7, color: textDim, fontFamily: "'Share Tech Mono', monospace" }}>{trend[trend.length - 1]?.date || ""}</span>
       </div>
     </div>
   );
@@ -6284,29 +5865,47 @@ function RevenueForecastPanel({ m }) {
   const cyan = dark ? "0,229,255" : "0,120,200";
   const cyanHex = dark ? "#00e5ff" : "#0088cc";
 
-  // Build 6 months history + 3 months forecast from real MRR
-  const baseMRR = m?.revenue?.mrr || 1200;
+  // Build history from real monthly_breakdown + 3-month linear trend forecast
   const monthNames = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
   const now = new Date();
 
   const historyPoints = useMemo(() => {
-    return Array.from({ length: 6 }, (_, i) => {
-      const growth = 1 + (0.05 + Math.random() * 0.08) * (i === 0 ? 0 : 1);
-      const base = baseMRR * Math.pow(1.065, i - 5);
-      return {
-        month: monthNames[(now.getMonth() - 5 + i + 12) % 12],
-        value: Math.round(base * (0.92 + Math.random() * 0.16)),
+    const breakdown = m?.revenue?.monthly_breakdown || [];
+    if (breakdown.length > 0) {
+      return breakdown.map(b => ({
+        month: b.month.split(" ")[0].toUpperCase().slice(0, 3),
+        value: b.revenue,
         type: "history",
-      };
-    });
-  }, [baseMRR]);
+      }));
+    }
+    // Fallback: current MRR only for current month
+    const baseMRR = m?.revenue?.mrr || 0;
+    return [{ month: monthNames[now.getMonth()], value: baseMRR, type: "history" }];
+  }, [m]);
 
   const forecastPoints = useMemo(() => {
-    const lastVal = historyPoints[historyPoints.length - 1].value;
+    if (historyPoints.length < 2) {
+      // Not enough data for a trend — show flat line from current MRR
+      const lastVal = historyPoints[0]?.value || 0;
+      return Array.from({ length: 3 }, (_, i) => ({
+        month: monthNames[(now.getMonth() + i + 1) % 12],
+        value: lastVal, upper: lastVal, lower: lastVal, type: "forecast",
+      }));
+    }
+    // Simple linear regression on history values
+    const n = historyPoints.length;
+    const xs = historyPoints.map((_, i) => i);
+    const ys = historyPoints.map(p => p.value);
+    const xMean = xs.reduce((a, b) => a + b, 0) / n;
+    const yMean = ys.reduce((a, b) => a + b, 0) / n;
+    const slope = xs.reduce((s, x, i) => s + (x - xMean) * (ys[i] - yMean), 0)
+                / xs.reduce((s, x) => s + (x - xMean) ** 2, 0);
+    const intercept = yMean - slope * xMean;
+
     return Array.from({ length: 3 }, (_, i) => {
-      const growthRate = 0.07 + Math.random() * 0.04;
-      const val = Math.round(lastVal * Math.pow(1 + growthRate, i + 1));
-      const uncertainty = 0.06 + i * 0.04; // widens with time
+      const x = n + i;
+      const val = Math.max(0, Math.round(intercept + slope * x));
+      const uncertainty = 0.06 + i * 0.04;
       return {
         month: monthNames[(now.getMonth() + i + 1) % 12],
         value: val,
@@ -7387,7 +6986,6 @@ const ALERT_METRICS = [
   { id: "tasks_today", label: "Tasks Today",       unit: "",    defaultVal: 50   },
   { id: "completion",  label: "Completion Rate (%)",unit: "%",  defaultVal: 80   },
   { id: "signups",     label: "Signups (24h)",     unit: "",    defaultVal: 10   },
-  { id: "api_err",     label: "API Error Rate (%)",unit: "%",   defaultVal: 2    },
 ];
 const ALERT_OPS = ["above", "below", "equals", "changes by"];
 const ALERT_CHANNELS = ["EMAIL", "SLACK", "WEBHOOK", "SMS"];
@@ -7436,7 +7034,6 @@ function AlertRulesEngine({ m }) {
     tasks_today: m?.tasks?.created_today || 0,
     completion: m?.tasks?.completion_rate || 0,
     signups: m?.signup_trend?.slice(-1)[0]?.signups || 0,
-    api_err: 1.4,
   }), [m]);
 
   const evalRule = (rule) => {
@@ -7963,201 +7560,48 @@ function CommandTelemetryStream() {
 }
 
 // ── COHORT RETENTION MATRIX ────────────────────────────────────────────────────
-function CohortRetentionMatrix({ m }) {
+function SubscriptionBreakdown({ m }) {
   const { dark } = useTheme();
-  const [hovCell, setHovCell] = useState(null); // { row, col }
-
-  const baseUsers = m?.users?.total || 100;
-  const monthNames = ["JAN","FEB","MAR","APR","MAY","JUN","JUL","AUG","SEP","OCT","NOV","DEC"];
-  const now = new Date();
-
-  // Generate 8 weekly cohorts × 8 periods
-  const COHORTS = 8;
-  const PERIODS = 8;
-
-  const matrix = useMemo(() => {
-    return Array.from({ length: COHORTS }, (_, row) => {
-      const cohortMonth = monthNames[(now.getMonth() - COHORTS + 1 + row + 12) % 12];
-      const cohortSize = Math.round((baseUsers / COHORTS) * (0.85 + Math.random() * 0.3));
-      return {
-        label: cohortMonth,
-        size: cohortSize,
-        retention: Array.from({ length: PERIODS }, (_, col) => {
-          if (col === 0) return 100;
-          if (col > COHORTS - row - 1) return null; // future data
-          // Realistic retention decay: high early drop, then plateaus
-          const base = col === 1 ? 68 + Math.random() * 12
-                     : col === 2 ? 52 + Math.random() * 10
-                     : col === 3 ? 42 + Math.random() * 10
-                     : col === 4 ? 36 + Math.random() * 8
-                     : col === 5 ? 30 + Math.random() * 8
-                     : col === 6 ? 26 + Math.random() * 7
-                     : 22 + Math.random() * 7;
-          return Math.round(base);
-        }),
-      };
-    });
-  }, [baseUsers]);
-
-  // Color scale: green → yellow → red based on retention %
-  const retentionColor = (pct) => {
-    if (pct === null) return { bg: "transparent", text: "transparent", glow: "none" };
-    if (pct >= 80) return { bg: "rgba(0,255,157,0.22)", text: "#00ff9d", glow: "0 0 10px rgba(0,255,157,0.4)" };
-    if (pct >= 65) return { bg: "rgba(0,229,255,0.18)", text: "#00e5ff", glow: "0 0 8px rgba(0,229,255,0.3)" };
-    if (pct >= 50) return { bg: "rgba(0,212,255,0.14)", text: "#00d4ff", glow: "none" };
-    if (pct >= 35) return { bg: "rgba(255,208,96,0.14)", text: "#ffd060", glow: "none" };
-    if (pct >= 22) return { bg: "rgba(255,140,66,0.14)", text: "#ff8c42", glow: "none" };
-    return { bg: "rgba(255,45,85,0.14)", text: "#ff2d55", glow: "none" };
-  };
-
+  const cyan = dark ? "0,229,255" : "0,120,200";
+  const cyanHex = dark ? "#00e5ff" : "#0088cc";
+  const textDim = dark ? "rgba(0,229,255,0.35)" : "rgba(0,100,180,0.45)";
+  const textPrimary = dark ? "rgba(180,230,255,0.9)" : "rgba(10,40,80,0.9)";
   const panelBg = dark
     ? "linear-gradient(135deg,rgba(0,4,14,0.97) 0%,rgba(0,10,24,0.94) 100%)"
     : "linear-gradient(135deg,rgba(230,242,255,0.97) 0%,rgba(215,234,255,0.94) 100%)";
 
-  // Compute weighted avg retention per period (for column summary)
-  const colAvgs = Array.from({ length: PERIODS }, (_, col) => {
-    if (col === 0) return 100;
-    const vals = matrix.map(r => r.retention[col]).filter(v => v !== null);
-    if (!vals.length) return null;
-    return Math.round(vals.reduce((s, v) => s + v, 0) / vals.length);
-  });
+  const total = m?.users?.total || 0;
+  const rows = [
+    { label: "PAID (ACTIVE)",   value: m?.users?.paid ?? 0,            color: "#00ff9d", pct: total ? Math.round((m?.users?.paid || 0) / total * 100) : 0 },
+    { label: "TRIALING",        value: m?.users?.trialing ?? 0,         color: "#ffd060", pct: total ? Math.round((m?.users?.trialing || 0) / total * 100) : 0 },
+    { label: "TRIAL EXPIRED",   value: m?.users?.trial_expired ?? 0,    color: "#ff8c42", pct: total ? Math.round((m?.users?.trial_expired || 0) / total * 100) : 0 },
+    { label: "CANCELLED",       value: m?.users?.cancelled ?? 0,        color: "#ff2d55", pct: total ? Math.round((m?.users?.cancelled || 0) / total * 100) : 0 },
+    { label: "EXEMPT",          value: m?.users?.exempt ?? 0,           color: "#bf5fff", pct: total ? Math.round((m?.users?.exempt || 0) / total * 100) : 0 },
+  ];
 
   return (
-    <div style={{ background: panelBg, border: "1px solid rgba(0,255,157,0.18)", borderRadius: 6, padding: "20px 22px", clipPath: "polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px))", boxShadow: "0 16px 60px rgba(0,0,0,0.55),inset 0 1px 0 rgba(255,255,255,0.05)", position: "relative", overflow: "hidden" }}>
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg,transparent,rgba(0,255,157,0.9),rgba(0,229,255,0.4),transparent)", pointerEvents: "none" }} />
-
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#00ff9d", boxShadow: "0 0 10px #00ff9d", animation: "pulse-glow 1.4s infinite" }} />
-          <span style={{ fontSize: 8, color: "rgba(0,255,157,0.8)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace" }}>COHORT RETENTION MATRIX</span>
-          <div style={{ height: 1, width: 28, background: "rgba(0,255,157,0.15)" }} />
-          <span style={{ fontSize: 7, color: "rgba(0,255,157,0.3)", letterSpacing: "0.14em", fontFamily: "'Share Tech Mono', monospace" }}>WEEK-OVER-WEEK USER RETENTION · {COHORTS} COHORTS × {PERIODS} PERIODS</span>
-        </div>
-        {/* Summary stats */}
-        <div style={{ display: "flex", gap: 16 }}>
-          {[
-            { l: "AVG W1 RET", v: `${colAvgs[1] ?? "—"}%`, c: "#00ff9d" },
-            { l: "AVG W4 RET", v: `${colAvgs[4] ?? "—"}%`, c: "#ffd060" },
-            { l: "AVG W7 RET", v: `${colAvgs[7] ?? "—"}%`, c: "#ff8c42" },
-          ].map(({ l, v, c }) => (
-            <div key={l} style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 6, color: "rgba(0,229,255,0.3)", letterSpacing: "0.16em", fontFamily: "'Share Tech Mono', monospace" }}>{l}</div>
-              <div style={{ fontSize: 13, fontFamily: "'Orbitron', monospace", color: c, textShadow: `0 0 10px ${c}88` }}>{v}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Matrix grid */}
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ borderCollapse: "collapse", width: "100%", tableLayout: "fixed" }}>
-          <thead>
-            <tr>
-              <th style={{ width: 72, textAlign: "left", padding: "4px 8px", fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", fontWeight: 400 }}>COHORT</th>
-              <th style={{ width: 56, textAlign: "right", padding: "4px 6px", fontSize: 7, color: "rgba(0,229,255,0.3)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em", fontWeight: 400 }}>SIZE</th>
-              {Array.from({ length: PERIODS }, (_, i) => (
-                <th key={i} style={{ textAlign: "center", padding: "4px 4px", fontSize: 7, color: i === 0 ? "rgba(0,229,255,0.5)" : "rgba(0,229,255,0.25)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em", fontWeight: 400 }}>
-                  {i === 0 ? "W0" : `W+${i}`}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {matrix.map((cohort, row) => (
-              <tr key={row}>
-                <td style={{ padding: "3px 8px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 3, height: 3, borderRadius: "50%", background: "#00ff9d", opacity: 0.6 }} />
-                    <span style={{ fontSize: 8, color: dark ? "rgba(255,255,255,0.65)" : "#0a1a2e", fontFamily: "'Share Tech Mono', monospace" }}>{cohort.label}</span>
-                  </div>
-                </td>
-                <td style={{ padding: "3px 6px", textAlign: "right" }}>
-                  <span style={{ fontSize: 8, fontFamily: "'Orbitron', monospace", color: "rgba(0,229,255,0.45)" }}>{cohort.size}</span>
-                </td>
-                {cohort.retention.map((pct, col) => {
-                  const { bg, text, glow } = retentionColor(pct);
-                  const isHov = hovCell && hovCell.row === row && hovCell.col === col;
-                  const isRowHov = hovCell && hovCell.row === row;
-                  const isColHov = hovCell && hovCell.col === col;
-                  return (
-                    <td key={col}
-                      onMouseEnter={() => setHovCell({ row, col })}
-                      onMouseLeave={() => setHovCell(null)}
-                      style={{ padding: "2px 3px", textAlign: "center" }}
-                    >
-                      {pct !== null ? (
-                        <div style={{
-                          padding: "5px 4px",
-                          borderRadius: 3,
-                          background: isHov ? `${text}30` : isRowHov || isColHov ? `${text}18` : bg,
-                          border: `1px solid ${isHov ? text + "88" : (isRowHov || isColHov) ? text + "44" : text + "28"}`,
-                          color: text,
-                          fontSize: 8.5,
-                          fontFamily: "'Orbitron', monospace",
-                          fontWeight: isHov ? 700 : 400,
-                          textShadow: isHov ? glow : "none",
-                          boxShadow: isHov ? glow : "none",
-                          transition: "all 0.15s",
-                          cursor: "default",
-                          userSelect: "none",
-                        }}>
-                          {pct}%
-                        </div>
-                      ) : (
-                        <div style={{ padding: "5px 4px", borderRadius: 3, background: dark ? "rgba(0,0,0,0.15)" : "rgba(0,60,120,0.05)", border: "1px solid rgba(0,229,255,0.04)" }}>
-                          <span style={{ fontSize: 8, color: "rgba(0,229,255,0.1)", fontFamily: "'Share Tech Mono', monospace" }}>—</span>
-                        </div>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-            {/* Column average row */}
-            <tr style={{ borderTop: "1px solid rgba(0,229,255,0.1)" }}>
-              <td style={{ padding: "5px 8px" }}>
-                <span style={{ fontSize: 7, color: "rgba(0,229,255,0.35)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>AVG</span>
-              </td>
-              <td />
-              {colAvgs.map((avg, col) => {
-                const { bg, text } = retentionColor(avg);
-                return (
-                  <td key={col} style={{ padding: "2px 3px", textAlign: "center" }}>
-                    {avg !== null ? (
-                      <div style={{ padding: "4px 4px", borderRadius: 3, background: bg, border: `1px solid ${text}44`, color: text, fontSize: 8, fontFamily: "'Orbitron', monospace", fontWeight: 700 }}>{avg}%</div>
-                    ) : <div style={{ height: 22 }} />}
-                  </td>
-                );
-              })}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Legend */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 14, paddingTop: 10, borderTop: "1px solid rgba(0,229,255,0.07)" }}>
-        <span style={{ fontSize: 7, color: "rgba(0,229,255,0.25)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>RETENTION SCALE</span>
-        {[
-          { range: "80–100%", c: "#00ff9d" },
-          { range: "65–79%",  c: "#00e5ff" },
-          { range: "50–64%",  c: "#00d4ff" },
-          { range: "35–49%",  c: "#ffd060" },
-          { range: "22–34%",  c: "#ff8c42" },
-          { range: "< 22%",   c: "#ff2d55" },
-        ].map(({ range, c }) => (
-          <div key={range} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 10, height: 10, borderRadius: 2, background: `${c}22`, border: `1px solid ${c}55` }} />
-            <span style={{ fontSize: 7, color: `${c}88`, fontFamily: "'Share Tech Mono', monospace" }}>{range}</span>
+    <div style={{
+      background: panelBg,
+      border: `1px solid rgba(${cyan},0.18)`,
+      borderRadius: 6, padding: "20px 22px",
+      clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))",
+    }}>
+      <div style={{ fontSize: 8, color: `rgba(${cyan},0.6)`, letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 16 }}>SUBSCRIPTION BREAKDOWN</div>
+      {rows.map(({ label, value, color, pct }) => (
+        <div key={label} style={{ marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontSize: 8, color: textDim, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em" }}>{label}</span>
+            <span style={{ fontSize: 9, color, fontFamily: "'Share Tech Mono', monospace", fontWeight: 700 }}>{value} <span style={{ color: textDim, fontSize: 7 }}>({pct}%)</span></span>
           </div>
-        ))}
-        {hovCell && matrix[hovCell.row] && matrix[hovCell.row].retention[hovCell.col] !== null && (
-          <div style={{ marginLeft: "auto", fontSize: 7.5, color: "rgba(0,229,255,0.6)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.1em" }}>
-            {matrix[hovCell.row].label} cohort · W+{hovCell.col} · {matrix[hovCell.row].retention[hovCell.col]}% retained
-            ({Math.round((matrix[hovCell.row].size * matrix[hovCell.row].retention[hovCell.col]) / 100)} users)
+          <div style={{ height: 4, background: `rgba(${cyan},0.08)`, borderRadius: 2, overflow: "hidden" }}>
+            <div style={{
+              height: "100%", width: `${pct}%`, background: color,
+              borderRadius: 2, transition: "width 0.6s ease",
+              boxShadow: `0 0 8px ${color}66`,
+            }} />
           </div>
-        )}
-      </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -9794,15 +9238,15 @@ export default function AdminDashboard() {
 
                   {/* ── SYSTEM STATUS PULSE BAR ── */}
                   <div style={{ marginBottom: 18 }}>
-                    <div className="section-heading" style={{ marginBottom: 6 }}>System Status <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
-                    <SystemStatusPulseBar />
+                    <div className="section-heading" style={{ marginBottom: 6 }}>Platform Overview</div>
+                    <SystemStatusPulseBar m={m} />
                   </div>
 
                   {/* ── ACTIVITY FEED + TELEMETRY ROW ── */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 14, marginBottom: 22, marginTop: 4 }}>
                     <div>
-                      <div className="section-heading" style={{ marginBottom: 14 }}>Live Activity <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
-                      <ActivityFeed m={m} />
+                      <div className="section-heading" style={{ marginBottom: 14 }}>Recent Signups</div>
+                      <RecentSignupsFeed m={m} />
                     </div>
                     <div>
                   {/* Stat strip */}
@@ -9828,32 +9272,32 @@ export default function AdminDashboard() {
 
                   {/* ── USER ACTIVITY HEATMAP ── */}
                   <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Login Density — 7×24 Heatmap <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
-                    <ActivityHeatmap m={m} />
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Signup Trend — Last 30 Days</div>
+                    <SignupTrendChart m={m} />
                   </div>
 
                   {/* ── REVENUE FORECAST ── */}
                   <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Revenue Forecast — ML Projection <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Revenue Forecast — Linear Trend</div>
                     <RevenueForecastPanel m={m} />
                   </div>
 
                   {/* ── GEO-INTELLIGENCE MAP ── */}
                   <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Geo-Intelligence — User Density Choropleth <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Geo-Distribution — Estimated <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
                     <GeoIntelligenceMap m={m} />
                   </div>
 
                   {/* ── ALERT RULES ENGINE ── */}
                   <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Alert Rules Engine — Real-Time Thresholds <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Alert Rules Engine</div>
                     <AlertRulesEngine m={m} />
                   </div>
 
                   {/* ── COHORT RETENTION MATRIX ── */}
                   <div style={{ marginBottom: 22 }}>
-                    <div className="section-heading" style={{ marginBottom: 14 }}>Cohort Retention — Week-over-Week Matrix <span style={{ fontSize: 8, color: "#ffd060", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em", opacity: 0.7 }}>[SIMULATED]</span></div>
-                    <CohortRetentionMatrix m={m} />
+                    <div className="section-heading" style={{ marginBottom: 14 }}>Subscription Breakdown</div>
+                    <SubscriptionBreakdown m={m} />
                   </div>
 
                   {/* ── SYSTEM HEALTH RADAR ── */}
