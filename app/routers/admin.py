@@ -244,6 +244,17 @@ def list_users(
 
     now = datetime.now(timezone.utc)
 
+    # Fetch real task counts for all returned users in one query
+    user_ids = [u.id for u in users]
+    task_counts: dict[int, int] = {}
+    if user_ids:
+        rows = db.execute(
+            select(Task.owner_id, func.count().label("cnt"))
+            .where(Task.owner_id.in_(user_ids))
+            .group_by(Task.owner_id)
+        ).all()
+        task_counts = {row.owner_id: row.cnt for row in rows}
+
     return {
         "total": total,
         "users": [
@@ -258,8 +269,10 @@ def list_users(
                 "trial_ends_at": u.trial_ends_at.isoformat() if u.trial_ends_at else None,
                 "trial_expired": (u.trial_ends_at < now) if u.trial_ends_at else False,
                 "created_at": u.created_at.isoformat() if u.created_at else None,
+                "updated_at": u.updated_at.isoformat() if u.updated_at else None,
                 "ls_customer_id": u.ls_customer_id,
                 "ls_subscription_id": u.ls_subscription_id,
+                "task_count": task_counts.get(u.id, 0),
             }
             for u in users
         ],
@@ -551,4 +564,3 @@ def action_freelancer_request(
 
         logger.info("Freelancer request denied/revoked: email=%s", req.email)
         return {"message": f"Access denied for {req.email}."}
-
