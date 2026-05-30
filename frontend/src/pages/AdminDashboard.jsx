@@ -224,7 +224,7 @@ function ExportModal({ open, onClose, m }) {
                 <div style={{ width: 3, height: 3, background: cyanHex, borderRadius: "50%" }} />
                 Select Data Sets
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))", gap: 8, marginBottom: 18 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
                 {dataSets.map(ds => {
                   const sel = selectedSets[ds.key];
                   const rgb = ds.color.replace("#","").match(/.{2}/g)?.map(h=>parseInt(h,16)).join(",") || "0,229,255";
@@ -666,7 +666,6 @@ function HoloCard({ label, value, sub, color = "#00e5ff", icon, trend, delay = 0
       onMouseMove={onMove}
       onMouseEnter={onEnter}
       onMouseLeave={onLeave}
-      className="holo-card-wrap"
       style={{
         position: "relative",
         borderRadius: 8,
@@ -1995,7 +1994,7 @@ function CardStatusPanel() {
         </div>
 
         {/* Summary tiles */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginTop: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginTop: 14 }}>
           {[
             { label: "TOTAL USERS",   value: total,              color: `rgba(${cyan},0.9)`,  bg: `rgba(${cyan},0.06)`  },
             { label: "CARD ON FILE",  value: withCard.length,    color: "#00ff9d",             bg: "rgba(0,255,157,0.06)" },
@@ -2060,7 +2059,7 @@ function CardStatusPanel() {
           <div style={{ padding: 24, textAlign: "center", fontSize: 9, color: textDim, fontFamily: "'Share Tech Mono', monospace" }}>NO USERS</div>
         ) : shown.map((u, i) => (
           <div key={u.id} style={{
-            display: "grid", gridTemplateColumns: "28px 1fr minmax(80px, 140px) 80px",
+            display: "grid", gridTemplateColumns: "36px 1fr 160px 90px",
             alignItems: "center", padding: "9px 22px", gap: 12,
             borderBottom: `1px solid rgba(${cyan},0.05)`,
             background: i % 2 === 0 ? "transparent" : (dark ? "rgba(0,229,255,0.01)" : "rgba(0,120,200,0.02)"),
@@ -3219,7 +3218,7 @@ function FreelancerPanel({ showToast }) {
   return (
     <div>
       {/* ── Stat strip ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(140px,1fr))", gap: 12, marginBottom: 18 }}>
         {[
           { label: "Total Freelancers", val: stats.total,     color: purple, icon: "◈" },
           { label: "Active",            val: stats.active,    color: green,  icon: "✦" },
@@ -3275,7 +3274,7 @@ function FreelancerPanel({ showToast }) {
             <div style={{ fontSize: 9, color: `rgba(${purple},0.6)`, letterSpacing: "0.2em", fontFamily: "'Share Tech Mono',monospace", marginBottom: 14 }}>
               ◈ NEW FREELANCER — LINK WILL BE GENERATED AUTOMATICALLY
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))", gap: 12, marginBottom: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 8, color: `rgba(${purple},0.45)`, letterSpacing: "0.15em", fontFamily: "'Share Tech Mono',monospace", marginBottom: 5 }}>FULL NAME</div>
                 <input
@@ -3453,7 +3452,7 @@ function FreelancerPanel({ showToast }) {
                     </div>
                   </div>
                   {/* Detail grid */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 14 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 14 }}>
                     {[
                       { label: "Referral Code", val: f.referral_code },
                       { label: "Cancelled",     val: f.cancelled ?? 0 },
@@ -4108,7 +4107,7 @@ function RevenueIntelPanel({ data, rgb, color }) {
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, ${color}, rgba(${rgb},0.3), transparent)` }} />
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "35%", background: "linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 100%)", pointerEvents: "none" }} />
         <div style={{ fontSize: 8, color: `rgba(${rgb},0.55)`, letterSpacing: "0.22em", textTransform: "uppercase", fontFamily: "'Share Tech Mono', monospace", marginBottom: 12 }}>Cumulative</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           {[
             { label: "Total Revenue", value: `$${totalRev.toFixed(0)}` },
             { label: "Paid Users", value: totalUsers },
@@ -4809,7 +4808,7 @@ function CommandPalette({ open, onClose, onNavigate, tabs, m }) {
         animation: "paletteFadeIn 0.15s ease-out both",
       }}>
       <div onClick={e => e.stopPropagation()} style={{
-        width: "min(580px, 95vw)",
+        width: 580, maxWidth: "90vw",
         background: "linear-gradient(160deg, rgba(0,5,20,0.99) 0%, rgba(0,10,28,0.98) 50%, rgba(0,4,16,0.99) 100%)",
         border: "1px solid rgba(0,229,255,0.35)",
         borderRadius: 10,
@@ -5000,7 +4999,7 @@ function UserDetailDrawer({ user, open, onClose, showToast, onToggleActive }) {
       {/* Drawer panel */}
       <div style={{
         position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 8001,
-        width: "min(420px, 95vw)",
+        width: 420, maxWidth: "90vw",
         background: panelBg,
         borderLeft: `1px solid rgba(${accentRgb},0.35)`,
         boxShadow: dark
@@ -5086,7 +5085,7 @@ function UserDetailDrawer({ user, open, onClose, showToast, onToggleActive }) {
             <div style={{ width: 3, height: 3, background: cyanHex, borderRadius: "50%" }} />
             Agent Metrics
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))", gap: 8, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
             {statItems.map(({ label, value, color, rgb, icon, isText }) => (
               <div key={label} style={{
                 padding: "12px 14px",
@@ -5387,7 +5386,7 @@ function SystemStatusPulseBar({ m }) {
 
   return (
     <div style={{
-      display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8,
+      display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8,
       padding: "14px 0", marginBottom: 4,
     }}>
       {stats.map(({ label, value, color }) => (
@@ -5926,7 +5925,7 @@ function KeyboardCheatsheet({ open, onClose }) {
         </div>
 
         {/* Shortcut grid */}
-        <div style={{ padding: "18px 22px 22px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 240px), 1fr))", gap: 18 }}>
+        <div style={{ padding: "18px 22px 22px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
           {SHORTCUTS.map(group => (
             <div key={group.group}>
               <div style={{ fontSize: 7, color: "rgba(0,229,255,0.35)", letterSpacing: "0.28em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 10, display: "flex", alignItems: "center", gap: 7 }}>
@@ -7015,7 +7014,7 @@ function TaskPipelineKanban() {
       )}
 
       {/* Kanban columns */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 10 }}>
         {colOrder.map(colId => {
           const col = KANBAN_COLS.find(c => c.id === colId);
           const tasks = (cols[colId] || []).filter(t => !filterPri || t.priority === filterPri);
@@ -7260,7 +7259,7 @@ function AlertRulesEngine({ m }) {
     return (
       <div style={{ background: dark ? "rgba(0,229,255,0.03)" : "rgba(0,100,200,0.05)", border: `1px solid rgba(0,229,255,0.18)`, borderRadius: 5, padding: "16px 18px", marginBottom: 14 }}>
         {/* Rule name */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>RULE NAME</div>
             <input value={r.name} onChange={e => setR(p => ({ ...p, name: e.target.value }))} placeholder="Alert name…" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
@@ -7278,7 +7277,7 @@ function AlertRulesEngine({ m }) {
             </select>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10, marginBottom: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(120px,1fr))", gap: 10, marginBottom: 14 }}>
           <div>
             <div style={{ fontSize: 7, color: "rgba(0,229,255,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>THRESHOLD {metricDef?.unit || ""}</div>
             <input value={r.threshold} onChange={e => setR(p => ({ ...p, threshold: e.target.value }))} placeholder="Value…" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
@@ -8065,7 +8064,6 @@ export default function AdminDashboard() {
   const toggleDark = useCallback(() => { setDark(d => !d); setDarkToggleCount(c => c + 1); }, []);
   const [drawerUser, setDrawerUser] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
   const { notifs, markRead, markAllRead, unreadCount } = useNotifications();
   const { displayTab, transitionStyle } = useTabTransition(tab);
@@ -8560,7 +8558,7 @@ export default function AdminDashboard() {
            SECTION HEADING — dramatic neon title bar
         ══════════════════════════════════════════════════════ */
         .section-heading {
-          font-size: clamp(10px, 1.8vw, 11px); color: rgba(0,229,255,0.8); letter-spacing: 0.38em;
+          font-size: 11px; color: rgba(0,229,255,0.8); letter-spacing: 0.38em;
           text-transform: uppercase; margin-bottom: 22px;
           font-family: 'Rajdhani', sans-serif; font-weight: 700;
           display: flex; align-items: center; gap: 14px;
@@ -8649,15 +8647,10 @@ export default function AdminDashboard() {
           height: 3px;
         }
         .stat-label {
-          font-size: clamp(10px, 1.5vw, 8px); color: rgba(0,229,255,0.45); text-transform: uppercase;
+          font-size: 8px; color: rgba(0,229,255,0.45); text-transform: uppercase;
           letter-spacing: 0.22em; margin-bottom: 14px;
           font-family: 'Share Tech Mono', monospace;
           display: flex; align-items: center; gap: 6px;
-          font-size: 8px;
-        }
-        @media (max-width: 768px) {
-          .stat-label { font-size: 11px !important; letter-spacing: 0.1em !important; margin-bottom: 8px !important; }
-          .stat-val { font-size: clamp(20px, 5vw, 28px) !important; }
         }
         .stat-label::before {
           content: ''; display: inline-block; width: 4px; height: 4px;
@@ -8804,156 +8797,6 @@ export default function AdminDashboard() {
            HOLOGRAPHIC SELECTION GLOW
         ══════════════════════════════════════════════════════ */
         ::selection { background: rgba(0,229,255,0.2); color: #ffffff; }
-
-        /* ══════════════════════════════════════════════════════
-           RESPONSIVE — FULL DEVICE SUPPORT
-        ══════════════════════════════════════════════════════ */
-
-        /* Mobile menu toggle — hidden on desktop */
-        .mobile-menu-btn {
-          display: none;
-          position: fixed; top: 14px; left: 14px; z-index: 200;
-          width: 40px; height: 40px;
-          background: rgba(0,5,18,0.95);
-          border: 1px solid rgba(0,229,255,0.3);
-          border-radius: 6px;
-          align-items: center; justify-content: center;
-          cursor: pointer;
-          backdrop-filter: blur(20px);
-          box-shadow: 0 4px 20px rgba(0,0,0,0.5), 0 0 12px rgba(0,229,255,0.15);
-          color: #00e5ff; font-size: 18px;
-          transition: all 0.2s;
-        }
-
-        /* Sidebar overlay backdrop */
-        .sidebar-overlay {
-          display: none;
-          position: fixed; inset: 0; z-index: 98;
-          background: rgba(0,0,0,0.75);
-          backdrop-filter: blur(4px);
-        }
-        .sidebar-overlay.open { display: block; }
-
-        /* ══════════════════════════════════════════════════════
-           TABLET (≤1024px) — Collapse sidebar to icons
-        ══════════════════════════════════════════════════════ */
-        @media (max-width: 1024px) {
-          .sidebar { width: 64px !important; }
-          .main-content {
-            margin-left: 64px !important;
-            padding: 0 16px 80px !important;
-          }
-          .stat-item { padding: 16px 16px !important; }
-        }
-
-        /* ══════════════════════════════════════════════════════
-           MOBILE (≤768px) — Overlay sidebar, full-width layout
-        ══════════════════════════════════════════════════════ */
-        @media (max-width: 768px) {
-          .mobile-menu-btn { display: flex; }
-
-          .sidebar {
-            width: 240px !important;
-            transform: translateX(-100%);
-            transition: transform 0.35s cubic-bezier(0.16,1,0.3,1) !important;
-            z-index: 99;
-          }
-          .sidebar.mobile-open { transform: translateX(0); }
-
-          .main-content {
-            margin-left: 0 !important;
-            padding: 0 14px 80px !important;
-          }
-
-          /* Topbar — pad left for hamburger button */
-          .topbar {
-            padding: 14px 14px 14px 56px !important;
-            margin-bottom: 18px !important;
-          }
-
-          /* Section headings — readable size */
-          .section-heading {
-            font-size: 11px !important;
-            letter-spacing: 0.18em !important;
-            margin-bottom: 16px !important;
-          }
-
-          /* Stat tiles — 2 per row */
-          .stat-row { gap: 8px !important; flex-wrap: wrap !important; }
-          .stat-item {
-            min-width: calc(50% - 4px) !important;
-            flex: 1 1 calc(50% - 4px) !important;
-            padding: 16px 14px !important;
-          }
-
-          /* All inputs full width */
-          .holo-input { width: 100% !important; font-size: 14px !important; padding: 10px 14px !important; }
-
-          /* ── FONT SIZE FLOOR — nothing below 10px on mobile ── */
-          /* Targets all the inline fontSize: 6/7/8/9 values */
-          * {
-            font-size: max(var(--_fs, inherit), 0px);
-          }
-        }
-
-        /* ══════════════════════════════════════════════════════
-           SMALL MOBILE (≤480px) — Single column everything
-        ══════════════════════════════════════════════════════ */
-        @media (max-width: 480px) {
-          .stat-item {
-            min-width: 100% !important;
-            flex: 1 1 100% !important;
-          }
-          .topbar-title { display: none !important; }
-          .main-content { padding: 0 10px 80px !important; }
-        }
-
-        /* ══════════════════════════════════════════════════════
-           GLOBAL FONT SIZE FLOOR — applied at all breakpoints
-           Bumps up all inline fontSize 6-9 to readable sizes
-        ══════════════════════════════════════════════════════ */
-        @media (max-width: 768px) {
-          /* These selectors match React's inline style attribute values */
-          [style*="fontSize: 6"],[style*="font-size: 6px"] { font-size: 10px !important; }
-          [style*="fontSize: 7"],[style*="font-size: 7px"] { font-size: 10px !important; }
-          [style*="fontSize: 8"],[style*="font-size: 8px"] { font-size: 11px !important; }
-          [style*="fontSize: 9"],[style*="font-size: 9px"] { font-size: 12px !important; }
-          [style*="fontSize: 10"],[style*="font-size: 10px"] { font-size: 12px !important; }
-          [style*="fontSize: 11"],[style*="font-size: 11px"] { font-size: 13px !important; }
-          [style*="fontSize: 12"],[style*="font-size: 12px"] { font-size: 13px !important; }
-
-          /* HoloCard — reduce padding and value size on mobile */
-          .holo-card-wrap { padding: 16px 14px 14px !important; }
-          .holo-card-wrap [style*="fontSize: 42"] { font-size: clamp(26px, 7vw, 36px) !important; }
-
-          /* HoloCard value — scale down the giant 42px number */
-          [style*="fontSize: 42"] { font-size: clamp(26px, 7vw, 42px) !important; }
-          [style*="fontSize: 32"] { font-size: clamp(22px, 6vw, 32px) !important; }
-          [style*="fontSize: 28"] { font-size: clamp(20px, 5.5vw, 28px) !important; }
-          [style*="fontSize: 22"] { font-size: clamp(18px, 5vw, 22px) !important; }
-
-          /* HoloCard padding — reduce on mobile */
-          [style*="padding: "26px 26px"] { padding: 16px 14px !important; }
-
-          /* Reduce heavy letter-spacing on mobile */
-          [style*="letterSpacing: "0.38em"] { letter-spacing: 0.14em !important; }
-          [style*="letterSpacing: "0.28em"] { letter-spacing: 0.1em !important; }
-          [style*="letterSpacing: "0.24em"] { letter-spacing: 0.08em !important; }
-          [style*="letterSpacing: "0.22em"] { letter-spacing: 0.08em !important; }
-
-          /* Remove 3D perspective transforms (cause overflow/scroll issues) */
-          [style*="perspective(1000px)"] { transform: none !important; transition: none !important; }
-
-          /* Modals & drawers — full width on mobile */
-          [style*="min(580px"] { width: 96vw !important; max-width: 96vw !important; }
-          [style*="min(420px"] { width: 96vw !important; max-width: 96vw !important; }
-
-          /* All grids with auto-fill — ensure minimum column width fits screen */
-          [style*="auto-fill, minmax(130px"] { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important; }
-          [style*="auto-fill, minmax(140px"] { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important; }
-          [style*="auto-fill, minmax(240px"] { grid-template-columns: 1fr !important; }
-          [style*="auto-fill, minmax(min(100%, 280px"] { grid-template-columns: 1fr !important; }
-        }
       `}</style>
 
       {/* Background layers */}
@@ -8979,15 +8822,8 @@ export default function AdminDashboard() {
       <HoloGrid />
 
       <div className="dashboard-root">
-        {/* Mobile menu toggle */}
-        <button className="mobile-menu-btn" onClick={() => setMobileSidebarOpen(o => !o)} aria-label="Toggle menu">
-          {mobileSidebarOpen ? "✕" : "☰"}
-        </button>
-
-        {/* Sidebar overlay backdrop for mobile */}
-        <div className={`sidebar-overlay${mobileSidebarOpen ? " open" : ""}`} onClick={() => setMobileSidebarOpen(false)} />
         {/* ── SIDEBAR ── */}
-        <aside className={`sidebar${mobileSidebarOpen ? " mobile-open" : ""}`} style={{
+        <aside className="sidebar" style={{
           width: sidebarCollapsed ? 64 : 240,
           transition: "width 0.4s cubic-bezier(0.16,1,0.3,1)",
           overflow: "hidden",
@@ -9140,7 +8976,7 @@ export default function AdminDashboard() {
               </div>
             ) : (
               TABS.map(t => (
-                <NavTab key={t.id} label={t.label} active={tab === t.id} onClick={() => { setTab(t.id); setMobileSidebarOpen(false); }} count={t.count} icon={t.icon} activeColor={t.id === "revenue" && displayTab === "revenue" ? rc.hex : undefined} />
+                <NavTab key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} count={t.count} icon={t.icon} activeColor={t.id === "revenue" && displayTab === "revenue" ? rc.hex : undefined} />
               ))
             )}
           </div>
@@ -9283,7 +9119,7 @@ export default function AdminDashboard() {
                 fontSize: 8, letterSpacing: "0.26em", transition: "color 0.4s", paddingLeft: 32,
                 color: isRev ? `rgba(${rc.rgb},0.45)` : "rgba(0,229,255,0.3)",
                 fontFamily: "'Share Tech Mono', monospace",
-              }} className="topbar-title">ARCANEOS · INTELLIGENCE LAYER · CLASSIFIED ACCESS</div>
+              }}>ARCANEOS · INTELLIGENCE LAYER · CLASSIFIED ACCESS</div>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 1 }}>
               {error && <span style={{ fontSize: 9, color: "var(--red)", fontFamily: "'Share Tech Mono', monospace", textShadow: "0 0 10px rgba(255,45,85,0.5)" }}>⚠ ERR: {error}</span>}
@@ -9427,7 +9263,7 @@ export default function AdminDashboard() {
                   </div>
 
                   {/* ── METRIC CARDS — 4 columns with embedded mini data viz ── */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 14, marginBottom: 22 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 22 }}>
                     <HoloCard
                       label="Total Users" value={m.users.total} icon="⬡" color="#00e5ff"
                       sub={`${m.users.paid} paid · ${m.users.trialing} trialing`}
@@ -9558,7 +9394,7 @@ export default function AdminDashboard() {
                   </div>
 
                   {/* ── ACTIVITY FEED + TELEMETRY ROW ── */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 280px), 1fr))", gap: 14, marginBottom: 22, marginTop: 4 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 14, marginBottom: 22, marginTop: 4 }}>
                     <div>
                       <div className="section-heading" style={{ marginBottom: 14 }}>Recent Signups</div>
                       <RecentSignupsFeed m={m} />
