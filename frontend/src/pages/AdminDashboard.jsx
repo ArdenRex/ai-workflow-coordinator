@@ -1943,6 +1943,157 @@ function DeleteChoiceModal({ name, onDashboardOnly, onDataAndDashboard, onCancel
   );
 }
 
+// ── CARD STATUS PANEL ─────────────────────────────────────────────────────────
+function CardStatusPanel() {
+  const { data, loading } = useAdminFetch("/admin/users?limit=200");
+  const { dark } = useTheme();
+  const [activeList, setActiveList] = useState("card"); // "card" | "no_card"
+
+  const cyan   = dark ? "0,229,255"   : "0,120,200";
+  const cyanHex = dark ? "#00e5ff"   : "#0088cc";
+  const green  = "0,255,157";
+  const red    = "255,45,85";
+  const textDim     = dark ? "rgba(0,229,255,0.35)" : "rgba(0,100,180,0.45)";
+  const textPrimary = dark ? "rgba(180,230,255,0.9)" : "rgba(10,40,80,0.9)";
+  const panelBg     = dark
+    ? "linear-gradient(135deg, rgba(0,4,14,0.97) 0%, rgba(0,10,24,0.94) 100%)"
+    : "linear-gradient(135deg, rgba(230,242,255,0.97) 0%, rgba(215,234,255,0.94) 100%)";
+
+  const users      = data?.users || [];
+  const withCard   = users.filter(u => u.ls_customer_id);
+  const withoutCard = users.filter(u => !u.ls_customer_id);
+  const total      = users.length;
+
+  const shown = activeList === "card" ? withCard : withoutCard;
+  const accentRgb = activeList === "card" ? green : red;
+  const accentHex = activeList === "card" ? "#00ff9d" : "#ff2d55";
+
+  return (
+    <div style={{
+      background: panelBg,
+      border: `1px solid rgba(${cyan},0.18)`,
+      borderRadius: 6, marginBottom: 18, overflow: "hidden",
+      clipPath: "polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px))",
+      boxShadow: dark ? "0 16px 60px rgba(0,0,0,0.5)" : "0 8px 30px rgba(0,80,180,0.1)",
+    }}>
+      {/* Top edge */}
+      <div style={{ height: 1, background: `linear-gradient(90deg, transparent, rgba(${cyan},0.7), transparent)` }} />
+
+      {/* Header */}
+      <div style={{ padding: "16px 22px 14px", borderBottom: `1px solid rgba(${cyan},0.08)` }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 5, height: 5, background: cyanHex, borderRadius: "50%", boxShadow: `0 0 10px ${cyanHex}` }} />
+            <span style={{ fontSize: 9, color: `rgba(${cyan},0.8)`, letterSpacing: "0.28em", fontFamily: "'Share Tech Mono', monospace", fontWeight: 700 }}>
+              CARD STATUS — BILLING INTELLIGENCE
+            </span>
+          </div>
+          {loading && (
+            <span style={{ fontSize: 7, color: textDim, fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.14em" }}>LOADING...</span>
+          )}
+        </div>
+
+        {/* Summary tiles */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginTop: 14 }}>
+          {[
+            { label: "TOTAL USERS",   value: total,              color: `rgba(${cyan},0.9)`,  bg: `rgba(${cyan},0.06)`  },
+            { label: "CARD ON FILE",  value: withCard.length,    color: "#00ff9d",             bg: "rgba(0,255,157,0.06)" },
+            { label: "NO CARD",       value: withoutCard.length, color: "#ff2d55",             bg: "rgba(255,45,85,0.06)" },
+          ].map(({ label, value, color, bg }) => (
+            <div key={label} style={{
+              background: bg, border: `1px solid ${color}33`,
+              borderRadius: 4, padding: "10px 14px",
+              clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
+            }}>
+              <div style={{ fontSize: 7, color: textDim, letterSpacing: "0.18em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 4 }}>{label}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color, fontFamily: "'Share Tech Mono', monospace" }}>{value}</div>
+              {total > 0 && (
+                <div style={{ fontSize: 7, color: textDim, fontFamily: "'Share Tech Mono', monospace", marginTop: 2 }}>
+                  {Math.round(value / total * 100)}%
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Progress bar */}
+        {total > 0 && (
+          <div style={{ marginTop: 12 }}>
+            <div style={{ height: 5, background: `rgba(${cyan},0.08)`, borderRadius: 3, overflow: "hidden", display: "flex" }}>
+              <div style={{
+                width: `${(withCard.length / total) * 100}%`,
+                background: "linear-gradient(90deg, #00ff9d, #00e5ff)",
+                boxShadow: "0 0 8px rgba(0,255,157,0.5)",
+                transition: "width 0.6s ease",
+              }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+              <span style={{ fontSize: 7, color: "#00ff9d", fontFamily: "'Share Tech Mono', monospace" }}>✓ WITH CARD</span>
+              <span style={{ fontSize: 7, color: "#ff2d55", fontFamily: "'Share Tech Mono', monospace" }}>✕ NO CARD</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Tab switcher */}
+      <div style={{ display: "flex", borderBottom: `1px solid rgba(${cyan},0.08)` }}>
+        {[
+          { id: "card",    label: `✓ Card on File (${withCard.length})`,   color: "#00ff9d", rgb: green },
+          { id: "no_card", label: `✕ No Card (${withoutCard.length})`,     color: "#ff2d55", rgb: red   },
+        ].map(tab => (
+          <button key={tab.id} onClick={() => setActiveList(tab.id)} style={{
+            flex: 1, padding: "10px 0", background: activeList === tab.id ? `rgba(${tab.rgb},0.06)` : "transparent",
+            border: "none", borderBottom: activeList === tab.id ? `2px solid ${tab.color}` : "2px solid transparent",
+            color: activeList === tab.id ? tab.color : textDim,
+            fontSize: 8, letterSpacing: "0.16em", fontFamily: "'Share Tech Mono', monospace",
+            cursor: "pointer", transition: "all 0.2s",
+          }}>{tab.label}</button>
+        ))}
+      </div>
+
+      {/* User list */}
+      <div style={{ maxHeight: 260, overflowY: "auto" }}>
+        {loading ? (
+          <div style={{ padding: 24, textAlign: "center", fontSize: 9, color: textDim, fontFamily: "'Share Tech Mono', monospace" }}>FETCHING DATA...</div>
+        ) : shown.length === 0 ? (
+          <div style={{ padding: 24, textAlign: "center", fontSize: 9, color: textDim, fontFamily: "'Share Tech Mono', monospace" }}>NO USERS</div>
+        ) : shown.map((u, i) => (
+          <div key={u.id} style={{
+            display: "grid", gridTemplateColumns: "36px 1fr 160px 90px",
+            alignItems: "center", padding: "9px 22px", gap: 12,
+            borderBottom: `1px solid rgba(${cyan},0.05)`,
+            background: i % 2 === 0 ? "transparent" : (dark ? "rgba(0,229,255,0.01)" : "rgba(0,120,200,0.02)"),
+          }}>
+            {/* ID */}
+            <span style={{ fontSize: 8, color: textDim, fontFamily: "'Share Tech Mono', monospace" }}>#{u.id}</span>
+            {/* Name + email */}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 10, color: textPrimary, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.name || "—"}</div>
+              <div style={{ fontSize: 8, color: textDim, fontFamily: "'Share Tech Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.email}</div>
+            </div>
+            {/* Subscription status */}
+            <span style={{
+              fontSize: 7, letterSpacing: "0.14em", fontFamily: "'Share Tech Mono', monospace",
+              color: u.subscription_status === "active" ? "#00ff9d" : u.subscription_status === "trialing" ? "#ffd060" : u.subscription_status === "cancelled" ? "#ff2d55" : textDim,
+            }}>{(u.subscription_status || "—").toUpperCase()}</span>
+            {/* Card indicator */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{
+                width: 6, height: 6, borderRadius: "50%",
+                background: u.ls_customer_id ? "#00ff9d" : "#ff2d55",
+                boxShadow: u.ls_customer_id ? "0 0 8px #00ff9d" : "0 0 8px #ff2d55",
+              }} />
+              <span style={{ fontSize: 7, color: u.ls_customer_id ? "#00ff9d" : "#ff2d55", fontFamily: "'Share Tech Mono', monospace" }}>
+                {u.ls_customer_id ? "CARD ✓" : "NO CARD"}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function UsersTable({ showToast, onUserClick }) {
   const { data, loading, refetch } = useAdminFetch("/admin/users?limit=100");
   const [search, setSearch] = useState("");
@@ -9594,6 +9745,7 @@ export default function AdminDashboard() {
           {displayTab === "users" && (
             <div>
               <div className="section-heading">User Registry</div>
+              <CardStatusPanel />
               <HoloPanel accent="#00e5ff">
                 <UsersTable showToast={showToast} onUserClick={setDrawerUser} />
               </HoloPanel>
