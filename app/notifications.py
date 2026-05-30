@@ -22,9 +22,19 @@ logger = logging.getLogger(__name__)
 def _send_gmail(subject: str, body_html: str, body_text: str) -> None:
     """Send an email via Gmail SMTP using an App Password."""
     s = get_settings()
-    if not s.gmail_user or not s.gmail_app_password or not s.notify_email:
-        logger.warning("Gmail notifications not configured — skipping email.")
+
+    # Detailed config check — errors will appear in Railway logs
+    if not s.gmail_user:
+        logger.error("NOTIFY: GMAIL_USER is not set — skipping email.")
         return
+    if not s.gmail_app_password:
+        logger.error("NOTIFY: GMAIL_APP_PASSWORD is not set — skipping email.")
+        return
+    if not s.notify_email:
+        logger.error("NOTIFY: NOTIFY_EMAIL is not set — skipping email.")
+        return
+
+    logger.info("NOTIFY: Sending email to %s from %s", s.notify_email, s.gmail_user)
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
