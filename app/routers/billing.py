@@ -99,6 +99,7 @@ def create_checkout(
             headers=_polar_headers(),
             json=payload,
             timeout=15,
+            follow_redirects=True,
         )
 
         if response.status_code not in (200, 201):
