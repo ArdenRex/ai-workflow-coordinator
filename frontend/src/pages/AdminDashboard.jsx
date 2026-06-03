@@ -4964,8 +4964,8 @@ function UserDetailDrawer({ user, open, onClose, showToast, onToggleActive }) {
   const taskCount = user.task_count ?? 0;
 
   const lastActiveStr = (() => {
-    if (!user.updated_at) return "—";
-    const diff = Date.now() - new Date(user.updated_at);
+    if (!user.last_active_at && !user.updated_at) return "—";
+    const diff = Date.now() - new Date(user.last_active_at || user.updated_at);
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return "just now";
     if (mins < 60) return `${mins}m ago`;
@@ -5075,7 +5075,7 @@ function UserDetailDrawer({ user, open, onClose, showToast, onToggleActive }) {
             clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%)",
           }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: user.is_active ? "#00ff9d" : "#ff2d55", boxShadow: `0 0 10px ${user.is_active ? "#00ff9d" : "#ff2d55"}`, animation: user.is_active ? "pulse-glow 1.2s infinite" : "none" }} />
-            <span style={{ fontSize: 9, color: user.is_active ? "#00ff9d" : "#ff2d55", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.18em", fontWeight: 700 }}>{user.is_active ? "ACTIVE · ONLINE" : "INACTIVE · OFFLINE"}</span>
+            <span style={{ fontSize: 9, color: user.is_active ? "#00ff9d" : "#ff2d55", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.18em", fontWeight: 700 }}>{user.is_online ? "ACTIVE · ONLINE" : user.is_active ? "ACTIVE · OFFLINE" : "INACTIVE · OFFLINE"}</span>
             <div style={{ flex: 1 }} />
             <span style={{ fontSize: 7, color: textDim, fontFamily: "'Share Tech Mono', monospace" }}>ID: {user.id}</span>
           </div>
