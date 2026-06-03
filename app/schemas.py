@@ -248,7 +248,7 @@ class OnboardingResponse(BaseModel):
     """Returned after completing onboarding."""
     message: str
     user: UserResponse
-    workspace: WorkspaceResponse
+    workspace: Optional[WorkspaceResponse] = None
 
 
 # ─── Workspace Settings Schemas (Segment 2 + 3) ───────────────────────────────
