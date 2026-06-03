@@ -244,16 +244,25 @@ def list_users(
 
     now = datetime.now(timezone.utc)
 
-    # Fetch real task counts for all returned users in one query
+    # Fetch real task counts and latest task timestamps for all returned users in one query
     user_ids = [u.id for u in users]
     task_counts: dict[int, int] = {}
+    last_task_at: dict[int, datetime] = {}
     if user_ids:
         rows = db.execute(
-            select(Task.owner_id, func.count().label("cnt"))
+            select(Task.owner_id, func.count().label("cnt"), func.max(Task.created_at).label("latest"))
             .where(Task.owner_id.in_(user_ids))
             .group_by(Task.owner_id)
         ).all()
         task_counts = {row.owner_id: row.cnt for row in rows}
+        last_task_at = {row.owner_id: row.latest for row in rows if row.latest}
+
+    online_threshold = now - timedelta(minutes=5)
+
+    def _make_aware(dt):
+        if dt is None:
+            return None
+        return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
 
     return {
         "total": total,
@@ -273,6 +282,8 @@ def list_users(
                 "ls_customer_id": u.ls_customer_id,
                 "ls_subscription_id": u.ls_subscription_id,
                 "task_count": task_counts.get(u.id, 0),
+                "last_active_at": (last_task_at[u.id] if u.id in last_task_at else u.updated_at).isoformat() if (u.id in last_task_at or u.updated_at) else None,
+                "is_online": _make_aware(u.updated_at) >= online_threshold if u.updated_at else False,
             }
             for u in users
         ],
