@@ -415,7 +415,7 @@ def get_tasks_due_today_for_user(db: Session, owner_id: int) -> list[Task]:
         .where(
             Task.owner_id == owner_id,
             Task.status.in_([TaskStatus.to_do, TaskStatus.in_progress]),
-            Task.deadline == today,
+            func.cast(Task.deadline, func.Date()) == today,
         )
         .order_by(Task.priority.desc(), Task.created_at.asc())
     )
@@ -429,7 +429,7 @@ def get_all_active_users_with_tasks_due_today(db: Session) -> list[User]:
         .where(
             Task.owner_id.isnot(None),
             Task.status.in_([TaskStatus.to_do, TaskStatus.in_progress]),
-            Task.deadline == today,
+            func.cast(Task.deadline, func.Date()) == today,
         )
         .distinct()
         .subquery()
