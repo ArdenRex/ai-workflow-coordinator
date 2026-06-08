@@ -6,6 +6,7 @@ Also handles Slack OAuth install flow at /auth/install and /auth/slack/callback.
 """
 import logging
 import os
+import secrets
 
 import httpx
 from fastapi import APIRouter, Request
@@ -16,6 +17,10 @@ from app.slack_bot import slack_handler
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Slack"])
+
+# In-memory store for OAuth state tokens (CSRF protection)
+# Each entry is a one-time-use random token generated at /auth/install
+_oauth_states: set[str] = set()
 
 # ── Env vars ───────────────────────────────────────────────────────────────────
 SLACK_CLIENT_ID     = os.getenv("SLACK_CLIENT_ID", "")
@@ -65,11 +70,16 @@ async def slack_install():
             status_code=500,
         )
 
+    # Generate a one-time CSRF state token
+    state = secrets.token_urlsafe(32)
+    _oauth_states.add(state)
+
     url = (
         "https://slack.com/oauth/v2/authorize"
         f"?client_id={SLACK_CLIENT_ID}"
         f"&scope={SLACK_SCOPES}"
         f"&redirect_uri={REDIRECT_URI}"
+        f"&state={state}"
     )
     logger.info("Redirecting to Slack OAuth: %s", url)
     return RedirectResponse(url)
@@ -81,7 +91,7 @@ async def slack_install():
     summary="Slack OAuth callback",
     include_in_schema=True,
 )
-async def slack_oauth_callback(code: str = None, error: str = None):
+async def slack_oauth_callback(code: str = None, error: str = None, state: str = None):
     """
     Slack redirects here after the user approves (or denies) the install.
     Exchanges the temporary code for a permanent bot token.
@@ -91,6 +101,14 @@ async def slack_oauth_callback(code: str = None, error: str = None):
     if error:
         logger.warning("Slack OAuth denied by user: %s", error)
         return RedirectResponse(f"{FRONTEND_URL}?slack=cancelled")
+
+    # Validate CSRF state token
+    if not state or state not in _oauth_states:
+        logger.warning("Slack OAuth invalid or missing state token: %s", state)
+        return RedirectResponse(f"{FRONTEND_URL}?slack=error")
+
+    # Consume the state token (one-time use)
+    _oauth_states.discard(state)
 
     if not code:
         return JSONResponse({"error": "Missing code from Slack."}, status_code=400)
