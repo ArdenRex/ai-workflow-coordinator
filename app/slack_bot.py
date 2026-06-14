@@ -419,6 +419,9 @@ def _process_message(event, client, require_mention: bool = False):
         workspace_id = _get_workspace_id(db, sender_id)
         invite_code  = _get_workspace_invite_code(db, workspace_id)
 
+        from app import crud as _crud
+        owner_id = _crud.resolve_task_owner_id(db, workspace_id=workspace_id, slack_user_id=sender_id)
+
         new_task = Task(
             title            = extracted.task,
             task_description = extracted.task,
@@ -431,6 +434,7 @@ def _process_message(event, client, require_mention: bool = False):
             slack_message_ts = message_ts,
             status           = TaskStatus.to_do,
             workspace_id     = workspace_id,
+            owner_id         = owner_id,
             share_token      = _secrets.token_urlsafe(12),
         )
         db.add(new_task)
