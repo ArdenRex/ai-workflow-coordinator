@@ -29,7 +29,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
-from app.models import ApiKey, Task, TaskStatus, Priority, UserRole, User, Workspace
+from app.models import ApiKey, Task, TaskStatus, Priority, UserRole, User
 from app.routers.auth import get_current_user
 from app.schemas import (
     PublicTaskCreate,
@@ -94,7 +94,7 @@ def api_create_task(
     api_key: ApiKey  = Depends(require_api_key),
     db: Session      = Depends(get_db),
 ):
-    workspace = db.get(Workspace, api_key.workspace_id)
+    owner_id = crud.resolve_task_owner_id(db, workspace_id=api_key.workspace_id)
     task = Task(
         title            = payload.title.strip(),
         task_description = payload.description or payload.title.strip(),
@@ -103,7 +103,7 @@ def api_create_task(
         priority         = payload.priority or Priority.medium,
         status           = payload.status   or TaskStatus.to_do,
         workspace_id     = api_key.workspace_id,
-        owner_id         = workspace.owner_id if workspace else None,
+        owner_id         = owner_id,
         source_message   = f"[API] {payload.source or 'external'}",
     )
     db.add(task)
