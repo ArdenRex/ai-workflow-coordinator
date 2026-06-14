@@ -144,6 +144,7 @@ async def _handle_message(activity: dict):
         )
         ws_settings = crud.get_workspace_settings_by_teams_tenant(db, tenant_id)
         workspace_id = ws_settings.workspace_id if ws_settings else None
+        owner_id = crud.resolve_task_owner_id(db, workspace_id=workspace_id)
 
         new_task = Task(
             title            = title,
@@ -151,6 +152,7 @@ async def _handle_message(activity: dict):
             assignee         = assignee_handle,
             status           = TaskStatus.to_do,
             workspace_id     = workspace_id,
+            owner_id         = owner_id,
             source_message   = text,
         )
         db.add(new_task)
