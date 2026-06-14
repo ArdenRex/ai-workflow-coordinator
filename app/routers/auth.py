@@ -625,6 +625,23 @@ async def slack_callback(
         logger.info("New user via Slack: id=%d slack_id=%s", user.id, slack_user_id)
     else:
         logger.info("Existing user via Slack login: id=%d", user.id)
+        # Bug fix: existing users (registered via email/password, then connecting
+        # Slack from settings/onboarding) never had slack_user_id / slack_team_id
+        # persisted. Without this, get_user_by_slack_id() can never find them,
+        # so Slack-created tasks could not be attributed back to this user.
+        updated = False
+        if user.slack_user_id != slack_user_id:
+            user.slack_user_id = slack_user_id
+            updated = True
+        if slack_team_id and user.slack_team_id != slack_team_id:
+            user.slack_team_id = slack_team_id
+            updated = True
+        if updated:
+            db.commit()
+            db.refresh(user)
+            logger.info(
+                "Linked slack_user_id=%s to existing user id=%d", slack_user_id, user.id,
+            )
 
     # Segment 7 — mark slack_connected onboarding step (fire-and-forget)
     try:
