@@ -219,6 +219,36 @@ def get_user_by_slack_id(db: Session, slack_user_id: str) -> Optional[User]:
     return db.scalars(stmt).first()
 
 
+def resolve_task_owner_id(
+    db: Session,
+    workspace_id: Optional[int] = None,
+    slack_user_id: Optional[str] = None,
+) -> Optional[int]:
+    """
+    Best-effort resolution of the user a task should be attributed to.
+
+    Priority:
+      1. The user matching slack_user_id (the actual person who sent the message).
+      2. The owner of the given workspace.
+      3. None (task remains unattributed).
+
+    Used by the Slack bot, Teams bot, and public API task-creation paths so that
+    every task gets stamped with an owner_id and counts correctly toward a
+    user's task totals on the admin dashboard.
+    """
+    if slack_user_id:
+        sender_user = get_user_by_slack_id(db, slack_user_id)
+        if sender_user:
+            return sender_user.id
+
+    if workspace_id:
+        workspace = db.get(Workspace, workspace_id)
+        if workspace and workspace.owner_id:
+            return workspace.owner_id
+
+    return None
+
+
 def create_user(
     db: Session,
     name: str,
