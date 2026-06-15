@@ -15,6 +15,21 @@ const AuthContext = createContext(null);
 const TOKEN_KEY = "access_token";
 const USER_KEY  = "auth_user";
 
+// FastAPI returns `detail` as either a plain string (HTTPException) or, for
+// 422 validation errors, an array of {loc, msg, type} objects. Passing the
+// array straight into `new Error(...)` stringifies it to "[object Object]".
+// This helper normalizes both shapes into a readable string.
+function extractErrorDetail(data, fallback) {
+  const detail = data?.detail;
+  if (!detail) return fallback;
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail.map(d => (typeof d === "string" ? d : d?.msg)).filter(Boolean);
+    if (messages.length) return messages.join(" ");
+  }
+  return fallback;
+}
+
 function saveToken(token, rememberMe) {
   sessionStorage.setItem(TOKEN_KEY, token);
   if (rememberMe) {
@@ -168,7 +183,7 @@ export function AuthProvider({ children }) {
       body: JSON.stringify({ name, email, password }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Registration failed.");
+    if (!res.ok) throw new Error(extractErrorDetail(data, "Registration failed."));
     return data; // { message, user }
   }, []);
 
@@ -179,7 +194,7 @@ export function AuthProvider({ children }) {
       body: JSON.stringify({ email, password, remember_me: rememberMe }),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Login failed.");
+    if (!res.ok) throw new Error(extractErrorDetail(data, "Login failed."));
 
     saveToken(data.access_token, rememberMe);
     saveUser(data.user);
@@ -213,7 +228,7 @@ export function AuthProvider({ children }) {
       accessToken || token,
     );
     const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || "Onboarding failed.");
+    if (!res.ok) throw new Error(extractErrorDetail(data, "Onboarding failed."));
 
     setUser(data.user);
     saveUser(data.user);
