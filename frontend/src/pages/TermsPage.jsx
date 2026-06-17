@@ -216,7 +216,7 @@ export default function TermsPage() {
           <div className="legal-section">
             <div className="legal-h2">2. Description of Service</div>
             <p className="legal-p">
-              AI Workflow Coordinator is a SaaS platform that helps individuals and teams automate and coordinate workflows using artificial intelligence. The Service is provided on a monthly subscription basis.
+              AI Workflow Coordinator is a SaaS platform that automatically extracts tasks from your team's Slack conversations using AI, organizes them on a shared Kanban board, and helps your team track ownership, deadlines, and progress without manual data entry. The Service is provided on a monthly subscription basis.
             </p>
           </div>
 
@@ -230,7 +230,7 @@ export default function TermsPage() {
           <div className="legal-section">
             <div className="legal-h2">4. Billing & Payments</div>
             <p className="legal-p">
-              Subscriptions are billed monthly. Payments are processed securely through Polar. By subscribing, you authorize us to charge your payment method on a recurring basis until you cancel.
+              Subscriptions are billed monthly at a flat rate of $20/month, regardless of team size. Payments are processed securely through Dodo Payments. By subscribing, you authorize us to charge your payment method on a recurring basis until you cancel.
             </p>
             <ul className="legal-ul">
               <li>All prices are listed in USD.</li>
