@@ -92,6 +92,84 @@ def create_task(
     return task
 
 
+def _import_tag(service: str, external_id: str) -> str:
+    """Marker embedded in Task.source_message so re-imports can be detected."""
+    return f"[import:{service}:{external_id}]"
+
+
+def find_imported_task(
+    db: Session,
+    workspace_id: int,
+    service: str,
+    external_id: str,
+) -> Optional[Task]:
+    """
+    Look up a previously-imported task by its external integration ID so a
+    repeat import doesn't create duplicates.
+    """
+    tag = _import_tag(service, external_id)
+    stmt = select(Task).where(
+        Task.workspace_id == workspace_id,
+        Task.source_message.ilike(f"{tag}%"),
+    )
+    return db.scalars(stmt).first()
+
+
+def create_task_from_import(
+    db: Session,
+    workspace_id: int,
+    service: str,
+    external_id: str,
+    title: str,
+    description: Optional[str] = None,
+    assignee: Optional[str] = None,
+    deadline: Optional[str] = None,
+    priority: Priority = Priority.medium,
+    status: TaskStatus = TaskStatus.to_do,
+) -> Task:
+    """
+    Create a Task from data pulled in from an external integration
+    (Trello / Notion / Jira). Reuses the normal task-creation path so
+    priority rules, share tokens, etc. all still apply. The external ID is
+    embedded in source_message as a dedup marker — call find_imported_task
+    first to avoid creating duplicates on repeat imports.
+    """
+    tag = _import_tag(service, external_id)
+    source_message = f"{tag} Imported from {service.capitalize()}: {title}"
+    if description:
+        source_message += f"\n\n{description}"
+
+    extracted = ExtractedTask(
+        task=title,
+        assignee=assignee,
+        deadline=deadline,
+        priority=priority,
+        urgency="medium",
+        confidence=1.0,
+    )
+
+    task = create_task(
+        db=db,
+        source_message=source_message,
+        extracted=extracted,
+        owner_id=None,
+        workspace_id=workspace_id,
+    )
+
+    if status != TaskStatus.to_do:
+        task.status = status
+        try:
+            db.commit()
+            db.refresh(task)
+        except SQLAlchemyError as exc:
+            db.rollback()
+            logger.error(
+                "SQLAlchemyError setting imported task status: %s", exc, exc_info=True,
+            )
+
+    return task
+
+
 def get_task(db: Session, task_id: int) -> Optional[Task]:
     if task_id <= 0:
         return None
