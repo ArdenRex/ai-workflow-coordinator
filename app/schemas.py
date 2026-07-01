@@ -7,7 +7,7 @@ Pydantic v2 request/response schemas.
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 from app.models import Priority, TaskStatus, UserRole
 
@@ -473,6 +473,56 @@ class IntegrationConfig(BaseModel):
     @classmethod
     def project_key_upper(cls, v: Optional[str]) -> Optional[str]:
         return v.strip().upper() if isinstance(v, str) else v
+
+    @model_validator(mode="before")
+    @classmethod
+    def blank_strings_to_none(cls, data):
+        """
+        The frontend form always submits every field for a service, including
+        the ones the user left empty (as ""). Treat blank strings as "not
+        supplied" so they don't overwrite previously-saved credentials and
+        don't trip min_length=1 validation.
+        """
+        if isinstance(data, dict):
+            return {k: (None if isinstance(v, str) and v.strip() == "" else v) for k, v in data.items()}
+        return data
+
+
+class IntegrationImportRequest(BaseModel):
+    """
+    Payload for POST /integrations/{service}/import.
+    Optional service-specific source to pull from (e.g. a Trello list ID,
+    a Notion database ID, or a Jira project key) — if omitted, falls back
+    to the value saved in the workspace's integration config.
+    """
+    source_id: Optional[str] = Field(
+        default=None,
+        description="Optional override for which board/database/project to import from.",
+    )
+    limit: Optional[int] = Field(
+        default=50, ge=1, le=200,
+        description="Maximum number of items to import in one request.",
+    )
+
+
+class ImportedTaskResult(BaseModel):
+    """Per-item result from an import operation."""
+    external_id: str
+    title: str
+    imported: bool
+    task_id: Optional[int] = None
+    skipped_reason: Optional[str] = None   # e.g. "already imported"
+    error: Optional[str] = None
+
+
+class IntegrationImportResponse(BaseModel):
+    """Summary returned after an import operation."""
+    integration: str                     # "notion" | "jira" | "trello"
+    total_found: int
+    imported: int
+    skipped: int
+    failed: int
+    results: list[ImportedTaskResult]
 
 
 class IntegrationSyncRequest(BaseModel):
