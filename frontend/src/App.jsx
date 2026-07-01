@@ -4043,11 +4043,11 @@ function IntegrationsPage() {
   const [jira, setJira]       = useState({ jira_base_url: "", jira_email: "", jira_api_token: "", jira_project_key: "" });
   const [trello, setTrello]   = useState({ trello_api_key: "", trello_token: "", trello_list_id: "" });
 
-  // Sync / save state
-  const [saving, setSaving]   = useState(null);   // "notion" | "jira" | "trello"
-  const [syncing, setSyncing] = useState(null);
-  const [result, setResult]   = useState(null);   // last sync result
-  const [saveMsg, setSaveMsg] = useState(null);
+  // Save / import state
+  const [saving, setSaving]     = useState(null);   // "notion" | "jira" | "trello"
+  const [importing, setImporting] = useState(null);
+  const [result, setResult]     = useState(null);   // last import result
+  const [saveMsg, setSaveMsg]   = useState(null);
 
   const authHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
@@ -4081,19 +4081,19 @@ function IntegrationsPage() {
     }
   }
 
-  async function handleSync(service) {
-    setSyncing(service);
+  async function handleImport(service) {
+    setImporting(service);
     setResult(null);
     try {
-      const r = await fetch(`${API}/integrations/${service}/sync`, {
-        method: "POST", headers: authHeaders, body: JSON.stringify({ task_ids: null }),
+      const r = await fetch(`${API}/integrations/${service}/import`, {
+        method: "POST", headers: authHeaders, body: JSON.stringify({ source_id: null, limit: 50 }),
       });
       const d = await r.json();
-      setResult({ service, ...d, error: r.ok ? null : (d.detail || "Sync failed.") });
+      setResult({ service, ...d, error: r.ok ? null : (d.detail || "Import failed.") });
     } catch {
       setResult({ service, error: "Network error." });
     } finally {
-      setSyncing(null);
+      setImporting(null);
     }
   }
 
@@ -4125,20 +4125,20 @@ function IntegrationsPage() {
     </button>
   );
 
-  const syncBtn = (service, configured) => (
+  const importBtn = (service, configured) => (
     <button
-      onClick={() => handleSync(service)}
-      disabled={!configured || syncing === service}
-      title={!configured ? "Configure credentials first" : `Sync all tasks to ${service}`}
+      onClick={() => handleImport(service)}
+      disabled={!configured || importing === service}
+      title={!configured ? "Configure credentials first" : `Import tasks from ${service}`}
       style={{
         height: 36, padding: "0 18px", borderRadius: 8,
         border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.05)",
         color: configured ? "var(--color-text-primary)" : "var(--color-text-tertiary)",
         fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
-        cursor: !configured || syncing === service ? "not-allowed" : "pointer",
-        opacity: !configured || syncing === service ? 0.5 : 1,
+        cursor: !configured || importing === service ? "not-allowed" : "pointer",
+        opacity: !configured || importing === service ? 0.5 : 1,
       }}
-    >{syncing === service ? "Syncing…" : "↑ Sync all tasks"}</button>
+    >{importing === service ? "Importing…" : "↓ Import tasks"}</button>
   );
 
   const statusDot = (configured) => (
@@ -4176,11 +4176,11 @@ function IntegrationsPage() {
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Integrations</h1>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-          Push your workspace tasks to Notion, Jira, or Trello with one click. Credentials are stored securely in your workspace settings.
+          Import your existing cards, pages, or issues from Notion, Jira, or Trello straight onto your Kanban board. Credentials are stored securely in your workspace settings. Items already imported won't be duplicated on repeat imports.
         </p>
       </div>
 
-      {/* Last sync result */}
+      {/* Last import result */}
       {result && (
         <div style={{
           padding: "14px 18px", borderRadius: 12,
@@ -4193,10 +4193,11 @@ function IntegrationsPage() {
             <span>⚠ {result.error}</span>
           ) : (
             <span>
-              ✅ <strong>{result.integration}</strong> sync complete —{" "}
-              <span style={{ color: "#22d3a8" }}>{result.succeeded} succeeded</span>
+              ✅ <strong>{result.integration}</strong> import complete —{" "}
+              <span style={{ color: "#22d3a8" }}>{result.imported} imported</span>
+              {result.skipped > 0 && <span> · {result.skipped} already imported</span>}
               {result.failed > 0 && <span style={{ color: "#f87171" }}>, {result.failed} failed</span>}
-              {" "}out of {result.total} tasks
+              {" "}out of {result.total_found} found
             </span>
           )}
           <button onClick={() => setResult(null)} style={{ float: "right", background: "transparent", border: "none", color: "inherit", cursor: "pointer", fontSize: 14, opacity: 0.6 }}>✕</button>
@@ -4211,7 +4212,7 @@ function IntegrationsPage() {
               <div style={{ width: 36, height: 36, borderRadius: 10, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>𝓝</div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Notion</div>
-                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Push tasks as pages into a Notion database</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Import pages from a Notion database as tasks</div>
               </div>
             </div>
             {statusDot(status?.notion_configured)}
@@ -4223,7 +4224,7 @@ function IntegrationsPage() {
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
             {msgBanner("notion")}
             {saveBtn("notion", () => handleSave("notion", notion))}
-            {syncBtn("notion", status?.notion_configured)}
+            {importBtn("notion", status?.notion_configured)}
           </div>
         </div>
       )}
@@ -4236,7 +4237,7 @@ function IntegrationsPage() {
               <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0052cc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 800 }}>J</div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Jira</div>
-                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Create issues in an Atlassian Jira project</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Import issues from an Atlassian Jira project</div>
               </div>
             </div>
             {statusDot(status?.jira_configured)}
@@ -4250,7 +4251,7 @@ function IntegrationsPage() {
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
             {msgBanner("jira")}
             {saveBtn("jira", () => handleSave("jira", jira))}
-            {syncBtn("jira", status?.jira_configured)}
+            {importBtn("jira", status?.jira_configured)}
           </div>
         </div>
       )}
@@ -4263,7 +4264,7 @@ function IntegrationsPage() {
               <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0079bf", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 800 }}>T</div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Trello</div>
-                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Add cards to a Trello board list with priority labels</div>
+                <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Import cards from a Trello list as tasks</div>
               </div>
             </div>
             {statusDot(status?.trello_configured)}
@@ -4271,12 +4272,12 @@ function IntegrationsPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px,1fr))", gap: 12 }}>
             {field("API Key", trello.trello_api_key, v => setTrello(p => ({ ...p, trello_api_key: v })), "From trello.com/app-key", "password")}
             {field("Token", trello.trello_token, v => setTrello(p => ({ ...p, trello_token: v })), "OAuth token", "password")}
-            {field("List ID", trello.trello_list_id, v => setTrello(p => ({ ...p, trello_list_id: v })), "Target list ID")}
+            {field("List ID", trello.trello_list_id, v => setTrello(p => ({ ...p, trello_list_id: v })), "Source list ID")}
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", alignItems: "center" }}>
             {msgBanner("trello")}
             {saveBtn("trello", () => handleSave("trello", trello))}
-            {syncBtn("trello", status?.trello_configured)}
+            {importBtn("trello", status?.trello_configured)}
           </div>
         </div>
       )}
