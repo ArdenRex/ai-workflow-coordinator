@@ -98,6 +98,13 @@ class Settings(BaseSettings):
         description="Email address that receives signup notifications (can be same as gmail_user).",
     )
 
+    # ── Cron (external scheduler auth) ───────────────────────────────────────
+    cron_secret: str = Field(
+        default="",
+        description="Shared secret for external cron calls to /tasks/cron/* endpoints.",
+    )
+
+
     # ── Validators ────────────────────────────────────────────────────────────
     @field_validator("database_url", mode="before")
     @classmethod
