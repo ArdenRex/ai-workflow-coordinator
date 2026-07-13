@@ -33,14 +33,13 @@ import logging
 import os
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import crud
 from app.auth import get_current_user
-from app.config import get_settings
 from app.database import get_db
 from app.models import Priority, Task, TaskStatus, User, UserRole
 from app.schemas import TaskListResponse, TaskResponse, TaskStatusUpdate
@@ -590,65 +589,6 @@ def trigger_daily_rollup(current_user: User = Depends(get_current_user)):
         return {"status": "ok", "result": summary}
     except Exception as exc:
         logger.exception("Manual daily rollup trigger failed: %s", exc)
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Daily rollup failed: {exc}",
-        )
-
-
-# ── Cron-secret protected triggers (for external schedulers) ──────────────────
-# These exist because the endpoints above require a logged-in user session
-# (JWT access tokens expire in ~30 min), which an external cron service like
-# cron-job.org or GitHub Actions can't maintain. These use a static shared
-# secret (CRON_SECRET env var) instead, so an external scheduler can call them
-# indefinitely without ever logging in.
-
-def verify_cron_secret(x_cron_secret: str = Header(default="")) -> None:
-    settings = get_settings()
-    if not settings.cron_secret:
-        raise HTTPException(
-            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="CRON_SECRET is not configured on the server.",
-        )
-    if x_cron_secret != settings.cron_secret:
-        raise HTTPException(
-            status_code=http_status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing X-Cron-Secret header.",
-        )
-
-
-@router.post(
-    "/cron/ping-overdue",
-    summary="[Cron] Trigger overdue task pings — requires X-Cron-Secret header",
-    status_code=http_status.HTTP_200_OK,
-    dependencies=[Depends(verify_cron_secret)],
-)
-def cron_trigger_ping_overdue():
-    try:
-        from app.scheduler import run_ping_now
-        summary = run_ping_now()
-        return {"status": "ok", "result": summary}
-    except Exception as exc:
-        logger.exception("Cron ping trigger failed: %s", exc)
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Ping job failed: {exc}",
-        )
-
-
-@router.post(
-    "/cron/daily-rollup",
-    summary="[Cron] Trigger daily rollup — requires X-Cron-Secret header",
-    status_code=http_status.HTTP_200_OK,
-    dependencies=[Depends(verify_cron_secret)],
-)
-def cron_trigger_daily_rollup():
-    try:
-        from app.scheduler import run_daily_rollup_now
-        summary = run_daily_rollup_now()
-        return {"status": "ok", "result": summary}
-    except Exception as exc:
-        logger.exception("Cron daily rollup trigger failed: %s", exc)
         raise HTTPException(
             status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Daily rollup failed: {exc}",
