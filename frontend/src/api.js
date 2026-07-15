@@ -1,7 +1,7 @@
 // src/api.js
 // Thin wrapper around the FastAPI backend.
 
-const BASE = (process.env.REACT_APP_API_URL || "https://ai-workflow-coordinator-api-production.up.railway.app").replace(/\/$/, "");
+const BASE = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
 
 // ── Token helper ──────────────────────────────────────────────────────────────
 function getToken() {
