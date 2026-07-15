@@ -26,6 +26,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import ProgrammingError, OperationalError
 
 from app.database import engine, Base
 from app.routers import messages, tasks, slack as slack_router
@@ -53,6 +54,26 @@ logger = logging.getLogger(__name__)
 
 VERSION = "1.5.0"
 
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+_BENIGN_MARKERS = (
+    "already exists",
+    "duplicatetable",
+    "duplicate_table",
+    "duplicatecolumn",
+    "duplicateindex",
+)
+
+
+def _is_benign_race_error(exc: Exception) -> bool:
+    """
+    True if this looks like a "someone else already created it" race
+    from multiple cold-start instances running create_all() at once —
+    i.e. the schema is actually fine, not a real failure.
+    """
+    message = str(exc).lower()
+    return any(marker in message for marker in _BENIGN_MARKERS)
+
+
 # ─── FastAPI lifespan ─────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -60,9 +81,24 @@ async def lifespan(app: FastAPI):
     try:
         Base.metadata.create_all(bind=engine)
         logger.info("Database ready.")
+    except (ProgrammingError, OperationalError) as exc:
+        if _is_benign_race_error(exc):
+            logger.warning(
+                "Database objects already exist (likely a cold-start race "
+                "between parallel instances) — continuing startup: %s", exc
+            )
+        else:
+            logger.critical("Database initialization failed: %s", exc, exc_info=True)
+            sys.exit(1)
     except Exception as exc:
-        logger.critical("Database initialization failed: %s", exc, exc_info=True)
-        sys.exit(1)
+        if _is_benign_race_error(exc):
+            logger.warning(
+                "Database objects already exist (likely a cold-start race "
+                "between parallel instances) — continuing startup: %s", exc
+            )
+        else:
+            logger.critical("Database initialization failed: %s", exc, exc_info=True)
+            sys.exit(1)
 
     yield
 
