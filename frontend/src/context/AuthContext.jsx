@@ -4,7 +4,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 
-const BASE = (process.env.REACT_APP_API_URL || "https://ai-workflow-coordinator-api-production.up.railway.app").replace(/\/$/, "");
+const BASE = (process.env.REACT_APP_API_URL || "").replace(/\/$/, "");
 
 const AuthContext = createContext(null);
 
