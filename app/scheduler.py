@@ -1,18 +1,18 @@
 """
 scheduler.py
 ------------
-Background scheduler for:
-  - Segment 3: Follow-up pings on overdue/drifting High/Critical tasks (hourly)
-  - Segment 4: Daily "Due Today" rollup DMs at 9 AM UTC (daily)
+On-demand jobs (no background scheduling — runs serverless on Vercel):
+  - Segment 3: Follow-up pings on overdue/drifting High/Critical tasks
+  - Segment 4: Daily "Due Today" rollup DMs
 
-Requires APScheduler:
-  pip install apscheduler
+Both jobs run only when triggered via their manual endpoints:
+  POST /tasks/ping-overdue
+  POST /tasks/daily-rollup
 """
 
 import logging
 from datetime import datetime, timezone
 
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
@@ -22,8 +22,6 @@ from app.models import Priority, Task, TaskStatus, User, WorkspaceSettings
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
-
-scheduler = AsyncIOScheduler(timezone="UTC")
 
 # ── Slack client ──────────────────────────────────────────────────────────────
 _slack_client: WebClient | None = None
@@ -285,58 +283,7 @@ def _daily_rollup() -> dict:
         db.close()
 
 
-# ── APScheduler async wrappers ────────────────────────────────────────────────
-
-async def ping_overdue_tasks_job():
-    """Async wrapper for Segment 3 hourly ping job."""
-    import asyncio
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _ping_overdue_tasks)
-
-
-async def daily_rollup_job():
-    """Async wrapper for Segment 4 daily rollup job."""
-    import asyncio
-    loop = asyncio.get_event_loop()
-    await loop.run_in_executor(None, _daily_rollup)
-
-
-# ── Public API used by main.py ─────────────────────────────────────────────────
-
-def start_scheduler():
-    """Register all jobs and start the scheduler. Call on app startup."""
-    # Segment 3: hourly overdue ping
-    scheduler.add_job(
-        ping_overdue_tasks_job,
-        trigger="interval",
-        hours=1,
-        id="ping_overdue_tasks",
-        replace_existing=True,
-        next_run_time=None,  # Don't run immediately on startup
-    )
-
-    # Segment 4: daily rollup at 09:00 UTC
-    scheduler.add_job(
-        daily_rollup_job,
-        trigger="cron",
-        hour=9,
-        minute=0,
-        id="daily_rollup",
-        replace_existing=True,
-    )
-
-    scheduler.start()
-    logger.info(
-        "Scheduler started — overdue ping job (hourly) + daily rollup job (09:00 UTC) registered"
-    )
-
-
-def stop_scheduler():
-    """Gracefully shut down the scheduler. Call on app shutdown."""
-    if scheduler.running:
-        scheduler.shutdown(wait=False)
-        logger.info("Scheduler stopped")
-
+# ── Public API used by the manual trigger endpoints in routers/tasks.py ────────
 
 def run_ping_now() -> dict:
     """Manual trigger for Segment 3 — called by POST /tasks/ping-overdue."""
