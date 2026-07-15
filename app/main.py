@@ -42,7 +42,6 @@ from app.routers import billing as billing_router
 from app.routers import admin as admin_router
 from app.routers import referral as referral_router
 from app.routers.tasks import share_router
-from app.scheduler import start_scheduler, stop_scheduler
 
 # ─── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -65,12 +64,8 @@ async def lifespan(app: FastAPI):
         logger.critical("Database initialization failed: %s", exc, exc_info=True)
         sys.exit(1)
 
-    start_scheduler()
-    logger.info("Scheduler started.")
-
     yield
 
-    stop_scheduler()
     logger.info("Shutting down.")
 
 
