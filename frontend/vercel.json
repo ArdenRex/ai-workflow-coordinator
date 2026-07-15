@@ -1,8 +1,24 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "functions": {
-    "app/main.py": {
-      "maxDuration": 30
-    }
-  }
+  "buildCommand": "npm run build",
+  "outputDirectory": "build",
+  "framework": "create-react-app",
+  "rewrites": [
+    { "source": "/admin/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/admin/:path*" },
+    { "source": "/auth/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/auth/:path*" },
+    { "source": "/billing/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/billing/:path*" },
+    { "source": "/feedback/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/feedback/:path*" },
+    { "source": "/integrations/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/integrations/:path*" },
+    { "source": "/locale/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/locale/:path*" },
+    { "source": "/process-message", "destination": "https://ai-workflow-coordinator-api.vercel.app/process-message" },
+    { "source": "/onboarding/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/onboarding/:path*" },
+    { "source": "/api/v1/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/api/v1/:path*" },
+    { "source": "/referral/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/referral/:path*" },
+    { "source": "/slack/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/slack/:path*" },
+    { "source": "/tasks/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/tasks/:path*" },
+    { "source": "/share/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/share/:path*" },
+    { "source": "/teams/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/teams/:path*" },
+    { "source": "/viral/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/viral/:path*" },
+    { "source": "/workspace/:path*", "destination": "https://ai-workflow-coordinator-api.vercel.app/workspace/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }
