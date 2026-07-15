@@ -13,7 +13,7 @@ import AddTaskModal from "./components/AddTaskModal";
 import AddToSlackButton from "./components/AddToSlackButton";
 
 // -- API base URL — env var with hardcoded fallback ---------------------------
-const BASE_URL = process.env.REACT_APP_API_URL || "https://ai-workflow-coordinator-api-production.up.railway.app";
+const BASE_URL = process.env.REACT_APP_API_URL || "";
 
 // -- Responsive window width hook ---------------------------------------------
 function useWindowWidth() {
