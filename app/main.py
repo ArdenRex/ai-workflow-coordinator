@@ -23,12 +23,13 @@ import os
 import sys
 from contextlib import asynccontextmanager
 
+from alembic import command
+from alembic.config import Config
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import ProgrammingError, OperationalError
 
-from app.database import engine, Base
 from app.routers import messages, tasks, slack as slack_router
 from app.routers import auth as auth_router
 from app.routers import workspace_settings as workspace_settings_router
@@ -61,43 +62,66 @@ _BENIGN_MARKERS = (
     "duplicate_table",
     "duplicatecolumn",
     "duplicateindex",
+    "duplicate key value violates unique constraint",
 )
 
 
 def _is_benign_race_error(exc: Exception) -> bool:
     """
-    True if this looks like a "someone else already created it" race
-    from multiple cold-start instances running create_all() at once —
+    True if this looks like a "someone else already created/stamped it" race
+    from multiple cold-start instances running migrations at once —
     i.e. the schema is actually fine, not a real failure.
     """
     message = str(exc).lower()
     return any(marker in message for marker in _BENIGN_MARKERS)
 
 
+# Repo root — app/main.py -> app/ -> repo root, where alembic.ini and alembic/ live.
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _run_alembic_upgrade() -> None:
+    """
+    Run all Alembic migrations up to head.
+
+    This replaces the old Base.metadata.create_all() approach. create_all()
+    only ever builds tables that don't exist yet — it never applies later
+    migrations (e.g. add_freelancer_slug), and on Vercel there's no
+    persistent start command (unlike render.yaml's
+    'alembic upgrade head && uvicorn ...') to run migrations once per
+    deploy. Running this on every cold start is safe: Alembic tracks the
+    applied revision in the alembic_version table, so if the schema is
+    already current this is a fast no-op.
+    """
+    alembic_cfg = Config(os.path.join(_BASE_DIR, "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", os.path.join(_BASE_DIR, "alembic"))
+    command.upgrade(alembic_cfg, "head")
+
+
 # ─── FastAPI lifespan ─────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting up — creating database tables if they don't exist…")
+    logger.info("Starting up — running Alembic migrations (upgrade head)…")
     try:
-        Base.metadata.create_all(bind=engine)
-        logger.info("Database ready.")
+        _run_alembic_upgrade()
+        logger.info("Database schema is up to date.")
     except (ProgrammingError, OperationalError) as exc:
         if _is_benign_race_error(exc):
             logger.warning(
-                "Database objects already exist (likely a cold-start race "
-                "between parallel instances) — continuing startup: %s", exc
+                "Database objects already exist/stamped (likely a cold-start "
+                "race between parallel instances) — continuing startup: %s", exc
             )
         else:
-            logger.critical("Database initialization failed: %s", exc, exc_info=True)
+            logger.critical("Database migration failed: %s", exc, exc_info=True)
             sys.exit(1)
     except Exception as exc:
         if _is_benign_race_error(exc):
             logger.warning(
-                "Database objects already exist (likely a cold-start race "
-                "between parallel instances) — continuing startup: %s", exc
+                "Database objects already exist/stamped (likely a cold-start "
+                "race between parallel instances) — continuing startup: %s", exc
             )
         else:
-            logger.critical("Database initialization failed: %s", exc, exc_info=True)
+            logger.critical("Database migration failed: %s", exc, exc_info=True)
             sys.exit(1)
 
     yield
