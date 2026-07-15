@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useContext, useMemo } from "react";
 
-const API = process.env.REACT_APP_API_URL || "https://ai-workflow-coordinator-api-production.up.railway.app";
+const API = process.env.REACT_APP_API_URL || "";
 
 // ── THEME CONTEXT ─────────────────────────────────────────────────────────────
 const ThemeCtx = React.createContext({ dark: true });
