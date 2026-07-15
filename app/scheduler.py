@@ -99,8 +99,8 @@ def _ping_overdue_tasks() -> dict:
         for task in drifting_tasks:
             ws_config = settings_map.get(task.workspace_id) if task.workspace_id else None
             threshold_hours = (
-                ws_config.drift_threshold_hours
-                if ws_config and hasattr(ws_config, "drift_threshold_hours")
+                ws_config.drift_alert_hours
+                if ws_config and ws_config.drift_alert_hours is not None
                 else DEFAULT_THRESHOLD_HOURS
             )
 
