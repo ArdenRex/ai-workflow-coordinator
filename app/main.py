@@ -83,24 +83,127 @@ except Exception as exc:  # pydantic ValidationError, or any other import-time f
     )
 
 
+# ─── Helpers used only in the healthy-boot path (safe to define unconditionally) ──
+_BENIGN_MARKERS = (
+    "already exists",
+    "duplicatetable",
+    "duplicate_table",
+    "duplicatecolumn",
+    "duplicateindex",
+    "duplicate key value violates unique constraint",
+)
+
+
+def _is_benign_race_error(exc: Exception) -> bool:
+    """
+    True if this looks like a "someone else already created/stamped it" race
+    from multiple cold-start instances running migrations at once —
+    i.e. the schema is actually fine, not a real failure.
+    """
+    message = str(exc).lower()
+    return any(marker in message for marker in _BENIGN_MARKERS)
+
+
+# Repo root — app/main.py -> app/ -> repo root, where alembic.ini and alembic/ live.
+_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _run_alembic_upgrade() -> None:
+    """
+    Run all Alembic migrations up to head.
+
+    This replaces the old Base.metadata.create_all() approach. create_all()
+    only ever builds tables that don't exist yet — it never applies later
+    migrations (e.g. add_freelancer_slug), and on Vercel there's no
+    persistent start command (unlike render.yaml's
+    'alembic upgrade head && uvicorn ...') to run migrations once per
+    deploy. Running this on every cold start is safe: Alembic tracks the
+    applied revision in the alembic_version table, so if the schema is
+    already current this is a fast no-op.
+    """
+    alembic_cfg = Config(os.path.join(_BASE_DIR, "alembic.ini"))
+    alembic_cfg.set_main_option("script_location", os.path.join(_BASE_DIR, "alembic"))
+    command.upgrade(alembic_cfg, "head")
+
+
+# ─── FastAPI lifespan ─────────────────────────────────────────────────────────
+# Defined unconditionally. If startup already failed at import time, this is a
+# no-op (nothing left to migrate); otherwise it runs Alembic on cold start.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if _startup_error:
+        yield
+        return
+
+    logger.info("Starting up — running Alembic migrations (upgrade head)…")
+    try:
+        _run_alembic_upgrade()
+        logger.info("Database schema is up to date.")
+    except (ProgrammingError, OperationalError) as exc:
+        if _is_benign_race_error(exc):
+            logger.warning(
+                "Database objects already exist/stamped (likely a cold-start "
+                "race between parallel instances) — continuing startup: %s", exc
+            )
+        else:
+            # NOTE: no sys.exit() here. Exiting the process on a migration
+            # failure is exactly what produced the opaque
+            # "Python process exited" crashes — better to boot, log loudly,
+            # and let individual DB-touching requests fail with a real
+            # error message than to kill the whole app over a migration
+            # hiccup (which may be transient, e.g. a cold DB pooler).
+            logger.critical("Database migration failed: %s", exc, exc_info=True)
+    except Exception as exc:
+        if _is_benign_race_error(exc):
+            logger.warning(
+                "Database objects already exist/stamped (likely a cold-start "
+                "race between parallel instances) — continuing startup: %s", exc
+            )
+        else:
+            logger.critical("Database migration failed: %s", exc, exc_info=True)
+
+    yield
+
+    logger.info("Shutting down.")
+
+
+# ─── FastAPI app ───────────────────────────────────────────────────────────────
+# This is the single, unconditional, top-level "app = FastAPI(...)" statement
+# Vercel's static analyzer scans for. Everything that depends on whether
+# startup succeeded is attached to `app` below, conditionally — the
+# instantiation itself never is.
+app = FastAPI(
+    title       = "AI Workflow Coordinator",
+    description = (
+        "MVP SaaS that reads Slack messages, extracts tasks with AI, "
+        "assigns them, and tracks them in a database."
+    ),
+    version  = VERSION,
+    lifespan = lifespan,
+)
+
+# ── CORS (unconditional — needed in both healthy and degraded mode) ───────────
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+_extra       = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+_frontend    = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+_backend     = os.getenv("BACKEND_URL",  "").strip().rstrip("/")
+
+ALLOWED_ORIGINS = list(filter(None, [_frontend, _backend, *_extra]))
+logger.info("CORS allowed origins (informational only, allow_origins=* below): %s", ALLOWED_ORIGINS)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins     = ["*"],
+    allow_credentials = False,
+    allow_methods     = ["*"],
+    allow_headers     = ["*"],
+)
+
 if _startup_error:
-    # ── Degraded-mode app ───────────────────────────────────────────────────
+    # ── Degraded-mode routes ─────────────────────────────────────────────────
     # The process boots successfully (so Vercel never kills it outright), but
     # every route returns a clear 503 explaining exactly what's missing,
     # instead of a silent process crash with no response at all.
-    app = FastAPI(
-        title="AI Workflow Coordinator (degraded — config error)",
-        version=VERSION,
-    )
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=False,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-
     @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
     async def _startup_error_handler(full_path: str = ""):
         return JSONResponse(
@@ -118,110 +221,7 @@ if _startup_error:
         )
 
 else:
-    # ── Normal app (all imports succeeded) ──────────────────────────────────
-
-    # ─── Helpers ────────────────────────────────────────────────────────────
-    _BENIGN_MARKERS = (
-        "already exists",
-        "duplicatetable",
-        "duplicate_table",
-        "duplicatecolumn",
-        "duplicateindex",
-        "duplicate key value violates unique constraint",
-    )
-
-    def _is_benign_race_error(exc: Exception) -> bool:
-        """
-        True if this looks like a "someone else already created/stamped it" race
-        from multiple cold-start instances running migrations at once —
-        i.e. the schema is actually fine, not a real failure.
-        """
-        message = str(exc).lower()
-        return any(marker in message for marker in _BENIGN_MARKERS)
-
-    # Repo root — app/main.py -> app/ -> repo root, where alembic.ini and alembic/ live.
-    _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    def _run_alembic_upgrade() -> None:
-        """
-        Run all Alembic migrations up to head.
-
-        This replaces the old Base.metadata.create_all() approach. create_all()
-        only ever builds tables that don't exist yet — it never applies later
-        migrations (e.g. add_freelancer_slug), and on Vercel there's no
-        persistent start command (unlike render.yaml's
-        'alembic upgrade head && uvicorn ...') to run migrations once per
-        deploy. Running this on every cold start is safe: Alembic tracks the
-        applied revision in the alembic_version table, so if the schema is
-        already current this is a fast no-op.
-        """
-        alembic_cfg = Config(os.path.join(_BASE_DIR, "alembic.ini"))
-        alembic_cfg.set_main_option("script_location", os.path.join(_BASE_DIR, "alembic"))
-        command.upgrade(alembic_cfg, "head")
-
-    # ─── FastAPI lifespan ───────────────────────────────────────────────────
-    @asynccontextmanager
-    async def lifespan(app: FastAPI):
-        logger.info("Starting up — running Alembic migrations (upgrade head)…")
-        try:
-            _run_alembic_upgrade()
-            logger.info("Database schema is up to date.")
-        except (ProgrammingError, OperationalError) as exc:
-            if _is_benign_race_error(exc):
-                logger.warning(
-                    "Database objects already exist/stamped (likely a cold-start "
-                    "race between parallel instances) — continuing startup: %s", exc
-                )
-            else:
-                # NOTE: no sys.exit() here. Exiting the process on a migration
-                # failure is exactly what produced the opaque
-                # "Python process exited" crashes — better to boot, log loudly,
-                # and let individual DB-touching requests fail with a real
-                # error message than to kill the whole app over a migration
-                # hiccup (which may be transient, e.g. a cold DB pooler).
-                logger.critical("Database migration failed: %s", exc, exc_info=True)
-        except Exception as exc:
-            if _is_benign_race_error(exc):
-                logger.warning(
-                    "Database objects already exist/stamped (likely a cold-start "
-                    "race between parallel instances) — continuing startup: %s", exc
-                )
-            else:
-                logger.critical("Database migration failed: %s", exc, exc_info=True)
-
-        yield
-
-        logger.info("Shutting down.")
-
-    # ─── FastAPI app ────────────────────────────────────────────────────────
-    app = FastAPI(
-        title       = "AI Workflow Coordinator",
-        description = (
-            "MVP SaaS that reads Slack messages, extracts tasks with AI, "
-            "assigns them, and tracks them in a database."
-        ),
-        version  = VERSION,
-        lifespan = lifespan,
-    )
-
-    # ── CORS ─────────────────────────────────────────────────────────────────
-    _raw_origins = os.getenv("ALLOWED_ORIGINS", "")
-    _extra       = [o.strip() for o in _raw_origins.split(",") if o.strip()]
-    _frontend    = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
-    _backend     = os.getenv("BACKEND_URL",  "").strip().rstrip("/")
-
-    ALLOWED_ORIGINS = list(filter(None, [_frontend, _backend, *_extra]))
-    logger.info("CORS allowed origins (informational only, allow_origins=* below): %s", ALLOWED_ORIGINS)
-
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins     = ["*"],
-        allow_credentials = False,
-        allow_methods     = ["*"],
-        allow_headers     = ["*"],
-    )
-
-    # ── Routers ──────────────────────────────────────────────────────────────
+    # ── Normal routes (all imports succeeded) ────────────────────────────────
     app.include_router(auth_router.router)                  # /auth/*
     app.include_router(messages.router)
     app.include_router(tasks.router)                        # /tasks/*
