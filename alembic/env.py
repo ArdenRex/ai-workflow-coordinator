@@ -23,8 +23,15 @@ if config.config_file_name is not None:
     # for the rest of the process's life after the first startup.
     fileConfig(config.config_file_name, disable_existing_loggers=False)
 
-# Override sqlalchemy.url from DATABASE_URL env var if present
-db_url = os.environ.get("DATABASE_URL")
+# Migrations need a direct/session-mode Postgres connection, not a transaction-
+# mode pooler. Supabase's transaction pooler (port 6543, used by DATABASE_URL
+# for normal app traffic) is documented as unsuitable for schema migrations —
+# other tools (e.g. Prisma) have reported migrations hanging indefinitely over
+# it. If DIRECT_DATABASE_URL is set (Supabase dashboard → Project Settings →
+# Database → "Direct connection", port 5432), migrations use that instead.
+# Falls back to DATABASE_URL so local/dev setups without a separate pooler
+# keep working unchanged.
+db_url = os.environ.get("DIRECT_DATABASE_URL") or os.environ.get("DATABASE_URL")
 if db_url:
     # Supabase/Render use postgres:// — SQLAlchemy 2.x requires postgresql://
     db_url = db_url.replace("postgres://", "postgresql://", 1)
