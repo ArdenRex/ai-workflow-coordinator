@@ -222,12 +222,20 @@ def downgrade() -> None:
     op.drop_index('ix_feedback_type', table_name='feedback')
     op.drop_index('ix_feedback_status', table_name='feedback')
     op.drop_table('feedback')
+    # feedback's 'type' and 'status' columns used plain sa.Enum (create_type
+    # defaults to True), so drop_table does not clean up the Postgres types —
+    # remove them explicitly or a later re-upgrade hits "type already exists".
+    op.execute("DROP TYPE IF EXISTS feedbacktype_enum")
+    op.execute("DROP TYPE IF EXISTS feedbackstatus_enum")
     op.drop_index('ix_api_keys_workspace_id', table_name='api_keys')
     op.drop_table('api_keys')
     op.drop_table('workspaces')
     op.drop_index(op.f('ix_users_referred_by_code'), table_name='users')
     op.drop_index(op.f('ix_users_email'), table_name='users')
     op.drop_table('users')
+    # same issue as above — users.role is userrole_enum, created with the
+    # SQLAlchemy default create_type=True, so it survives drop_table('users').
+    op.execute("DROP TYPE IF EXISTS userrole_enum")
     op.drop_index(op.f('ix_freelancers_referral_code'), table_name='freelancers')
     op.drop_index(op.f('ix_freelancers_email'), table_name='freelancers')
     op.drop_table('freelancers')
