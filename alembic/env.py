@@ -13,7 +13,15 @@ from app import models  # noqa: F401 — ensures models are registered
 
 config = context.config
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # disable_existing_loggers=False is required here: this file runs
+    # in-process inside the FastAPI lifespan on every cold start
+    # (see app/main.py's _run_alembic_upgrade). fileConfig() defaults to
+    # disable_existing_loggers=True, which silently sets .disabled = True
+    # on every already-created logger not listed in alembic.ini's
+    # [loggers] section — including app.main, app.crud, app.database,
+    # etc. That killed all app logging (even exc_info=True error logs)
+    # for the rest of the process's life after the first startup.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Override sqlalchemy.url from DATABASE_URL env var if present
 db_url = os.environ.get("DATABASE_URL")
