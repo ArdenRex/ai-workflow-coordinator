@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # ── Identifiers ───────────────────────────────────────────────────────────────
 revision = "add_freelancer_slug"
-down_revision = "0002"
+down_revision = "0003"
 branch_labels = None
 depends_on = None
 
