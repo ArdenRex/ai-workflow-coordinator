@@ -1,7 +1,7 @@
 """add slug column to freelancers
 
 Revision ID: add_freelancer_slug
-Revises: (set to your latest revision id)
+Revises: 0002
 Create Date: 2026-05-08
 """
 from alembic import op
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 # ── Identifiers ───────────────────────────────────────────────────────────────
 revision = "add_freelancer_slug"
-down_revision = None   # ← replace with your current head revision id
+down_revision = "0002"
 branch_labels = None
 depends_on = None
 
