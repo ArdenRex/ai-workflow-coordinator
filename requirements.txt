@@ -25,9 +25,11 @@ httpx>=0.27.0
 email-validator==2.1.1
 
 passlib[bcrypt]==1.7.4
-bcrypt==4.1.3
+# Pinned below 4.1.0: passlib 1.7.4 reads bcrypt.__about__.__version__ to detect
+# the backend version, and that attribute was removed in bcrypt 4.1.0+. Newer
+# bcrypt still hashes/verifies fine, but passlib logs a "trapped" warning on
+# every call. 4.0.1 is the newest version passlib 1.7.4 can read cleanly.
+bcrypt==4.0.1
 
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-bcrypt==4.1.3
 email-validator==2.1.1
