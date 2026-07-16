@@ -6,6 +6,7 @@ Create Date: 2025-01-01 00:00:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects.postgresql import ENUM as pg_ENUM
 
 revision = '0001'
 down_revision = None
@@ -29,7 +30,7 @@ def upgrade() -> None:
         sa.Column('deadline', sa.String(length=100), nullable=True),
         sa.Column(
             'priority',
-            sa.Enum('low', 'medium', 'high', 'critical', name='priority_enum', create_type=False),
+            pg_ENUM('low', 'medium', 'high', 'critical', name='priority_enum', create_type=False),
             server_default='medium',
             nullable=False,
         ),
@@ -39,7 +40,7 @@ def upgrade() -> None:
         sa.Column('slack_message_ts', sa.String(length=64), nullable=True),
         sa.Column(
             'status',
-            sa.Enum('pending', 'in_progress', 'completed', 'cancelled', name='taskstatus_enum', create_type=False),
+            pg_ENUM('pending', 'in_progress', 'completed', 'cancelled', name='taskstatus_enum', create_type=False),
             server_default='pending',
             nullable=False,
         ),
