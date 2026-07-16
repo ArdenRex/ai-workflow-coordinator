@@ -59,6 +59,14 @@ bolt_app = App(
     token=settings.slack_bot_token.get_secret_value(),
     signing_secret=settings.slack_signing_secret.get_secret_value(),
     process_before_response=False,
+    # Bolt normally calls Slack's auth.test API synchronously right here, at
+    # import time — i.e. during FastAPI/Railway startup. If that call fails
+    # (bad/revoked token, Slack API hiccup, transient network issue), it
+    # raises and crashes the ENTIRE backend process — not just Slack features.
+    # That means an unrelated Slack blip can take down login, billing, every
+    # endpoint. Disabling startup verification lets the app boot regardless;
+    # a genuinely bad token will just fail when a Slack event actually comes in.
+    token_verification_enabled=False,
 )
 
 if _cid:
