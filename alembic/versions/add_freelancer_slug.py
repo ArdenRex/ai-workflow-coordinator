@@ -16,18 +16,10 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add slug column (nullable so existing rows don't break)
-    op.add_column(
-        "freelancers",
-        sa.Column("slug", sa.String(255), nullable=True),
-    )
-    # Create unique index
-    op.create_index(
-        "ix_freelancers_slug",
-        "freelancers",
-        ["slug"],
-        unique=True,
-    )
+    # Add slug column (nullable so existing rows don't break) — idempotent,
+    # safe to re-run if a concurrent cold-start instance already did this.
+    op.execute("ALTER TABLE freelancers ADD COLUMN IF NOT EXISTS slug VARCHAR(255)")
+    op.execute("CREATE UNIQUE INDEX IF NOT EXISTS ix_freelancers_slug ON freelancers (slug)")
 
     # Back-fill slugs for existing freelancers using their name
     op.execute("""
@@ -46,5 +38,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_freelancers_slug", table_name="freelancers")
-    op.drop_column("freelancers", "slug")
+    op.execute("DROP INDEX IF EXISTS ix_freelancers_slug")
+    op.execute("ALTER TABLE freelancers DROP COLUMN IF EXISTS slug")
