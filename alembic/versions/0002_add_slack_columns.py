@@ -14,8 +14,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column('tasks', sa.Column('slack_channel_id', sa.String(length=64), nullable=True))
-    op.add_column('tasks', sa.Column('slack_message_ts', sa.String(length=64), nullable=True))
+    op.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS slack_channel_id VARCHAR(64)")
+    op.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS slack_message_ts VARCHAR(64)")
 
 
 def downgrade() -> None:
