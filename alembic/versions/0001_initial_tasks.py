@@ -15,62 +15,50 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Every statement below is written to be safe to re-run against a
+    # database that already has some/all of these objects — production's
+    # `tasks` table predates this migration's tracking, and Vercel's
+    # serverless cold starts can race multiple instances through this at
+    # once. IF NOT EXISTS everywhere means none of that can produce an error.
+
     # ── Enums ─────────────────────────────────────────────────────────────────
-    # Create enums explicitly so downgrade can drop them cleanly.
-    # checkfirst=True makes re-runs idempotent.
     op.execute("DO $$ BEGIN CREATE TYPE taskstatus_enum AS ENUM ('pending', 'in_progress', 'completed', 'cancelled'); EXCEPTION WHEN duplicate_object THEN null; END $$;")
     op.execute("DO $$ BEGIN CREATE TYPE priority_enum AS ENUM ('low', 'medium', 'high', 'critical'); EXCEPTION WHEN duplicate_object THEN null; END $$;")
 
     # ── Table ─────────────────────────────────────────────────────────────────
-    op.create_table(
-        'tasks',
-        sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column('task_description', sa.Text(), nullable=False),
-        sa.Column('assignee', sa.String(length=255), nullable=True),
-        sa.Column('deadline', sa.String(length=100), nullable=True),
-        sa.Column(
-            'priority',
-            pg_ENUM('low', 'medium', 'high', 'critical', name='priority_enum', create_type=False),
-            server_default='medium',
-            nullable=False,
-        ),
-        sa.Column('source_message', sa.Text(), nullable=False),
-        # Slack traceability — used for deduplication of event retries
-        sa.Column('slack_channel_id', sa.String(length=64), nullable=True),
-        sa.Column('slack_message_ts', sa.String(length=64), nullable=True),
-        sa.Column(
-            'status',
-            pg_ENUM('pending', 'in_progress', 'completed', 'cancelled', name='taskstatus_enum', create_type=False),
-            server_default='pending',
-            nullable=False,
-        ),
-        sa.Column(
-            'created_at',
-            sa.DateTime(timezone=True),
-            server_default=sa.text('now()'),
-            nullable=False,
-        ),
-        sa.Column(
-            'updated_at',
-            sa.DateTime(timezone=True),
-            server_default=sa.text('now()'),
-            nullable=False,
-        ),
-        sa.PrimaryKeyConstraint('id'),
-    )
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS tasks (
+            id SERIAL PRIMARY KEY,
+            task_description TEXT NOT NULL,
+            assignee VARCHAR(255),
+            deadline VARCHAR(100),
+            priority priority_enum NOT NULL DEFAULT 'medium',
+            source_message TEXT NOT NULL,
+            slack_channel_id VARCHAR(64),
+            slack_message_ts VARCHAR(64),
+            status taskstatus_enum NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        );
+    """)
+
+    # If tasks already existed from before this migration was tracked, it
+    # may be missing columns this migration would otherwise have created.
+    op.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS slack_channel_id VARCHAR(64)")
+    op.execute("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS slack_message_ts VARCHAR(64)")
 
     # ── Indexes ───────────────────────────────────────────────────────────────
-    op.create_index(op.f('ix_tasks_id'), 'tasks', ['id'], unique=False)
-    op.create_index('ix_tasks_status', 'tasks', ['status'], unique=False)
-    op.create_index('ix_tasks_assignee', 'tasks', ['assignee'], unique=False)
-    op.create_index('ix_tasks_status_created_at', 'tasks', ['status', 'created_at'], unique=False)
+    op.execute("CREATE INDEX IF NOT EXISTS ix_tasks_id ON tasks (id)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_tasks_status ON tasks (status)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_tasks_assignee ON tasks (assignee)")
+    op.execute("CREATE INDEX IF NOT EXISTS ix_tasks_status_created_at ON tasks (status, created_at)")
 
 
 def downgrade() -> None:
-    op.drop_index('ix_tasks_status_created_at', table_name='tasks')
-    op.drop_index('ix_tasks_assignee', table_name='tasks')
-    op.drop_index('ix_tasks_status', table_name='tasks')
-    op.drop_index(op.f('ix_tasks_id'), table_name='tasks')
-    op.drop_table('tasks')
+    op.execute("DROP INDEX IF EXISTS ix_tasks_status_created_at")
+    op.execute("DROP INDEX IF EXISTS ix_tasks_assignee")
+    op.execute("DROP INDEX IF EXISTS ix_tasks_status")
+    op.execute("DROP INDEX IF EXISTS ix_tasks_id")
+    op.execute("DROP TABLE IF EXISTS tasks")
     op.execute("DROP TYPE IF EXISTS taskstatus_enum")
     op.execute("DROP TYPE IF EXISTS priority_enum")
