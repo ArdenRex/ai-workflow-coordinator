@@ -11,6 +11,7 @@ import { useTasks } from "./hooks/useTasks";
 import KanbanColumn from "./components/KanbanColumn";
 import AddTaskModal from "./components/AddTaskModal";
 import AddToSlackButton from "./components/AddToSlackButton";
+import EmailTaskInbox from "./components/EmailTaskInbox";
 
 // -- API base URL — env var with hardcoded fallback ---------------------------
 const BASE_URL = process.env.REACT_APP_API_URL || "";
@@ -3844,6 +3845,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <AddToSlackButton />
+            <EmailTaskInbox />
             <div style={{
               padding: "6px 14px", borderRadius: 999,
               background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.22)",
