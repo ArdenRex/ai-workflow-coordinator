@@ -98,6 +98,17 @@ class Settings(BaseSettings):
         description="Email address that receives signup notifications (can be same as gmail_user).",
     )
 
+    # ── Email Task Inbox (SendGrid Inbound Parse) ────────────────────────────
+    email_inbound_domain: str = Field(
+        default="",
+        description="Domain/address users send task emails to, e.g. 'tasks.yourdomain.com'. Display-only.",
+    )
+    email_inbound_secret: str = Field(
+        default="",
+        description="Shared secret appended to the inbound webhook URL as ?token=... to reject spoofed posts. "
+                     "If left blank, the webhook accepts requests without a token check (fine for local testing only).",
+    )
+
     # ── Validators ────────────────────────────────────────────────────────────
     @field_validator("database_url", mode="before")
     @classmethod
