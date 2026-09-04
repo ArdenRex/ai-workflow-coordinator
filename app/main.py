@@ -73,7 +73,7 @@ try:
     from app.routers import billing as billing_router
     from app.routers import admin as admin_router
     from app.routers import referral as referral_router
-    from app.routers import email as email_router
+    from app.routers import email_router
     from app.routers.tasks import share_router
 except Exception as exc:  # pydantic ValidationError, or any other import-time failure
     _startup_error = f"{type(exc).__name__}: {exc}"
