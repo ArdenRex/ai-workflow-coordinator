@@ -3,14 +3,14 @@ import React from "react";
 import TaskCard from "./TaskCard";
 
 const COLUMN_CONFIG = {
-  to_do:       { accent: "#f59e0b", dotShadow: "0 0 6px rgba(245,158,11,0.6)"  },
-  in_progress: { accent: "#4f8ef7", dotShadow: "0 0 6px rgba(79,142,247,0.6)" },
-  completed:   { accent: "#22d3a8", dotShadow: "0 0 6px rgba(34,211,168,0.6)" },
-  cancelled:   { accent: "#6b7280", dotShadow: "0 0 6px rgba(107,114,128,0.6)" },
+  to_do:       { accent: "#d99a3f", dotShadow: "0 0 6px rgba(217,154,63,0.6)"  },
+  in_progress: { accent: "#ff6a52", dotShadow: "0 0 6px rgba(255,106,82,0.6)" },
+  completed:   { accent: "#3fae7d", dotShadow: "0 0 6px rgba(63,174,125,0.6)" },
+  cancelled:   { accent: "#9a908a", dotShadow: "0 0 6px rgba(107,114,128,0.6)" },
 };
 
 export default function KanbanColumn({ status, label, tasks, onMove, onDelete, timezone }) {
-  const config = COLUMN_CONFIG[status] || { accent: "#4f8ef7", dotShadow: "none" };
+  const config = COLUMN_CONFIG[status] || { accent: "#ff6a52", dotShadow: "none" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
