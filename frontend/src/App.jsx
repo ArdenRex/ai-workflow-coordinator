@@ -57,15 +57,15 @@ function parseDeadline(raw) {
 
 // -- CSS variables + animations ------------------------------------------------
 const GLOBAL_STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    /* Core palette */
-    --bg-base:            #07080f;
-    --bg-page:            #090d18;
-    --bg-sidebar:         #07080f;
+    /* Core palette -- "Ignition": obsidian black igniting into lacquer red */
+    --bg-base:            #060504;
+    --bg-page:            #0a0706;
+    --bg-sidebar:         #0c0908;
     --bg-card:            rgba(255,255,255,0.032);
     --bg-card-hover:      rgba(255,255,255,0.058);
     --bg-elevated:        rgba(255,255,255,0.06);
@@ -75,37 +75,42 @@ const GLOBAL_STYLES = `
     --border-strong:      rgba(255,255,255,0.14);
 
     /* Accent colors */
-    --accent-blue:        #3b82f6;
-    --accent-violet:      #8b5cf6;
-    --accent-cyan:        #06b6d4;
-    --accent-emerald:     #10b981;
-    --accent-amber:       #f59e0b;
-    --accent-rose:        #f43f5e;
-    --accent-1:           #3b82f6;
+    --accent-ember:       #ff6a52;
+    --accent-crimson:     #c81f30;
+    --accent-blood:       #4a0e13;
+    --accent-amber:       #d99a3f;
+    --accent-emerald:     #3fae7d;
+    --accent-rose:        #ff6a52;
+    --accent-1:           #ff6a52;
+    /* Back-compat aliases -- old var names still referenced in a few components;
+       these get retired once every component is repainted in step 2 */
+    --accent-blue:        #ff6a52;
+    --accent-violet:      #c81f30;
+    --accent-cyan:        #3fae7d;
 
     /* Gradients */
-    --grad-primary:       linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-    --grad-success:       linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
-    --grad-danger:        linear-gradient(135deg, #f43f5e 0%, #fb923c 100%);
-    --grad-amber:         linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
-    --grad-sidebar:       linear-gradient(180deg, #07080f 0%, #060810 100%);
+    --grad-primary:       linear-gradient(135deg, #ff6a52 0%, #c81f30 55%, #4a0e13 100%);
+    --grad-success:       linear-gradient(135deg, #3fae7d 0%, #1d9e75 100%);
+    --grad-danger:        linear-gradient(135deg, #ff6a52 0%, #c81f30 100%);
+    --grad-amber:         linear-gradient(135deg, #d99a3f 0%, #b3711f 100%);
+    --grad-sidebar:       linear-gradient(180deg, #0c0908 0%, #060403 100%);
 
     /* Text */
-    --color-text-primary:   #f1f3fc;
-    --color-text-secondary: #8892b0;
-    --color-text-tertiary:  #4a5378;
-    --color-text-muted:     #2d3450;
+    --color-text-primary:   #f5f0eb;
+    --color-text-secondary: #9a908a;
+    --color-text-tertiary:  #847a73;
+    --color-text-muted:     #655c56;
 
     /* Typography */
-    --font-display: 'Syne', sans-serif;
-    --font-sans:    'DM Sans', sans-serif;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-sans:    'Inter', sans-serif;
     --font-mono:    'JetBrains Mono', monospace;
 
     /* Shadows */
-    --shadow-sm:   0 1px 3px rgba(0,0,0,0.4);
-    --shadow-md:   0 4px 16px rgba(0,0,0,0.5);
-    --shadow-lg:   0 12px 40px rgba(0,0,0,0.6);
-    --shadow-glow: 0 0 24px rgba(59,130,246,0.3);
+    --shadow-sm:   0 1px 3px rgba(0,0,0,0.5);
+    --shadow-md:   0 4px 16px rgba(0,0,0,0.55);
+    --shadow-lg:   0 12px 40px rgba(0,0,0,0.65);
+    --shadow-glow: 0 0 24px rgba(255,90,54,0.32);
 
     /* Radius */
     --radius-sm:  6px;
@@ -140,7 +145,7 @@ const GLOBAL_STYLES = `
   @keyframes fadeUp  { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
   @keyframes slideIn { from { opacity:0; transform:translateX(-8px); } to { opacity:1; transform:translateX(0); } }
   @keyframes scaleIn { from { opacity:0; transform:scale(0.96); } to { opacity:1; transform:scale(1); } }
-  @keyframes glow-pulse { 0%,100% { box-shadow: 0 0 20px rgba(59,130,246,0.3); } 50% { box-shadow: 0 0 40px rgba(59,130,246,0.6); } }
+  @keyframes glow-pulse { 0%,100% { box-shadow: 0 0 20px rgba(255,106,82,0.3); } 50% { box-shadow: 0 0 40px rgba(255,106,82,0.6); } }
 
   .fade-up         { animation: fadeUp 0.45s cubic-bezier(0.16,1,0.3,1) both; }
   .fade-up.delay-1 { animation-delay: 0.08s; }
@@ -161,10 +166,10 @@ const GLOBAL_STYLES = `
   }
 
   /* Focus ring */
-  :focus-visible { outline: 2px solid rgba(59,130,246,0.6); outline-offset: 2px; border-radius: 4px; }
+  :focus-visible { outline: 2px solid rgba(255,90,54,0.6); outline-offset: 2px; border-radius: 4px; }
 
   /* Selection */
-  ::selection { background: rgba(59,130,246,0.25); color: #f1f3fc; }
+  ::selection { background: rgba(255,90,54,0.25); color: #f5f0eb; }
 
   /* -- Premium card hover --------------- */
   .pcard {
@@ -189,14 +194,15 @@ const GLOBAL_STYLES = `
   /* -- Btn primary ---------------------- */
   .btn-primary {
     height: 38px; padding: 0 20px; border-radius: 10px; border: none;
-    background: var(--grad-primary); color: #fff;
+    background: var(--grad-primary); background-size: 220% 220%; color: #f5f0eb;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.45);
     font-family: var(--font-sans); font-size: 13px; font-weight: 600;
     cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
-    box-shadow: 0 0 24px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.18);
-    transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s;
+    box-shadow: 0 0 24px rgba(255,90,54,0.35), inset 0 1px 0 rgba(255,255,255,0.18);
+    transition: transform 0.12s, box-shadow 0.12s, opacity 0.12s, background-position 0.6s;
     white-space: nowrap;
   }
-  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 0 36px rgba(59,130,246,0.5), inset 0 1px 0 rgba(255,255,255,0.22); }
+  .btn-primary:hover { transform: translateY(-1px); background-position: 100% 100%; box-shadow: 0 0 36px rgba(255,90,54,0.5), inset 0 1px 0 rgba(255,255,255,0.22); }
   .btn-primary:active { transform: translateY(0); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
@@ -222,19 +228,19 @@ const GLOBAL_STYLES = `
     box-sizing: border-box;
   }
   .field-input:focus {
-    border-color: rgba(59,130,246,0.55);
-    background: rgba(59,130,246,0.06);
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.14);
+    border-color: rgba(255,90,54,0.55);
+    background: rgba(255,90,54,0.06);
+    box-shadow: 0 0 0 3px rgba(255,90,54,0.14);
   }
   .field-input::placeholder { color: var(--color-text-muted); }
 
   /* -- Page header ---------------------- */
   .page-header {
     position: sticky; top: 0; z-index: 40; min-height: 56px;
-    background: rgba(7,8,15,0.88);
+    background: rgba(10,7,6,0.88);
     backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
     border-bottom: 1px solid rgba(255,255,255,0.055);
-    box-shadow: 0 1px 0 rgba(59,130,246,0.07), 0 4px 20px rgba(0,0,0,0.25);
+    box-shadow: 0 1px 0 rgba(255,90,54,0.07), 0 4px 20px rgba(0,0,0,0.25);
     padding: 10px clamp(12px, 2.5vw, 28px); display: flex; align-items: center; gap: 10; flex-wrap: wrap;
   }
 
@@ -275,10 +281,10 @@ const GLOBAL_STYLES = `
     animation: scaleIn 0.18s ease both;
   }
   .modal-box {
-    background: linear-gradient(160deg, #13172b 0%, #0e1122 100%);
+    background: linear-gradient(160deg, #17110f 0%, #0d0908 100%);
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: var(--radius-xl);
-    box-shadow: 0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(59,130,246,0.1);
+    box-shadow: 0 32px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,90,54,0.1);
     animation: scaleIn 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
     max-width: calc(100vw - 32px);
     width: 100%;
@@ -357,8 +363,8 @@ const GLOBAL_STYLES = `
     border-color: rgba(255,255,255,0.12);
   }
   .owner-card.selected {
-    background: linear-gradient(135deg, rgba(59,130,246,0.14) 0%, rgba(139,92,246,0.14) 100%);
-    border-color: rgba(59,130,246,0.45);
+    background: linear-gradient(135deg, rgba(255,90,54,0.14) 0%, rgba(200,31,48,0.14) 100%);
+    border-color: rgba(255,90,54,0.45);
   }
 
   /* -- Integration card ----------------- */
@@ -376,12 +382,12 @@ const GLOBAL_STYLES = `
 
   /* -- Pulse dot for live status -------- */
   @keyframes pulseDot {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,168,0.4); }
-    50%       { box-shadow: 0 0 0 5px rgba(34,211,168,0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(63,174,125,0.4); }
+    50%       { box-shadow: 0 0 0 5px rgba(63,174,125,0); }
   }
   .pulse-dot {
     width: 7px; height: 7px; border-radius: 50%;
-    background: #22d3a8; animation: pulseDot 2s ease-in-out infinite;
+    background: #3fae7d; animation: pulseDot 2s ease-in-out infinite;
   }
 
   /* -- Tooltip -------------------------- */
@@ -389,7 +395,7 @@ const GLOBAL_STYLES = `
   .has-tooltip:hover::after {
     content: attr(data-tip);
     position: absolute; bottom: 110%; left: 50%; transform: translateX(-50%);
-    background: #1e2340; border: 1px solid var(--border-glass);
+    background: #1c1210; border: 1px solid var(--border-glass);
     color: var(--color-text-secondary); font-size: 11px; font-weight: 500;
     padding: 4px 9px; border-radius: 6px; white-space: nowrap;
     pointer-events: none; animation: fadeUp 0.15s ease both;
@@ -415,8 +421,8 @@ const GLOBAL_STYLES = `
     to   { opacity: 1; transform: translateX(0); }
   }
   @keyframes spotlightPulse {
-    0%,100% { box-shadow: 0 0 0 4px rgba(59,130,246,0.4), 0 0 0 8px rgba(59,130,246,0.15); }
-    50%      { box-shadow: 0 0 0 6px rgba(59,130,246,0.55), 0 0 0 14px rgba(59,130,246,0.08); }
+    0%,100% { box-shadow: 0 0 0 4px rgba(255,90,54,0.4), 0 0 0 8px rgba(255,90,54,0.15); }
+    50%      { box-shadow: 0 0 0 6px rgba(255,90,54,0.55), 0 0 0 14px rgba(255,90,54,0.08); }
   }
   @keyframes spin {
     from { transform: rotate(0deg); }
@@ -449,20 +455,20 @@ const TOUR_STEPS = [
     id: "welcome", emoji: "👋", title: "Welcome to AI Workflow Coordinator",
     subtitle: "Your intelligent command center",
     description: "You're about to master the most powerful workflow tool your team has ever used. This quick tour will show you everything — it only takes 2 minutes.",
-    color: "#3b82f6", gradient: "linear-gradient(135deg,#3b82f6 0%,#8b5cf6 100%)", tip: null, xp: 0,
+    color: "#ff6a52", gradient: "linear-gradient(135deg,#ff6a52 0%,#c81f30 100%)", tip: null, xp: 0,
   },
   {
     id: "dashboard", emoji: "⬡", title: "Dashboard — Your Mission Control",
     subtitle: "Everything at a glance",
     description: "The Dashboard shows your live task counts, Kanban board, team status, and a real-time system health indicator. It's the first page you'll see every morning.",
-    color: "#3b82f6", gradient: "linear-gradient(135deg,#3b82f6 0%,#06b6d4 100%)",
+    color: "#ff6a52", gradient: "linear-gradient(135deg,#ff6a52 0%,#d99a3f 100%)",
     tip: "💡 Pro tip: The Kanban board lets you drag tasks between columns — or click a card to see full details.", xp: 10,
   },
   {
     id: "nav_badges", emoji: "🔴", title: "Live Sidebar Badges — Always in the Know",
     subtitle: "Real-time counts on every nav item",
     description: "Every section of the sidebar shows a live number badge that updates automatically as your data changes. No need to click into a page to know what's waiting for you.",
-    color: "#f59e0b", gradient: "linear-gradient(135deg,#f59e0b 0%,#f97316 100%)",
+    color: "#d99a3f", gradient: "linear-gradient(135deg,#d99a3f 0%,#c9702e 100%)",
     tip: "💡 What each badge means:\n🟠 Dashboard = active (in-progress) tasks\n🔵 Tasks = total task count\n🔴 Compliance = issues needing attention\n🟢 Reports = completed tasks\n🟣 Ownership = number of owners",
     xp: 18,
     isBadgeStep: true,
@@ -471,56 +477,56 @@ const TOUR_STEPS = [
     id: "tasks", emoji: "✦", title: "Tasks — Full Task Management",
     subtitle: "Create, assign, track, complete",
     description: "The Tasks page gives you a filterable table of every task. Create new tasks, assign them to teammates, set priorities (Critical → Low), and add deadlines.",
-    color: "#8b5cf6", gradient: "linear-gradient(135deg,#8b5cf6 0%,#ec4899 100%)",
+    color: "#c81f30", gradient: "linear-gradient(135deg,#c81f30 0%,#ff4d6a 100%)",
     tip: "💡 Pro tip: Use the search bar + status/priority filters to instantly zero in on what matters.", xp: 27,
   },
   {
     id: "compliance", emoji: "◈", title: "Compliance — Task Health Monitor",
     subtitle: "Catch problems before they explode",
     description: "Compliance automatically flags overdue tasks, unassigned work, stale tasks (7+ days inactive), and high-priority items that haven't started yet. Your score shows overall team health.",
-    color: "#f43f5e", gradient: "linear-gradient(135deg,#f43f5e 0%,#fb923c 100%)",
+    color: "#ff4d5e", gradient: "linear-gradient(135deg,#ff4d5e 0%,#c9702e 100%)",
     tip: "💡 Pro tip: Keep your Compliance Score above 80% — that means your team is running clean.", xp: 36,
   },
   {
     id: "knowledge", emoji: "◉", title: "Knowledge — Team Brain",
     subtitle: "Document everything, forget nothing",
     description: "Store SOPs, runbooks, decision logs, and team notes in the Knowledge base. Pin critical docs so they're always visible, and search across everything instantly.",
-    color: "#10b981", gradient: "linear-gradient(135deg,#10b981 0%,#06b6d4 100%)",
+    color: "#3fae7d", gradient: "linear-gradient(135deg,#3fae7d 0%,#d99a3f 100%)",
     tip: "💡 Pro tip: Tag your notes with categories to keep things organised as your library grows.", xp: 45,
   },
   {
     id: "ownership", emoji: "⊕", title: "Ownership — Who Owns What",
     subtitle: "Visualise workload distribution",
     description: "The Ownership Graph shows every team member's task load — how many tasks they own, their completion rate, and priority breakdown. Spot overloaded teammates instantly.",
-    color: "#f59e0b", gradient: "linear-gradient(135deg,#f59e0b 0%,#f97316 100%)",
+    color: "#d99a3f", gradient: "linear-gradient(135deg,#d99a3f 0%,#c9702e 100%)",
     tip: "💡 Pro tip: Click any person card to expand their full task list with status and deadlines.", xp: 54,
   },
   {
     id: "reports", emoji: "▲", title: "Reports — Performance Analytics",
     subtitle: "Data-driven decisions",
     description: "Reports gives you completion rates, velocity trends, priority distribution, and KPIs over time. Share these with stakeholders to show team progress.",
-    color: "#06b6d4", gradient: "linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%)",
+    color: "#d99a3f", gradient: "linear-gradient(135deg,#d99a3f 0%,#ff6a52 100%)",
     tip: "💡 Pro tip: Check Reports weekly to spot trends before they become problems.", xp: 63,
   },
   {
     id: "integrations", emoji: "⛓", title: "Integrations — Connect Your Stack",
     subtitle: "Slack, GitHub, Zapier and more",
     description: "Connect AI Workflow to your existing tools. Get Slack notifications when tasks are assigned or overdue, trigger automations via Zapier, or post updates to GitHub.",
-    color: "#8b5cf6", gradient: "linear-gradient(135deg,#8b5cf6 0%,#3b82f6 100%)",
+    color: "#c81f30", gradient: "linear-gradient(135deg,#c81f30 0%,#ff6a52 100%)",
     tip: "💡 Pro tip: Enable the Slack integration first — your team will get nudged about deadlines automatically.", xp: 72,
   },
   {
     id: "api", emoji: "🔑", title: "API — Build On Top",
     subtitle: "Full REST API access",
     description: "Every feature in this app is available via API. Generate API keys, browse the endpoint reference, and build your own automations or integrations on top of your workflow data.",
-    color: "#10b981", gradient: "linear-gradient(135deg,#10b981 0%,#8b5cf6 100%)",
+    color: "#3fae7d", gradient: "linear-gradient(135deg,#3fae7d 0%,#c81f30 100%)",
     tip: "💡 Pro tip: The API docs are available at /docs — fully interactive with Swagger UI.", xp: 81,
   },
   {
     id: "finish", emoji: "🏆", title: "You're Ready to Command!",
     subtitle: "Tour complete — 100 XP earned",
     description: "You now know everything about AI Workflow Coordinator. Your dashboard is live, your team is waiting, and your first task is to create something worth doing.",
-    color: "#f59e0b", gradient: "linear-gradient(135deg,#f59e0b 0%,#f43f5e 100%)",
+    color: "#d99a3f", gradient: "linear-gradient(135deg,#d99a3f 0%,#ff4d5e 100%)",
     tip: null, xp: 100,
   },
 ];
@@ -530,7 +536,7 @@ function ConfettiBurst() {
   const pieces = [...Array(60)].map((_, i) => ({
     id: i,
     x: 40 + Math.random() * 20,
-    color: ["#3b82f6","#8b5cf6","#f59e0b","#10b981","#f43f5e","#06b6d4","#ec4899"][i % 7],
+    color: ["#ff6a52","#c81f30","#d99a3f","#3fae7d","#ff4d5e","#d99a3f","#ff4d6a"][i % 7],
     size: 6 + Math.random() * 8,
     delay: Math.random() * 0.6,
     dur: 1.2 + Math.random() * 1,
@@ -576,8 +582,8 @@ function TourParticles({ color }) {
 function StepVisual({ stepId, color }) {
   const s = { borderRadius: 8, overflow: "hidden", position: "relative" };
   if (stepId === "welcome") return (
-    <div style={{ ...s, background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.18)", padding: "18px 20px", display: "flex", gap: 14, alignItems: "center" }}>
-      {[["⬡","Dashboard","#3b82f6"],["✦","Tasks","#8b5cf6"],["◈","Compliance","#f43f5e"],["⊕","Ownership","#f59e0b"],["▲","Reports","#06b6d4"],["🔑","API","#10b981"]].map(([icon, label, c]) => (
+    <div style={{ ...s, background: "rgba(255,106,82,0.07)", border: "1px solid rgba(255,106,82,0.18)", padding: "18px 20px", display: "flex", gap: 14, alignItems: "center" }}>
+      {[["⬡","Dashboard","#ff6a52"],["✦","Tasks","#c81f30"],["◈","Compliance","#ff4d5e"],["⊕","Ownership","#d99a3f"],["▲","Reports","#d99a3f"],["🔑","API","#3fae7d"]].map(([icon, label, c]) => (
         <div key={label} style={{ display:"flex",flexDirection:"column",alignItems:"center",gap:5,flex:1 }}>
           <div style={{ width:36,height:36,borderRadius:10,background:`${c}20`,border:`1px solid ${c}35`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16 }}>{icon}</div>
           <div style={{ fontSize:9,color:"var(--color-text-tertiary)",fontWeight:600,letterSpacing:"0.04em",textTransform:"uppercase" }}>{label}</div>
@@ -588,7 +594,7 @@ function StepVisual({ stepId, color }) {
   if (stepId === "dashboard") return (
     <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"14px 16px" }}>
       <div style={{ display:"flex",gap:8,marginBottom:10 }}>
-        {[["24","Tasks","#3b82f6"],["8","In Progress","#f59e0b"],["3","Overdue","#f43f5e"]].map(([n,l,c])=>(
+        {[["24","Tasks","#ff6a52"],["8","In Progress","#d99a3f"],["3","Overdue","#ff4d5e"]].map(([n,l,c])=>(
           <div key={l} style={{ flex:1,background:`${c}12`,border:`1px solid ${c}28`,borderRadius:8,padding:"8px 10px" }}>
             <div style={{ fontSize:18,fontWeight:800,color:c,fontFamily:"var(--font-display)" }}>{n}</div>
             <div style={{ fontSize:10,color:"var(--color-text-tertiary)",marginTop:1 }}>{l}</div>
@@ -596,7 +602,7 @@ function StepVisual({ stepId, color }) {
         ))}
       </div>
       <div style={{ display:"flex",gap:6 }}>
-        {[["To Do","#8b5cf6",3],["In Progress","#f59e0b",2],["Done","#10b981",4]].map(([l,c,cnt])=>(
+        {[["To Do","#c81f30",3],["In Progress","#d99a3f",2],["Done","#3fae7d",4]].map(([l,c,cnt])=>(
           <div key={l} style={{ flex:1,background:"rgba(255,255,255,0.02)",border:`1px solid ${c}22`,borderRadius:6,padding:"8px 8px" }}>
             <div style={{ fontSize:9,fontWeight:700,color:c,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.05em" }}>{l}</div>
             {[...Array(cnt)].map((_,i)=><div key={i} style={{ height:5,borderRadius:3,background:c,opacity:0.15+i*0.12,marginBottom:3 }}/>)}
@@ -607,7 +613,7 @@ function StepVisual({ stepId, color }) {
   );
   if (stepId === "nav_badges") return (
     <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"12px 14px",display:"flex",flexDirection:"column",gap:7 }}>
-      {[["⬡","Dashboard","#f59e0b","8"],["✦","Tasks","#3b82f6","24"],["◈","Compliance","#f43f5e","3"],["▲","Reports","#10b981","12"],["⊕","Ownership","#8b5cf6","5"]].map(([icon,label,c,badge])=>(
+      {[["⬡","Dashboard","#d99a3f","8"],["✦","Tasks","#ff6a52","24"],["◈","Compliance","#ff4d5e","3"],["▲","Reports","#3fae7d","12"],["⊕","Ownership","#c81f30","5"]].map(([icon,label,c,badge])=>(
         <div key={label} style={{ display:"flex",alignItems:"center",gap:9,padding:"5px 8px",borderRadius:7,background:"rgba(255,255,255,0.025)" }}>
           <span style={{ fontSize:13 }}>{icon}</span>
           <span style={{ flex:1,fontSize:12,color:"var(--color-text-secondary)",fontWeight:500 }}>{label}</span>
@@ -622,10 +628,10 @@ function StepVisual({ stepId, color }) {
     <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"12px 14px" }}>
       <div style={{ display:"flex",gap:6,marginBottom:10 }}>
         {["All","To Do","In Progress","Done"].map((t,i)=>(
-          <div key={t} style={{ padding:"3px 10px",borderRadius:999,fontSize:10,fontWeight:600,background:i===0?"rgba(139,92,246,0.2)":"rgba(255,255,255,0.04)",border:i===0?"1px solid rgba(139,92,246,0.4)":"1px solid var(--border-glass)",color:i===0?"#8b5cf6":"var(--color-text-tertiary)" }}>{t}</div>
+          <div key={t} style={{ padding:"3px 10px",borderRadius:999,fontSize:10,fontWeight:600,background:i===0?"rgba(200,31,48,0.2)":"rgba(255,255,255,0.04)",border:i===0?"1px solid rgba(200,31,48,0.4)":"1px solid var(--border-glass)",color:i===0?"#c81f30":"var(--color-text-tertiary)" }}>{t}</div>
         ))}
       </div>
-      {[["Fix auth bug","critical","#f43f5e","Alex"],["Write docs","high","#f59e0b","Sam"],["Deploy v2","medium","#8b5cf6","Kim"],["Add tests","low","#10b981","—"]].map(([task,pri,c,ass])=>(
+      {[["Fix auth bug","critical","#ff4d5e","Alex"],["Write docs","high","#d99a3f","Sam"],["Deploy v2","medium","#c81f30","Kim"],["Add tests","low","#3fae7d","—"]].map(([task,pri,c,ass])=>(
         <div key={task} style={{ display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
           <div style={{ width:6,height:6,borderRadius:"50%",background:c,flexShrink:0 }}/>
           <span style={{ flex:1,fontSize:11,color:"var(--color-text-secondary)" }}>{task}</span>
@@ -639,12 +645,12 @@ function StepVisual({ stepId, color }) {
     <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"14px 16px" }}>
       <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12 }}>
         <span style={{ fontSize:11,color:"var(--color-text-secondary)",fontWeight:600 }}>Compliance Score</span>
-        <span style={{ fontSize:22,fontWeight:800,color:"#10b981",fontFamily:"var(--font-display)" }}>84%</span>
+        <span style={{ fontSize:22,fontWeight:800,color:"#3fae7d",fontFamily:"var(--font-display)" }}>84%</span>
       </div>
       <div style={{ height:5,borderRadius:999,background:"rgba(255,255,255,0.06)",marginBottom:12,overflow:"hidden" }}>
-        <div style={{ height:"100%",width:"84%",borderRadius:999,background:"linear-gradient(90deg,#10b981,#06b6d4)",transition:"width 0.6s" }}/>
+        <div style={{ height:"100%",width:"84%",borderRadius:999,background:"linear-gradient(90deg,#3fae7d,#d99a3f)",transition:"width 0.6s" }}/>
       </div>
-      {[["Overdue tasks","2","#f43f5e"],["Unassigned","1","#f59e0b"],["Stale (7d+)","0","#10b981"],["High priority idle","1","#8b5cf6"]].map(([l,n,c])=>(
+      {[["Overdue tasks","2","#ff4d5e"],["Unassigned","1","#d99a3f"],["Stale (7d+)","0","#3fae7d"],["High priority idle","1","#c81f30"]].map(([l,n,c])=>(
         <div key={l} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,0.03)" }}>
           <span style={{ fontSize:11,color:"var(--color-text-tertiary)" }}>{l}</span>
           <span style={{ fontSize:12,fontWeight:700,color:c }}>{n}</span>
@@ -655,14 +661,14 @@ function StepVisual({ stepId, color }) {
   if (stepId === "knowledge") return (
     <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"12px 14px" }}>
       <div style={{ display:"flex",gap:6,marginBottom:9 }}>
-        {[["📌","Pinned","#f59e0b"],["📄","SOP","#3b82f6"],["📋","Runbook","#8b5cf6"]].map(([e,l,c])=>(
+        {[["📌","Pinned","#d99a3f"],["📄","SOP","#ff6a52"],["📋","Runbook","#c81f30"]].map(([e,l,c])=>(
           <div key={l} style={{ flex:1,padding:"6px 8px",borderRadius:8,background:`${c}12`,border:`1px solid ${c}28` }}>
             <div style={{ fontSize:14,marginBottom:4 }}>{e}</div>
             <div style={{ fontSize:9,color:c,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.04em" }}>{l}</div>
           </div>
         ))}
       </div>
-      {[["Deploy Runbook","📋","#8b5cf6"],["Auth SOP","📄","#3b82f6"],["Q3 Decisions","📝","#10b981"],["On-call Guide","⚡","#f43f5e"]].map(([title,e,c])=>(
+      {[["Deploy Runbook","📋","#c81f30"],["Auth SOP","📄","#ff6a52"],["Q3 Decisions","📝","#3fae7d"],["On-call Guide","⚡","#ff4d5e"]].map(([title,e,c])=>(
         <div key={title} style={{ display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
           <span style={{ fontSize:12 }}>{e}</span>
           <span style={{ flex:1,fontSize:11,color:"var(--color-text-secondary)" }}>{title}</span>
@@ -673,7 +679,7 @@ function StepVisual({ stepId, color }) {
   );
   if (stepId === "ownership") return (
     <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"12px 14px",display:"flex",flexDirection:"column",gap:7 }}>
-      {[["Alex Chen","#3b82f6",8,75],["Sam Park","#8b5cf6",5,60],["Kim Lee","#10b981",3,90],["Jordan","#f59e0b",11,45]].map(([name,c,tasks,pct])=>(
+      {[["Alex Chen","#ff6a52",8,75],["Sam Park","#c81f30",5,60],["Kim Lee","#3fae7d",3,90],["Jordan","#d99a3f",11,45]].map(([name,c,tasks,pct])=>(
         <div key={name} style={{ display:"flex",alignItems:"center",gap:9 }}>
           <div style={{ width:28,height:28,borderRadius:"50%",background:`${c}25`,border:`1.5px solid ${c}50`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:c,flexShrink:0 }}>{name[0]}</div>
           <div style={{ flex:1 }}>
@@ -692,7 +698,7 @@ function StepVisual({ stepId, color }) {
   if (stepId === "reports") return (
     <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"14px 16px" }}>
       <div style={{ display:"flex",gap:8,marginBottom:12 }}>
-        {[["Velocity","↑12%","#10b981"],["Done Rate","78%","#3b82f6"],["Avg Time","2.4d","#8b5cf6"]].map(([l,v,c])=>(
+        {[["Velocity","↑12%","#3fae7d"],["Done Rate","78%","#ff6a52"],["Avg Time","2.4d","#c81f30"]].map(([l,v,c])=>(
           <div key={l} style={{ flex:1,padding:"8px",borderRadius:8,background:`${c}10`,border:`1px solid ${c}25`,textAlign:"center" }}>
             <div style={{ fontSize:14,fontWeight:800,color:c,fontFamily:"var(--font-display)" }}>{v}</div>
             <div style={{ fontSize:9,color:"var(--color-text-tertiary)",marginTop:2,fontWeight:600 }}>{l}</div>
@@ -701,7 +707,7 @@ function StepVisual({ stepId, color }) {
       </div>
       <div style={{ display:"flex",alignItems:"flex-end",gap:4,height:52 }}>
         {[35,55,42,68,50,75,90,62,80,95].map((h,i)=>(
-          <div key={i} style={{ flex:1,height:`${h}%`,borderRadius:"3px 3px 0 0",background:i===9?"#3b82f6":i===8?"rgba(59,130,246,0.6)":"rgba(59,130,246,0.25)",transition:"height 0.3s" }}/>
+          <div key={i} style={{ flex:1,height:`${h}%`,borderRadius:"3px 3px 0 0",background:i===9?"#ff6a52":i===8?"rgba(255,106,82,0.6)":"rgba(255,106,82,0.25)",transition:"height 0.3s" }}/>
         ))}
       </div>
       <div style={{ height:1,background:"rgba(255,255,255,0.05)",marginTop:2 }}/>
@@ -709,11 +715,11 @@ function StepVisual({ stepId, color }) {
   );
   if (stepId === "integrations") return (
     <div style={{ ...s, background:"rgba(255,255,255,0.03)",border:"1px solid var(--border-glass)",padding:"12px 14px",display:"grid",gridTemplateColumns:"1fr 1fr",gap:7 }}>
-      {[["Slack","#4A154B","💬","Connected"],["GitHub","#24292e","⚡","Connect"],["Zapier","#FF4A00","⚙","Connect"],["Notion","#fff","📝","Connect"]].map(([name,c,e,status])=>(
-        <div key={name} style={{ padding:"10px",borderRadius:8,background:"rgba(255,255,255,0.025)",border:`1px solid ${status==="Connected"?"rgba(16,185,129,0.35)":"var(--border-glass)"}` }}>
+      {[["Slack","#4A154B","💬","Connected"],["GitHub","#24292e","⚡","Connect"],["Zapier","#FF4A00","⚙","Connect"],["Notion","#f5f0eb","📝","Connect"]].map(([name,c,e,status])=>(
+        <div key={name} style={{ padding:"10px",borderRadius:8,background:"rgba(255,255,255,0.025)",border:`1px solid ${status==="Connected"?"rgba(63,174,125,0.35)":"var(--border-glass)"}` }}>
           <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5 }}>
             <span style={{ fontSize:16 }}>{e}</span>
-            <div style={{ fontSize:9,padding:"2px 6px",borderRadius:999,background:status==="Connected"?"rgba(16,185,129,0.2)":"rgba(255,255,255,0.07)",color:status==="Connected"?"#10b981":"var(--color-text-tertiary)",fontWeight:600 }}>{status}</div>
+            <div style={{ fontSize:9,padding:"2px 6px",borderRadius:999,background:status==="Connected"?"rgba(63,174,125,0.2)":"rgba(255,255,255,0.07)",color:status==="Connected"?"#3fae7d":"var(--color-text-tertiary)",fontWeight:600 }}>{status}</div>
           </div>
           <div style={{ fontSize:11,color:"var(--color-text-secondary)",fontWeight:600 }}>{name}</div>
         </div>
@@ -721,14 +727,14 @@ function StepVisual({ stepId, color }) {
     </div>
   );
   if (stepId === "api") return (
-    <div style={{ ...s, background:"#0a0c14",border:"1px solid rgba(16,185,129,0.2)",padding:"12px 16px",fontFamily:"var(--font-mono)" }}>
+    <div style={{ ...s, background:"#0c0503",border:"1px solid rgba(63,174,125,0.2)",padding:"12px 16px",fontFamily:"var(--font-mono)" }}>
       <div style={{ display:"flex",gap:6,marginBottom:8 }}>
-        {["GET","POST","PUT","DELETE"].map((m,i)=>(<div key={m} style={{ padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,background:["rgba(16,185,129,0.2)","rgba(59,130,246,0.2)","rgba(245,158,11,0.2)","rgba(244,63,94,0.2)"][i],color:["#10b981","#3b82f6","#f59e0b","#f43f5e"][i] }}>{m}</div>))}
+        {["GET","POST","PUT","DELETE"].map((m,i)=>(<div key={m} style={{ padding:"2px 8px",borderRadius:4,fontSize:9,fontWeight:700,background:["rgba(63,174,125,0.2)","rgba(255,106,82,0.2)","rgba(217,154,63,0.2)","rgba(255,77,94,0.2)"][i],color:["#3fae7d","#ff6a52","#d99a3f","#ff4d5e"][i] }}>{m}</div>))}
       </div>
       {["/tasks","  → list + filter","/tasks/:id","  → task details","/tasks (POST)","  → create task"].map((line,i)=>(
-        <div key={i} style={{ fontSize:10,color:i%2===0?"#06b6d4":"var(--color-text-tertiary)",marginBottom:1,lineHeight:1.7 }}>{line}</div>
+        <div key={i} style={{ fontSize:10,color:i%2===0?"#d99a3f":"var(--color-text-tertiary)",marginBottom:1,lineHeight:1.7 }}>{line}</div>
       ))}
-      <div style={{ marginTop:8,padding:"6px 10px",borderRadius:6,background:"rgba(16,185,129,0.08)",border:"1px solid rgba(16,185,129,0.15)",fontSize:10,color:"#10b981" }}>✓ Authorization: Bearer ••••••••</div>
+      <div style={{ marginTop:8,padding:"6px 10px",borderRadius:6,background:"rgba(63,174,125,0.08)",border:"1px solid rgba(63,174,125,0.15)",fontSize:10,color:"#3fae7d" }}>✓ Authorization: Bearer ••••••••</div>
     </div>
   );
   if (stepId === "finish") return (
@@ -830,24 +836,24 @@ function TourOverlay({ onComplete, onSkip }) {
         }}>
           <div style={{
             width: "100%", maxWidth: 500,
-            background: "linear-gradient(160deg,#111526 0%,#0c0f1e 60%,#080a16 100%)",
-            border: "1px solid rgba(79,142,247,0.35)", borderRadius: 24,
-            padding: "36px 32px", boxShadow: "0 40px 100px rgba(0,0,0,0.8), 0 0 60px rgba(79,142,247,0.08)",
+            background: "linear-gradient(160deg,#140806 0%,#120705 60%,#0a0403 100%)",
+            border: "1px solid rgba(255,106,82,0.35)", borderRadius: 24,
+            padding: "36px 32px", boxShadow: "0 40px 100px rgba(0,0,0,0.8), 0 0 60px rgba(255,106,82,0.08)",
             textAlign: "center", animation: "fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both",
           }}>
             {/* Icon */}
             <div style={{
               width: 72, height: 72, borderRadius: 20, margin: "0 auto 20px",
-              background: "rgba(79,142,247,0.12)", border: "1.5px solid rgba(79,142,247,0.35)",
+              background: "rgba(255,106,82,0.12)", border: "1.5px solid rgba(255,106,82,0.35)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 32, boxShadow: "0 0 32px rgba(79,142,247,0.2)",
+              fontSize: 32, boxShadow: "0 0 32px rgba(255,106,82,0.2)",
             }}>📚</div>
 
             {/* Heading */}
             <div style={{
               fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 10,
               fontFamily: "var(--font-display)",
-              background: "linear-gradient(135deg, #f0f2ff 0%, #a5b4fc 100%)",
+              background: "linear-gradient(135deg, #efe7df 0%, #ffb199 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
             }}>Intro skipped — you're all set!</div>
 
@@ -856,15 +862,15 @@ function TourOverlay({ onComplete, onSkip }) {
               fontSize: 14, color: "var(--color-text-secondary)", lineHeight: 1.75, marginBottom: 24,
             }}>
               No worries — everything you need is in the{" "}
-              <span style={{ color: "#a5b4fc", fontWeight: 700 }}>Knowledge Panel</span>.{" "}
+              <span style={{ color: "#ffb199", fontWeight: 700 }}>Knowledge Panel</span>.{" "}
               You can find it in the sidebar anytime. It contains all the info about how the software works, and you can also{" "}
-              <span style={{ color: "#a5b4fc", fontWeight: 600 }}>add notes for your team</span>{" "}
+              <span style={{ color: "#ffb199", fontWeight: 600 }}>add notes for your team</span>{" "}
               so everyone stays on the same page.
             </div>
 
             {/* Feature bullets */}
             <div style={{
-              background: "rgba(79,142,247,0.06)", border: "1px solid rgba(79,142,247,0.18)",
+              background: "rgba(255,106,82,0.06)", border: "1px solid rgba(255,106,82,0.18)",
               borderRadius: 14, padding: "16px 20px", marginBottom: 28, textAlign: "left",
             }}>
               {[
@@ -887,10 +893,10 @@ function TourOverlay({ onComplete, onSkip }) {
               onClick={dismissSkipNotice}
               style={{
                 width: "100%", height: 50, borderRadius: 13, border: "none",
-                background: "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)",
-                color: "#fff", fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 700,
+                background: "linear-gradient(135deg, #ff6a52 0%, #c81f30 100%)",
+                color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 700,
                 cursor: "pointer", letterSpacing: "-0.01em",
-                boxShadow: "0 0 28px rgba(79,142,247,0.4), 0 8px 20px rgba(0,0,0,0.3)",
+                boxShadow: "0 0 28px rgba(255,106,82,0.4), 0 8px 20px rgba(0,0,0,0.3)",
                 transition: "opacity 0.15s",
               }}
               onMouseEnter={e => e.currentTarget.style.opacity = "0.88"}
@@ -959,7 +965,7 @@ function TourOverlay({ onComplete, onSkip }) {
       {/* -- Main card -- */}
       <div className="tour-card" style={{
         width: "100%", maxWidth: 620,
-        background: "linear-gradient(160deg,#111526 0%,#0c0f1e 50%,#080a16 100%)",
+        background: "linear-gradient(160deg,#140806 0%,#120705 50%,#0a0403 100%)",
         border: `1px solid ${current.color}30`, borderRadius: 26,
         boxShadow: `0 50px 140px rgba(0,0,0,0.85),0 0 0 1px ${current.color}18,0 0 80px ${current.color}08`,
         overflow: "hidden", position: "relative",
@@ -1065,7 +1071,7 @@ function TourOverlay({ onComplete, onSkip }) {
             onMouseLeave={() => setBtnHover(false)}
             style={{
               width: "100%", height: 52, borderRadius: 14, border: "none",
-              background: current.gradient, color: "#fff",
+              background: current.gradient, color: "#f5f0eb",
               fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 700,
               cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
               boxShadow: `0 0 32px ${current.color}40,0 8px 24px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.22)`,
@@ -1122,7 +1128,7 @@ function AppLoader() {
       flexDirection: "column", gap: 24, position: "relative", overflow: "hidden",
     }}>
       {/* Ambient glow */}
-      <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)", top: "50%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,106,82,0.08) 0%, transparent 70%)", top: "50%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none" }} />
 
       {/* Logo mark */}
       <div style={{ position: "relative" }}>
@@ -1130,9 +1136,9 @@ function AppLoader() {
           width: 56, height: 56, borderRadius: 16,
           background: "var(--grad-primary)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 22, fontWeight: 800, color: "#fff",
+          fontSize: 22, fontWeight: 800, color: "#f5f0eb",
           fontFamily: "var(--font-display)",
-          boxShadow: "0 0 40px rgba(59,130,246,0.45), 0 0 80px rgba(139,92,246,0.2)",
+          boxShadow: "0 0 40px rgba(255,106,82,0.45), 0 0 80px rgba(200,31,48,0.2)",
           animation: "glow-pulse 2s ease-in-out infinite",
           letterSpacing: "-0.02em",
         }}>Ω</div>
@@ -1261,7 +1267,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
     : "AW";
 
   const roleLabel = { architect: "Architect", navigator: "Navigator", operator: "Operator", solo: "Solo" }[user?.role] || "Member";
-  const roleColor = { architect: "#f59e0b", navigator: "#3b82f6", operator: "#10b981", solo: "#8b5cf6" }[user?.role] || "#8892b0";
+  const roleColor = { architect: "#d99a3f", navigator: "#ff6a52", operator: "#3fae7d", solo: "#c81f30" }[user?.role] || "#8a8078";
 
   const winW = useWindowWidth();
   // Auto-collapse sidebar on narrow screens
@@ -1278,7 +1284,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
       overflow: "hidden", transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
     }}>
       {/* Subtle ambient gradient */}
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(59,130,246,0.04) 0%, transparent 40%, rgba(139,92,246,0.03) 100%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(255,106,82,0.04) 0%, transparent 40%, rgba(200,31,48,0.03) 100%)", pointerEvents: "none" }} />
 
       {/* Top accent line */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "var(--grad-primary)", opacity: 0.5 }} />
@@ -1289,8 +1295,8 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
           width: 34, height: 34, borderRadius: 10, flexShrink: 0,
           background: "var(--grad-primary)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 800, color: "#fff",
-          boxShadow: "0 0 20px rgba(59,130,246,0.4)",
+          fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 800, color: "#f5f0eb",
+          boxShadow: "0 0 20px rgba(255,106,82,0.4)",
           letterSpacing: "-0.02em",
         }}>Ω</div>
 
@@ -1338,10 +1344,10 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
               // Badge color: compliance/issues = red, tasks/dashboard = blue, others = purple
               const badgeColor   =
                 item.idx === 2 ? "var(--grad-danger)"   :  // Compliance — red (issues)
-                item.idx === 1 ? "linear-gradient(135deg,#3b82f6,#06b6d4)" :  // Tasks — blue
-                item.idx === 0 ? "linear-gradient(135deg,#f59e0b,#f97316)" :  // Dashboard — amber (active)
-                item.idx === 4 ? "linear-gradient(135deg,#10b981,#06b6d4)" :  // Reports — green (completed)
-                item.idx === 5 ? "linear-gradient(135deg,#8b5cf6,#3b82f6)" :  // Ownership — violet
+                item.idx === 1 ? "linear-gradient(135deg,#ff6a52,#d99a3f)" :  // Tasks — blue
+                item.idx === 0 ? "linear-gradient(135deg,#d99a3f,#c9702e)" :  // Dashboard — amber (active)
+                item.idx === 4 ? "linear-gradient(135deg,#3fae7d,#d99a3f)" :  // Reports — green (completed)
+                item.idx === 5 ? "linear-gradient(135deg,#c81f30,#ff6a52)" :  // Ownership — violet
                 "var(--grad-danger)";
               return (
                 <div key={item.label}
@@ -1355,11 +1361,11 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
                     borderRadius: 10, cursor: "pointer",
                     justifyContent: collapsed ? "center" : "flex-start",
                     position: "relative", marginBottom: 1,
-                    color: isActive ? "#fff" : "var(--color-text-secondary)",
+                    color: isActive ? "#f5f0eb" : "var(--color-text-secondary)",
                     background: isActive
-                      ? "linear-gradient(135deg, rgba(59,130,246,0.22) 0%, rgba(139,92,246,0.18) 100%)"
+                      ? "linear-gradient(135deg, rgba(255,106,82,0.22) 0%, rgba(200,31,48,0.18) 100%)"
                       : "transparent",
-                    border: isActive ? "1px solid rgba(59,130,246,0.3)" : "1px solid transparent",
+                    border: isActive ? "1px solid rgba(255,106,82,0.3)" : "1px solid transparent",
                     transition: "all 0.15s cubic-bezier(0.4,0,0.2,1)",
                   }}
                   onMouseEnter={e => {
@@ -1378,9 +1384,9 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
                   }}
                 >
                   {/* Active left bar */}
-                  {isActive && <div style={{ position: "absolute", left: -10, top: "50%", transform: "translateY(-50%)", width: 3, height: "60%", borderRadius: "0 3px 3px 0", background: "var(--grad-primary)", boxShadow: "0 0 8px rgba(59,130,246,0.6)" }} />}
+                  {isActive && <div style={{ position: "absolute", left: -10, top: "50%", transform: "translateY(-50%)", width: 3, height: "60%", borderRadius: "0 3px 3px 0", background: "var(--grad-primary)", boxShadow: "0 0 8px rgba(255,106,82,0.6)" }} />}
 
-                  <span style={{ color: isActive ? "#3b82f6" : "inherit", transition: "color 0.15s", flexShrink: 0 }}>
+                  <span style={{ color: isActive ? "#ff6a52" : "inherit", transition: "color 0.15s", flexShrink: 0 }}>
                     {NAV_ICONS[item.icon]}
                   </span>
 
@@ -1393,7 +1399,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
                   {!effectiveCollapsed && badgeValue !== null && (
                     <span style={{
                       minWidth: 20, height: 18, padding: "0 5px", borderRadius: 999,
-                      fontSize: 10, fontWeight: 700, color: "#fff",
+                      fontSize: 10, fontWeight: 700, color: "#f5f0eb",
                       background: badgeColor,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       transition: "all 0.2s cubic-bezier(0.34,1.56,0.64,1)",
@@ -1401,7 +1407,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
                     }}>{badgeValue}</span>
                   )}
                   {collapsed && badgeValue !== null && (
-                    <div style={{ position: "absolute", top: 4, right: 4, minWidth: 14, height: 14, borderRadius: 999, background: badgeColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#fff", padding: "0 3px" }}>
+                    <div style={{ position: "absolute", top: 4, right: 4, minWidth: 14, height: 14, borderRadius: 999, background: badgeColor, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, fontWeight: 700, color: "#f5f0eb", padding: "0 3px" }}>
                       {badgeValue > 99 ? "99+" : badgeValue}
                     </div>
                   )}
@@ -1428,7 +1434,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
             background: `linear-gradient(135deg, ${roleColor}90, ${roleColor}50)`,
             border: `1px solid ${roleColor}40`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontFamily: "var(--font-display)", fontSize: 11, fontWeight: 700, color: "#fff",
+            fontFamily: "var(--font-display)", fontSize: 11, fontWeight: 700, color: "#f5f0eb",
           }}>{initials}</div>
 
           {!effectiveCollapsed && (
@@ -1513,8 +1519,8 @@ function OwnershipGraph() {
       .catch(e => { setError(e.message); setLoading(false); });
   }, [API, user, token]);
 
-  const PRIORITY_COLOR = { critical: "#f87171", high: "#fb923c", medium: "#fbbf24", low: "#34d399" };
-  const STATUS_COLOR   = { to_do: "#3b82f6", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
+  const PRIORITY_COLOR = { critical: "#ff4d5e", high: "#c9702e", medium: "#f0b354", low: "#6cc79a" };
+  const STATUS_COLOR   = { to_do: "#ff6a52", in_progress: "#d99a3f", completed: "#3fae7d", cancelled: "#9a908a" };
 
   const nodes = useMemo(() => {
     if (!data?.nodes) return [];
@@ -1526,7 +1532,7 @@ function OwnershipGraph() {
   if (loading) return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-        <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+        <div style={{ width: 24, height: 24, border: "2px solid rgba(255,106,82,0.2)", borderTopColor: "#ff6a52", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
         <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading ownership data…</span>
       </div>
     </main>
@@ -1536,7 +1542,7 @@ function OwnershipGraph() {
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
       <div style={{ textAlign: "center" }}>
         <div style={{ fontSize: 32, marginBottom: 12 }}>⚠</div>
-        <p style={{ color: "#f87171", fontSize: 14 }}>{error}</p>
+        <p style={{ color: "#ff4d5e", fontSize: 14 }}>{error}</p>
       </div>
     </main>
   );
@@ -1574,7 +1580,7 @@ function OwnershipGraph() {
               borderRadius: 999, fontFamily: "var(--font-sans)", fontSize: 13,
               color: "var(--color-text-primary)", outline: "none",
             }}
-            onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+            onFocus={e => { e.target.style.borderColor = "rgba(255,106,82,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(255,106,82,0.12)"; }}
             onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
           />
         </div>
@@ -1583,11 +1589,11 @@ function OwnershipGraph() {
       {/* Summary pills */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
         {[
-          { label: "Total Tasks",   value: data?.total_tasks,  color: "#3b82f6" },
-          { label: "Owners",        value: data?.total_owners, color: "#8b5cf6" },
-          { label: "In Progress",   value: nodes.reduce((s, n) => s + n.in_progress, 0), color: "#f59e0b" },
-          { label: "Completed",     value: nodes.reduce((s, n) => s + n.completed,   0), color: "#22d3a8" },
-          { label: "Critical",      value: nodes.reduce((s, n) => s + n.critical,    0), color: "#f87171" },
+          { label: "Total Tasks",   value: data?.total_tasks,  color: "#ff6a52" },
+          { label: "Owners",        value: data?.total_owners, color: "#c81f30" },
+          { label: "In Progress",   value: nodes.reduce((s, n) => s + n.in_progress, 0), color: "#d99a3f" },
+          { label: "Completed",     value: nodes.reduce((s, n) => s + n.completed,   0), color: "#3fae7d" },
+          { label: "Critical",      value: nodes.reduce((s, n) => s + n.critical,    0), color: "#ff4d5e" },
         ].map(p => (
           <div key={p.label} style={{
             padding: "6px 14px", borderRadius: 999,
@@ -1623,16 +1629,16 @@ function OwnershipGraph() {
                 className={`owner-card${isSelected ? " selected" : ""}`}
               >
                 {/* Top accent */}
-                {isSelected && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,#4f8ef7,#7b5cf0)", borderRadius: "16px 16px 0 0" }} />}
+                {isSelected && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,#ff6a52,#c81f30)", borderRadius: "16px 16px 0 0" }} />}
 
                 {/* Assignee name + initials */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                   <div style={{
                     width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
-                    background: "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)",
+                    background: "linear-gradient(135deg, #ff6a52 0%, #c81f30 100%)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 12, fontWeight: 700, color: "#fff",
-                    boxShadow: "0 0 12px rgba(79,142,247,0.3)",
+                    fontSize: 12, fontWeight: 700, color: "#f5f0eb",
+                    boxShadow: "0 0 12px rgba(255,106,82,0.3)",
                   }}>
                     {node.assignee.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)}
                   </div>
@@ -1646,10 +1652,10 @@ function OwnershipGraph() {
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Completion</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#22d3a8" }}>{completionPct}%</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#3fae7d" }}>{completionPct}%</span>
                   </div>
                   <div className="progress-track">
-                    <div className="progress-fill" style={{ width: `${completionPct}%`, background: "linear-gradient(90deg,#22d3a8,#06b6d4)", boxShadow: "0 0 8px rgba(34,211,168,0.4)" }} />
+                    <div className="progress-fill" style={{ width: `${completionPct}%`, background: "linear-gradient(90deg,#3fae7d,#d99a3f)", boxShadow: "0 0 8px rgba(63,174,125,0.4)" }} />
                   </div>
                 </div>
 
@@ -1672,8 +1678,8 @@ function OwnershipGraph() {
                   {node.critical > 0 && (
                     <span style={{
                       padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 500,
-                      background: "rgba(248,113,113,0.1)", color: "#f87171",
-                      border: "1px solid rgba(248,113,113,0.3)",
+                      background: "rgba(255,77,94,0.1)", color: "#ff4d5e",
+                      border: "1px solid rgba(255,77,94,0.3)",
                     }}>🔴 {node.critical} Critical</span>
                   )}
                 </div>
@@ -1722,10 +1728,10 @@ function OwnershipGraph() {
                   }}>
                     <div style={{ fontSize: 12, fontWeight: 500, color: "var(--color-text-primary)", marginBottom: 5, lineHeight: 1.4 }}>{task.title}</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: `${STATUS_COLOR[task.status] || "#888"}18`, color: STATUS_COLOR[task.status] || "#888", border: `1px solid ${STATUS_COLOR[task.status] || "#888"}30` }}>
+                      <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: `${STATUS_COLOR[task.status] || "#9a908a"}18`, color: STATUS_COLOR[task.status] || "#9a908a", border: `1px solid ${STATUS_COLOR[task.status] || "#9a908a"}30` }}>
                         {task.status.replace("_", " ")}
                       </span>
-                      <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: `${PRIORITY_COLOR[task.priority] || "#888"}18`, color: PRIORITY_COLOR[task.priority] || "#888", border: `1px solid ${PRIORITY_COLOR[task.priority] || "#888"}30` }}>
+                      <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: `${PRIORITY_COLOR[task.priority] || "#9a908a"}18`, color: PRIORITY_COLOR[task.priority] || "#9a908a", border: `1px solid ${PRIORITY_COLOR[task.priority] || "#9a908a"}30` }}>
                         {task.priority}
                       </span>
                       {task.deadline && (
@@ -1841,8 +1847,8 @@ function TasksPage() {
     return matchQ && matchS && matchP;
   }), [tasks, search, statusFilter, priorityFilter]);
 
-  const PRIORITY_COLOR = { high: "#f87171", medium: "#f59e0b", low: "#22d3a8" };
-  const STATUS_COLOR   = { to_do: "#3b82f6", in_progress: "#a78bfa", completed: "#22d3a8", cancelled: "#6b7280" };
+  const PRIORITY_COLOR = { high: "#ff4d5e", medium: "#d99a3f", low: "#3fae7d" };
+  const STATUS_COLOR   = { to_do: "#ff6a52", in_progress: "#ff8a4c", completed: "#3fae7d", cancelled: "#9a908a" };
   const STATUS_LABEL   = { to_do: "To Do", in_progress: "In Progress", completed: "Done", cancelled: "Cancelled" };
 
   const pill = (color, label) => (
@@ -1885,19 +1891,19 @@ function TasksPage() {
         {/* Status filter */}
         <div style={{ display:"flex", gap:3, background:"rgba(255,255,255,0.04)", border:"1px solid var(--border-glass)", borderRadius:999, padding:3 }}>
           {[["all","All"], ["to_do","To Do"], ["in_progress","In Progress"], ["completed","Done"]].map(([val, lbl]) => (
-            <button key={val} onClick={() => setStatus(val)} style={{ padding:"4px 12px", borderRadius:999, fontSize:12, fontWeight:600, cursor:"pointer", border:"none", fontFamily:"var(--font-sans)", background:statusFilter===val?"linear-gradient(135deg,#4f8ef7,#7b5cf0)":"transparent", color:statusFilter===val?"#fff":"var(--color-text-secondary)", transition:"all 0.15s" }}>{lbl}</button>
+            <button key={val} onClick={() => setStatus(val)} style={{ padding:"4px 12px", borderRadius:999, fontSize:12, fontWeight:600, cursor:"pointer", border:"none", fontFamily:"var(--font-sans)", background:statusFilter===val?"linear-gradient(135deg,#ff6a52,#c81f30)":"transparent", color:statusFilter===val?"#f5f0eb":"var(--color-text-secondary)", transition:"all 0.15s" }}>{lbl}</button>
           ))}
         </div>
 
         {/* Priority filter */}
         <select value={priorityFilter} onChange={e => setPri(e.target.value)} style={{ height:34, padding:"0 10px", background:"rgba(255,255,255,0.06)", border:"1px solid var(--border-glass)", borderRadius:8, fontFamily:"var(--font-sans)", fontSize:12, color:"var(--color-text-primary)", cursor:"pointer", outline:"none" }}>
-          <option value="all" style={{background:"#1e2140",color:"#f0f2ff"}}>All Priorities</option>
-          <option value="high" style={{background:"#1e2140",color:"#f0f2ff"}}>🔴 High</option>
-          <option value="medium" style={{background:"#1e2140",color:"#f0f2ff"}}>🟡 Medium</option>
-          <option value="low" style={{background:"#1e2140",color:"#f0f2ff"}}>🟢 Low</option>
+          <option value="all" style={{background:"#1a0a08",color:"#efe7df"}}>All Priorities</option>
+          <option value="high" style={{background:"#1a0a08",color:"#efe7df"}}>🔴 High</option>
+          <option value="medium" style={{background:"#1a0a08",color:"#efe7df"}}>🟡 Medium</option>
+          <option value="low" style={{background:"#1a0a08",color:"#efe7df"}}>🟢 Low</option>
         </select>
 
-        <button onClick={openCreate} style={{ height:36, padding:"0 18px", borderRadius:999, border:"none", background:"var(--grad-primary)", color:"#fff", fontFamily:"var(--font-sans)", fontSize:13, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap", boxShadow:"0 0 20px rgba(79,142,247,0.35)", marginLeft:"auto" }}>
+        <button onClick={openCreate} style={{ height:36, padding:"0 18px", borderRadius:999, border:"none", background:"var(--grad-primary)", color:"#f5f0eb", fontFamily:"var(--font-sans)", fontSize:13, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap", boxShadow:"0 0 20px rgba(255,106,82,0.35)", marginLeft:"auto" }}>
           + New Task
         </button>
       </header>
@@ -1905,22 +1911,22 @@ function TasksPage() {
       <main style={{ flex:1, padding:"clamp(14px, 2vw, 24px) clamp(12px, 2.5vw, 28px) 40px" }}>
         {/* Flash messages */}
         {successMsg && (
-          <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(34,211,168,0.12)", border:"1px solid rgba(34,211,168,0.3)", color:"#22d3a8", fontSize:13, fontWeight:600, marginBottom:16 }}>✓ {successMsg}</div>
+          <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(63,174,125,0.12)", border:"1px solid rgba(63,174,125,0.3)", color:"#3fae7d", fontSize:13, fontWeight:600, marginBottom:16 }}>✓ {successMsg}</div>
         )}
         {displayError && (
-          <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(248,113,113,0.1)", border:"1px solid rgba(248,113,113,0.25)", color:"#f87171", fontSize:13, marginBottom:16, display:"flex", justifyContent:"space-between" }}>
+          <div style={{ padding:"10px 16px", borderRadius:8, background:"rgba(255,77,94,0.1)", border:"1px solid rgba(255,77,94,0.25)", color:"#ff4d5e", fontSize:13, marginBottom:16, display:"flex", justifyContent:"space-between" }}>
             <span>⚠ {displayError}</span>
-            <button onClick={() => setError(null)} style={{ background:"none", border:"none", color:"#f87171", cursor:"pointer", fontSize:16 }}>×</button>
+            <button onClick={() => setError(null)} style={{ background:"none", border:"none", color:"#ff4d5e", cursor:"pointer", fontSize:16 }}>×</button>
           </div>
         )}
 
         {/* Summary cards */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(130px,1fr))", gap:14, marginBottom:24 }}>
           {[
-            { label:"Total Tasks", value:counts.all, color:"#3b82f6" },
-            { label:"To Do", value:counts.to_do, color:"#a78bfa" },
-            { label:"In Progress", value:counts.in_progress, color:"#f59e0b" },
-            { label:"Completed", value:counts.completed, color:"#22d3a8" },
+            { label:"Total Tasks", value:counts.all, color:"#ff6a52" },
+            { label:"To Do", value:counts.to_do, color:"#ff8a4c" },
+            { label:"In Progress", value:counts.in_progress, color:"#d99a3f" },
+            { label:"Completed", value:counts.completed, color:"#3fae7d" },
           ].map(m => (
             <div key={m.label} style={{ background:"rgba(255,255,255,0.04)", border:"1px solid var(--border-glass)", borderRadius:14, padding:"16px 18px", position:"relative", overflow:"hidden" }}>
               <div style={{ position:"absolute", top:0, left:0, right:0, height:2, background:m.color, opacity:0.7 }} />
@@ -1942,7 +1948,7 @@ function TasksPage() {
 
           {loading ? (
             <div style={{ padding:"48px 0", textAlign:"center" }}>
-              <div style={{ width:24, height:24, border:"2px solid rgba(79,142,247,0.2)", borderTopColor:"#3b82f6", borderRadius:"50%", animation:"spin 0.7s linear infinite", margin:"0 auto 10px" }} />
+              <div style={{ width:24, height:24, border:"2px solid rgba(255,106,82,0.2)", borderTopColor:"#ff6a52", borderRadius:"50%", animation:"spin 0.7s linear infinite", margin:"0 auto 10px" }} />
               <div style={{ fontSize:13, color:"var(--color-text-tertiary)" }}>Loading tasks…</div>
             </div>
           ) : filtered.length === 0 ? (
@@ -1967,23 +1973,23 @@ function TasksPage() {
                   {/* Assignee */}
                   <div style={{ fontSize:12, color:"var(--color-text-secondary)", display:"flex", alignItems:"center", gap:6 }}>
                     {t.assignee ? (
-                      <><span style={{ width:22, height:22, borderRadius:"50%", background:"var(--grad-primary)", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#fff", flexShrink:0 }}>{t.assignee[0]?.toUpperCase()}</span>{t.assignee}</>
+                      <><span style={{ width:22, height:22, borderRadius:"50%", background:"var(--grad-primary)", display:"inline-flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#f5f0eb", flexShrink:0 }}>{t.assignee[0]?.toUpperCase()}</span>{t.assignee}</>
                     ) : <span style={{ color:"var(--color-text-tertiary)" }}>Unassigned</span>}
                   </div>
 
                   {/* Priority */}
-                  <div>{pill(PRIORITY_COLOR[pri] || "#f59e0b", pri.charAt(0).toUpperCase()+pri.slice(1))}</div>
+                  <div>{pill(PRIORITY_COLOR[pri] || "#d99a3f", pri.charAt(0).toUpperCase()+pri.slice(1))}</div>
 
                   {/* Status */}
                   <div>
                     <select value={st} onChange={e => changeStatus(t.id, e.target.value)}
-                      style={{ fontSize:11, fontWeight:600, background:`${STATUS_COLOR[st] || "#3b82f6"}18`, color:STATUS_COLOR[st] || "#3b82f6", border:`1px solid ${STATUS_COLOR[st] || "#3b82f6"}33`, borderRadius:999, padding:"3px 8px", cursor:"pointer", outline:"none", fontFamily:"var(--font-sans)" }}>
-                      {Object.entries(STATUS_LABEL).map(([v,l]) => <option key={v} value={v} style={{background:"#1e2140",color:"#f0f2ff"}}>{l}</option>)}
+                      style={{ fontSize:11, fontWeight:600, background:`${STATUS_COLOR[st] || "#ff6a52"}18`, color:STATUS_COLOR[st] || "#ff6a52", border:`1px solid ${STATUS_COLOR[st] || "#ff6a52"}33`, borderRadius:999, padding:"3px 8px", cursor:"pointer", outline:"none", fontFamily:"var(--font-sans)" }}>
+                      {Object.entries(STATUS_LABEL).map(([v,l]) => <option key={v} value={v} style={{background:"#1a0a08",color:"#efe7df"}}>{l}</option>)}
                     </select>
                   </div>
 
                   {/* Deadline */}
-                  <div style={{ fontSize:12, color: parseDeadline(t.deadline) && parseDeadline(t.deadline) < new Date() ? "#f87171" : "var(--color-text-secondary)" }}>
+                  <div style={{ fontSize:12, color: parseDeadline(t.deadline) && parseDeadline(t.deadline) < new Date() ? "#ff4d5e" : "var(--color-text-secondary)" }}>
                     {t.deadline ? formatDeadline(t.deadline, user?.timezone) : <span style={{ color:"var(--color-text-tertiary)" }}>&mdash;</span>}
                   </div>
 
@@ -1991,12 +1997,12 @@ function TasksPage() {
                   <div style={{ display:"flex", gap:6 }}>
                     {(isArchitect || isNavigator) && (
                       <button onClick={() => openEdit(t)} title="Edit" style={{ width:28, height:28, borderRadius:7, border:"1px solid var(--border-glass)", background:"transparent", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", justifyContent:"center" }}
-                        onMouseEnter={e => { e.currentTarget.style.background="rgba(79,142,247,0.15)"; e.currentTarget.style.color="#3b82f6"; }}
+                        onMouseEnter={e => { e.currentTarget.style.background="rgba(255,106,82,0.15)"; e.currentTarget.style.color="#ff6a52"; }}
                         onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="var(--color-text-secondary)"; }}>✎</button>
                     )}
                     {isArchitect && (
                       <button onClick={() => deleteTask(t.id)} title="Delete" style={{ width:28, height:28, borderRadius:7, border:"1px solid var(--border-glass)", background:"transparent", color:"var(--color-text-secondary)", cursor:"pointer", fontSize:14, display:"flex", alignItems:"center", justifyContent:"center" }}
-                        onMouseEnter={e => { e.currentTarget.style.background="rgba(248,113,113,0.12)"; e.currentTarget.style.color="#f87171"; }}
+                        onMouseEnter={e => { e.currentTarget.style.background="rgba(255,77,94,0.12)"; e.currentTarget.style.color="#ff4d5e"; }}
                         onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.color="var(--color-text-secondary)"; }}>✕</button>
                     )}
                   </div>
@@ -2034,9 +2040,9 @@ function TasksPage() {
                 <div>
                   <label style={labelStyle}>Priority</label>
                   <select value={form.priority} onChange={e => setForm(f => ({...f, priority: e.target.value}))} className="field-input" style={{ height: 42, cursor: "pointer" }}>
-                    <option value="high" style={{ background: "#1e2140", color: "#f0f2ff" }}>🔴 High</option>
-                    <option value="medium" style={{ background: "#1e2140", color: "#f0f2ff" }}>🟡 Medium</option>
-                    <option value="low" style={{ background: "#1e2140", color: "#f0f2ff" }}>🟢 Low</option>
+                    <option value="high" style={{ background: "#1a0a08", color: "#efe7df" }}>🔴 High</option>
+                    <option value="medium" style={{ background: "#1a0a08", color: "#efe7df" }}>🟡 Medium</option>
+                    <option value="low" style={{ background: "#1a0a08", color: "#efe7df" }}>🟢 Low</option>
                   </select>
                 </div>
                 <div>
@@ -2136,9 +2142,9 @@ function ReportsPage() {
     <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 14 }}>{children}</div>
   );
 
-  const STATUS_C = { to_do: "#3b82f6", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
+  const STATUS_C = { to_do: "#ff6a52", in_progress: "#d99a3f", completed: "#3fae7d", cancelled: "#9a908a" };
   const STATUS_L = { to_do: "To Do", in_progress: "In Progress", completed: "Done", cancelled: "Cancelled" };
-  const PRI_C    = { critical: "#f43f5e", high: "#f87171", medium: "#f59e0b", low: "#22d3a8" };
+  const PRI_C    = { critical: "#ff4d5e", high: "#ff4d5e", medium: "#d99a3f", low: "#3fae7d" };
 
   return (
     <>
@@ -2150,7 +2156,7 @@ function ReportsPage() {
         </div>
         <div style={{ marginLeft: "auto", display: "flex", gap: 4, background: "rgba(255,255,255,0.04)", border: "1px solid var(--border-glass)", borderRadius: 999, padding: 3 }}>
           {[7, 14, 30, 90].map(d => (
-            <button key={d} onClick={() => setRange(d)} style={{ padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", fontFamily: "var(--font-sans)", background: range === d ? "linear-gradient(135deg,#4f8ef7,#7b5cf0)" : "transparent", color: range === d ? "#fff" : "var(--color-text-secondary)", transition: "all 0.15s" }}>
+            <button key={d} onClick={() => setRange(d)} style={{ padding: "4px 14px", borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", fontFamily: "var(--font-sans)", background: range === d ? "linear-gradient(135deg,#ff6a52,#c81f30)" : "transparent", color: range === d ? "#f5f0eb" : "var(--color-text-secondary)", transition: "all 0.15s" }}>
               {d}d
             </button>
           ))}
@@ -2161,7 +2167,7 @@ function ReportsPage() {
 
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
-            <div style={{ width: 28, height: 28, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            <div style={{ width: 28, height: 28, border: "2px solid rgba(255,106,82,0.2)", borderTopColor: "#ff6a52", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
           </div>
         ) : !stats ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: "var(--color-text-tertiary)" }}>
@@ -2173,10 +2179,10 @@ function ReportsPage() {
             {/* KPI row */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 14 }}>
               {[
-                { label: "Total Tasks", value: tasks.length, sub: `${stats.inRange} in last ${range}d`, color: "#3b82f6" },
-                { label: "Completed", value: stats.byStatus.completed, sub: `${stats.completionRate}% completion rate`, color: "#22d3a8" },
-                { label: "Overdue", value: stats.overdue.length, sub: stats.overdue.length ? "Need attention" : "All on track ✓", color: stats.overdue.length ? "#f87171" : "#22d3a8" },
-                { label: "Avg / Day", value: stats.avgPerDay, sub: `Tasks created per day`, color: "#a78bfa" },
+                { label: "Total Tasks", value: tasks.length, sub: `${stats.inRange} in last ${range}d`, color: "#ff6a52" },
+                { label: "Completed", value: stats.byStatus.completed, sub: `${stats.completionRate}% completion rate`, color: "#3fae7d" },
+                { label: "Overdue", value: stats.overdue.length, sub: stats.overdue.length ? "Need attention" : "All on track ✓", color: stats.overdue.length ? "#ff4d5e" : "#3fae7d" },
+                { label: "Avg / Day", value: stats.avgPerDay, sub: `Tasks created per day`, color: "#ff8a4c" },
               ].map(m => (
                 <div key={m.label} className="pcard" style={{ padding: "20px 22px", position: "relative", overflow: "hidden" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.85 }} />
@@ -2219,11 +2225,11 @@ function ReportsPage() {
                   <div style={{ position: "relative", width: 70, height: 70, flexShrink: 0 }}>
                     <svg viewBox="0 0 36 36" style={{ width: 70, height: 70, transform: "rotate(-90deg)" }}>
                       <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="3" />
-                      <circle cx="18" cy="18" r="15" fill="none" stroke="#22d3a8" strokeWidth="3"
+                      <circle cx="18" cy="18" r="15" fill="none" stroke="#3fae7d" strokeWidth="3"
                         strokeDasharray={`${stats.completionRate * 0.942} 94.2`}
                         strokeLinecap="round" />
                     </svg>
-                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#22d3a8" }}>
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#3fae7d" }}>
                       {stats.completionRate}%
                     </div>
                   </div>
@@ -2261,12 +2267,12 @@ function ReportsPage() {
                 {/* Overdue alert */}
                 {stats.overdue.length > 0 && (
                   <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-glass)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "#f87171", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>⚠ Overdue Tasks ({stats.overdue.length})</div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "#ff4d5e", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>⚠ Overdue Tasks ({stats.overdue.length})</div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 110, overflowY: "auto" }}>
                       {stats.overdue.map(t => (
                         <div key={t.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: 12, color: "var(--color-text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "70%" }}>{t.title || t.task_description}</span>
-                          <span style={{ fontSize: 11, color: "#f87171", flexShrink: 0 }}>{formatDeadline(t.deadline, user?.timezone, { month: "short", day: "numeric", year: undefined })}</span>
+                          <span style={{ fontSize: 11, color: "#ff4d5e", flexShrink: 0 }}>{formatDeadline(t.deadline, user?.timezone, { month: "short", day: "numeric", year: undefined })}</span>
                         </div>
                       ))}
                     </div>
@@ -2282,7 +2288,7 @@ function ReportsPage() {
                 {stats.trend.map((d, i) => (
                   <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                     <div style={{ fontSize: 10, color: "var(--color-text-tertiary)", fontWeight: 600 }}>{d.count || ""}</div>
-                    <div style={{ width: "100%", borderRadius: "4px 4px 0 0", background: d.count ? "linear-gradient(180deg,#7b5cf0,#4f8ef7)" : "rgba(255,255,255,0.05)", transition: "height 0.5s cubic-bezier(.4,0,.2,1)", height: `${Math.max(4, (d.count / maxTrend) * 80)}px`, minHeight: 4 }}
+                    <div style={{ width: "100%", borderRadius: "4px 4px 0 0", background: d.count ? "linear-gradient(180deg,#c81f30,#ff6a52)" : "rgba(255,255,255,0.05)", transition: "height 0.5s cubic-bezier(.4,0,.2,1)", height: `${Math.max(4, (d.count / maxTrend) * 80)}px`, minHeight: 4 }}
                       title={`${d.label}: ${d.count} task${d.count !== 1 ? "s" : ""}`}
                     />
                     <div style={{ fontSize: 9, color: "var(--color-text-tertiary)", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", width: "100%", textOverflow: "ellipsis" }}>{i % 2 === 0 ? d.label : ""}</div>
@@ -2301,16 +2307,16 @@ function ReportsPage() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 0, minWidth: 420 }}>
                   {stats.leaderboard.map((person, i) => (
                     <div key={person.name} style={{ display: "grid", gridTemplateColumns: "28px 1fr 80px 80px 100px", alignItems: "center", gap: 12, padding: "11px 0", borderBottom: i < stats.leaderboard.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? "#f59e0b" : i === 1 ? "#9ca3af" : i === 2 ? "#b45309" : "var(--color-text-tertiary)", textAlign: "center" }}>#{i + 1}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? "#d99a3f" : i === 1 ? "#9a908a" : i === 2 ? "#8a5419" : "var(--color-text-tertiary)", textAlign: "center" }}>#{i + 1}</div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ width: 28, height: 28, borderRadius: "50%", background: `hsl(${(person.name.charCodeAt(0) * 37) % 360},60%,50%)`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#fff", flexShrink: 0 }}>{person.name[0]?.toUpperCase()}</span>
+                        <span style={{ width: 28, height: 28, borderRadius: "50%", background: `hsl(${(person.name.charCodeAt(0) * 37) % 360},60%,50%)`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "#f5f0eb", flexShrink: 0 }}>{person.name[0]?.toUpperCase()}</span>
                         <span style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>{person.name}</span>
                       </div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#3b82f6", textAlign: "center" }}>{person.total} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--color-text-tertiary)" }}>tasks</span></div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: "#22d3a8", textAlign: "center" }}>{person.done} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--color-text-tertiary)" }}>done</span></div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#ff6a52", textAlign: "center" }}>{person.total} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--color-text-tertiary)" }}>tasks</span></div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#3fae7d", textAlign: "center" }}>{person.done} <span style={{ fontSize: 10, fontWeight: 400, color: "var(--color-text-tertiary)" }}>done</span></div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <div style={{ flex: 1, height: 5, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${person.rate}%`, background: person.rate >= 75 ? "#22d3a8" : person.rate >= 40 ? "#f59e0b" : "#f87171", borderRadius: 999 }} />
+                          <div style={{ height: "100%", width: `${person.rate}%`, background: person.rate >= 75 ? "#3fae7d" : person.rate >= 40 ? "#d99a3f" : "#ff4d5e", borderRadius: 999 }} />
                         </div>
                         <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-text-secondary)", minWidth: 32 }}>{person.rate}%</span>
                       </div>
@@ -2398,14 +2404,14 @@ function CompliancePage() {
     activeTab === "high_priority" ? compliance?.highNotStarted :
     compliance?.recent;
 
-  const STATUS_C = { to_do: "#3b82f6", in_progress: "#f59e0b", completed: "#22d3a8", cancelled: "#6b7280" };
+  const STATUS_C = { to_do: "#ff6a52", in_progress: "#d99a3f", completed: "#3fae7d", cancelled: "#9a908a" };
   const STATUS_L = { to_do: "To Do", in_progress: "In Progress", completed: "Done", cancelled: "Cancelled" };
-  const PRI_C    = { critical: "#f43f5e", high: "#f87171", medium: "#f59e0b", low: "#22d3a8" };
+  const PRI_C    = { critical: "#ff4d5e", high: "#ff4d5e", medium: "#d99a3f", low: "#3fae7d" };
 
-  const scoreColor = !compliance ? "#3b82f6"
-    : compliance.score >= 80 ? "#22d3a8"
-    : compliance.score >= 50 ? "#f59e0b"
-    : "#f87171";
+  const scoreColor = !compliance ? "#ff6a52"
+    : compliance.score >= 80 ? "#3fae7d"
+    : compliance.score >= 50 ? "#d99a3f"
+    : "#ff4d5e";
 
   const daysSince = (dateStr) => {
     const d = dateStr ? Math.floor((now - new Date(dateStr)) / 86400000) : null;
@@ -2446,7 +2452,7 @@ function CompliancePage() {
 
         {loading ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "80px 0" }}>
-            <div style={{ width: 28, height: 28, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            <div style={{ width: 28, height: 28, border: "2px solid rgba(255,106,82,0.2)", borderTopColor: "#ff6a52", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
           </div>
         ) : !compliance ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: "var(--color-text-tertiary)" }}>
@@ -2459,11 +2465,11 @@ function CompliancePage() {
             <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(130px,1fr))", gap: 12, minWidth: 700 }}>
               {[
-                { label: "Overdue",          value: compliance.overdue.length,          color: compliance.overdue.length ? "#f87171" : "#22d3a8",  icon: "⏰" },
-                { label: "Unassigned",       value: compliance.unassigned.length,       color: compliance.unassigned.length ? "#f59e0b" : "#22d3a8", icon: "👤" },
-                { label: "Stale (7d+)",      value: compliance.stale.length,            color: compliance.stale.length ? "#f59e0b" : "#22d3a8",     icon: "💤" },
-                { label: "High Not Started", value: compliance.highNotStarted.length,   color: compliance.highNotStarted.length ? "#f87171" : "#22d3a8", icon: "🔴" },
-                { label: "No Deadline",      value: compliance.noDeadline.length,       color: compliance.noDeadline.length > 3 ? "#f59e0b" : "#22d3a8", icon: "📅" },
+                { label: "Overdue",          value: compliance.overdue.length,          color: compliance.overdue.length ? "#ff4d5e" : "#3fae7d",  icon: "⏰" },
+                { label: "Unassigned",       value: compliance.unassigned.length,       color: compliance.unassigned.length ? "#d99a3f" : "#3fae7d", icon: "👤" },
+                { label: "Stale (7d+)",      value: compliance.stale.length,            color: compliance.stale.length ? "#d99a3f" : "#3fae7d",     icon: "💤" },
+                { label: "High Not Started", value: compliance.highNotStarted.length,   color: compliance.highNotStarted.length ? "#ff4d5e" : "#3fae7d", icon: "🔴" },
+                { label: "No Deadline",      value: compliance.noDeadline.length,       color: compliance.noDeadline.length > 3 ? "#d99a3f" : "#3fae7d", icon: "📅" },
               ].map(m => (
                 <div key={m.label} className="pcard" style={{ padding: "18px 16px 16px", position: "relative", overflow: "hidden" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.8 }} />
@@ -2497,10 +2503,10 @@ function CompliancePage() {
               {/* Tab bar */}
               <div style={{ display: "flex", borderBottom: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.02)" }}>
                 {TABS.map(tab => (
-                  <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ flex: 1, padding: "12px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", fontFamily: "var(--font-sans)", background: activeTab === tab.key ? "rgba(79,142,247,0.12)" : "transparent", color: activeTab === tab.key ? "#3b82f6" : "var(--color-text-secondary)", borderBottom: activeTab === tab.key ? "2px solid #4f8ef7" : "2px solid transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                  <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ flex: 1, padding: "12px 8px", fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", fontFamily: "var(--font-sans)", background: activeTab === tab.key ? "rgba(255,106,82,0.12)" : "transparent", color: activeTab === tab.key ? "#ff6a52" : "var(--color-text-secondary)", borderBottom: activeTab === tab.key ? "2px solid #ff6a52" : "2px solid transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                     {tab.label}
                     {tab.badge !== null && tab.badge !== undefined && (
-                      <span style={{ minWidth: 18, height: 18, borderRadius: 999, background: tab.badge > 0 ? (tab.key === "audit" ? "#3b82f6" : "#f87171") : "rgba(255,255,255,0.1)", color: "#fff", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{tab.badge}</span>
+                      <span style={{ minWidth: 18, height: 18, borderRadius: 999, background: tab.badge > 0 ? (tab.key === "audit" ? "#ff6a52" : "#ff4d5e") : "rgba(255,255,255,0.1)", color: "#f5f0eb", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{tab.badge}</span>
                     )}
                   </button>
                 ))}
@@ -2530,7 +2536,7 @@ function CompliancePage() {
                       <div key={t.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "11px 18px", borderBottom: i < currentList.length - 1 ? "1px solid rgba(255,255,255,0.03)" : "none" }}
                         onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_C[t.status] || "#3b82f6", flexShrink: 0 }} />
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: STATUS_C[t.status] || "#ff6a52", flexShrink: 0 }} />
                         <div style={{ flex: 1, fontSize: 13, color: "var(--color-text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.title || t.task_description || "Untitled"}</div>
                         <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", flexShrink: 0 }}>{t.assignee || "Unassigned"}</div>
                         <div style={{ fontSize: 11, fontWeight: 600, color: STATUS_C[t.status], flexShrink: 0, minWidth: 70, textAlign: "right" }}>{STATUS_L[t.status]}</div>
@@ -2551,13 +2557,13 @@ function CompliancePage() {
                           <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 }} title={title}>{title}</div>
                           <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{t.assignee || <span style={{ color: "var(--color-text-tertiary)" }}>&mdash;</span>}</div>
                           <div>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: `${PRI_C[pri] || "#f59e0b"}18`, color: PRI_C[pri] || "#f59e0b", border: `1px solid ${PRI_C[pri] || "#f59e0b"}33`, textTransform: "capitalize" }}>{pri}</span>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: `${PRI_C[pri] || "#d99a3f"}18`, color: PRI_C[pri] || "#d99a3f", border: `1px solid ${PRI_C[pri] || "#d99a3f"}33`, textTransform: "capitalize" }}>{pri}</span>
                           </div>
                           <div>
                             <span style={{ fontSize: 11, fontWeight: 600, color: STATUS_C[st], background: `${STATUS_C[st]}18`, border: `1px solid ${STATUS_C[st]}33`, borderRadius: 999, padding: "2px 8px" }}>{STATUS_L[st]}</span>
                           </div>
                           {activeTab === "overdue" && (
-                            <div style={{ fontSize: 12, fontWeight: 600, color: "#f87171" }}>{daysOverdue(t.deadline)}</div>
+                            <div style={{ fontSize: 12, fontWeight: 600, color: "#ff4d5e" }}>{daysOverdue(t.deadline)}</div>
                           )}
                         </div>
                       );
@@ -2622,11 +2628,11 @@ function KnowledgePage() {
   ];
 
   const CAT_COLOR = {
-    general:   "#3b82f6",
-    guide:     "#22d3a8",
-    policy:    "#a78bfa",
-    technical: "#f59e0b",
-    meeting:   "#f87171",
+    general:   "#ff6a52",
+    guide:     "#3fae7d",
+    policy:    "#ff8a4c",
+    technical: "#d99a3f",
+    meeting:   "#ff4d5e",
   };
 
   const flash = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(null), 3000); };
@@ -2713,49 +2719,49 @@ function KnowledgePage() {
       id: "overview",
       icon: "🧠",
       title: "What is AI Workflow Coordinator?",
-      color: "#4f8ef7",
+      color: "#ff6a52",
       body: `AI Workflow Coordinator is a smart task management platform built for teams. It combines role-based dashboards, AI-powered task extraction, Slack integration, and a compliance engine — all in one place.\n\nWhether you're a solo operator or managing a full workspace with multiple teams, the platform adapts to your role so you always see exactly what's relevant to you.`,
     },
     {
       id: "roles",
       icon: "👥",
       title: "Roles & Permissions",
-      color: "#a78bfa",
+      color: "#ff8a4c",
       body: `🏛️ Architect (Owner/Manager)\nFull access to all tasks, all team members, workspace settings, billing, and reports. Can create, edit, and delete anything. Manages invite codes and API keys.\n\n🧭 Navigator (Team Lead)\nSees all tasks assigned to their team. Can create and edit tasks. Has access to team reports and compliance.\n\n⚙️ Operator (Team Member)\nSees only tasks assigned to them. Can update task status and add comments.\n\n🚀 Solo\nPrivate task board with no team visibility. Perfect for freelancers or personal use.`,
     },
     {
       id: "tasks",
       icon: "✅",
       title: "Managing Tasks",
-      color: "#22d3a8",
+      color: "#3fae7d",
       body: `Creating Tasks\n• Click "+ Add Task" on the Dashboard or Tasks page\n• Fill in title, assignee, priority, deadline, and category\n• AI can auto-extract tasks from plain text descriptions\n\nTask Statuses\n• To Do → In Progress → In Review → Completed\n• Cancelled is available for dropped tasks\n\nKanban Board\nDrag and drop tasks between columns on the Tasks page to update their status visually.\n\nPriorities\n• Critical — urgent blockers\n• High — important, should be done soon\n• Medium — normal priority\n• Low — do when time allows`,
     },
     {
       id: "slack",
       icon: "💬",
       title: "Slack Integration",
-      color: "#f59e0b",
+      color: "#d99a3f",
       body: `Connect your workspace to Slack to manage tasks without leaving your chat.\n\nSetup\n1. Go to Settings → Integrations\n2. Click "Add to Slack" and authorize the bot\n3. Invite the bot to your channel: /invite @AIWorkflow\n\nSlack Commands\n• @bot create task @john Fix the login bug by 2025-06-01\n• @bot list tasks — shows open tasks\n• @bot status [task id] done — marks a task complete\n\nThe bot understands priority keywords automatically:\n• URGENT or CRITICAL → critical priority\n• HIGH PRIORITY → high\n• LOW PRIORITY → low`,
     },
     {
       id: "compliance",
       icon: "🛡️",
       title: "Compliance & Reporting",
-      color: "#f87171",
+      color: "#ff4d5e",
       body: `The Compliance page flags tasks that need attention:\n\n• Overdue — past their deadline and not completed\n• Unassigned — no owner set\n• Stale — not updated in 7+ days\n• High priority & not started — critical/high tasks still in To Do\n\nReports\nThe Reports page shows completed tasks, team performance, and output over time. Architects see workspace-wide data; Navigators see their team's data.\n\nUse compliance weekly to keep your team on track and catch bottlenecks early.`,
     },
     {
       id: "api",
       icon: "🔌",
       title: "API & Integrations",
-      color: "#22d3a8",
+      color: "#3fae7d",
       body: `Generate an API Key\n1. Go to the API page in the sidebar\n2. Click "Generate API Key"\n3. Copy and store it securely — it won't be shown again\n\nKey Endpoints\nGET  /api/v1/tasks          — list tasks\nPOST /api/v1/tasks          — create a task\nPUT  /api/v1/tasks/{id}     — update a task\nDELETE /api/v1/tasks/{id}   — delete a task\n\nAuthentication\nSend your key in every request header:\nX-API-Key: your_key_here\n\nPagination\nUse ?skip=0&limit=50 to paginate large task lists.`,
     },
     {
       id: "tips",
       icon: "💡",
       title: "Tips & Best Practices",
-      color: "#4f8ef7",
+      color: "#ff6a52",
       body: `🔔 Stay on top of work\n• Check the Compliance page weekly to catch overdue or unassigned tasks\n• Pin critical notes in the Knowledge Base so your team sees them first\n\n📋 Keep tasks clean\n• Always set a deadline and assignee when creating tasks\n• Use categories to group related work\n• Archive completed sprints using bulk status updates\n\n🤝 Team collaboration\n• Navigators: use the Team Notes tab to document processes your team follows\n• Architects: share the workspace invite code via Settings so new members can join\n• Use Slack integration to reduce context-switching`,
     },
   ];
@@ -2782,9 +2788,9 @@ function KnowledgePage() {
                 height: 32, padding: "0 16px", borderRadius: 8, border: "none",
                 fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600,
                 cursor: "pointer", transition: "all 0.18s",
-                background: activeTab === tab.id ? "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)" : "transparent",
-                color: activeTab === tab.id ? "#fff" : "var(--color-text-muted)",
-                boxShadow: activeTab === tab.id ? "0 0 16px rgba(79,142,247,0.3)" : "none",
+                background: activeTab === tab.id ? "linear-gradient(135deg, #ff6a52 0%, #c81f30 100%)" : "transparent",
+                color: activeTab === tab.id ? "#f5f0eb" : "var(--color-text-muted)",
+                boxShadow: activeTab === tab.id ? "0 0 16px rgba(255,106,82,0.3)" : "none",
               }}
             >{tab.label}</button>
           ))}
@@ -2799,12 +2805,12 @@ function KnowledgePage() {
             </div>
             <select value={category} onChange={e => setCategory(e.target.value)} style={{ height: 34, padding: "0 10px", background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-glass)", borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 12, color: "var(--color-text-primary)", cursor: "pointer", outline: "none" }}>
               {CATEGORIES.map(c => (
-                <option key={c.value} value={c.value} style={{ background: "#1e2140", color: "#f0f2ff" }}>
+                <option key={c.value} value={c.value} style={{ background: "#1a0a08", color: "#efe7df" }}>
                   {c.label} {c.value !== "all" && catCounts[c.value] ? `(${catCounts[c.value]})` : ""}
                 </option>
               ))}
             </select>
-            <button onClick={openCreate} style={{ height: 36, padding: "0 18px", borderRadius: 999, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 0 24px rgba(59,130,246,0.35), inset 0 1px 0 rgba(255,255,255,0.12)", marginLeft: "auto" }}>
+            <button onClick={openCreate} style={{ height: 36, padding: "0 18px", borderRadius: 999, border: "none", background: "var(--grad-primary)", color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", boxShadow: "0 0 24px rgba(255,106,82,0.35), inset 0 1px 0 rgba(255,255,255,0.12)", marginLeft: "auto" }}>
               + New Note
             </button>
           </>
@@ -2820,8 +2826,8 @@ function KnowledgePage() {
             {/* Intro banner */}
             <div style={{
               padding: "20px 24px", borderRadius: 16,
-              background: "linear-gradient(135deg, rgba(79,142,247,0.1) 0%, rgba(123,92,240,0.08) 100%)",
-              border: "1px solid rgba(79,142,247,0.25)",
+              background: "linear-gradient(135deg, rgba(255,106,82,0.1) 0%, rgba(200,31,48,0.08) 100%)",
+              border: "1px solid rgba(255,106,82,0.25)",
               display: "flex", alignItems: "center", gap: 18,
             }}>
               <div style={{ fontSize: 36, flexShrink: 0 }}>📚</div>
@@ -2830,7 +2836,7 @@ function KnowledgePage() {
                   Everything you need to know about AI Workflow Coordinator
                 </div>
                 <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
-                  Click any section below to expand it. Use the <strong style={{ color: "#a5b4fc" }}>Team Notes</strong> tab to add your own notes for your team.
+                  Click any section below to expand it. Use the <strong style={{ color: "#ffb199" }}>Team Notes</strong> tab to add your own notes for your team.
                 </div>
               </div>
             </div>
@@ -2903,7 +2909,7 @@ function KnowledgePage() {
         {activeTab === "notes" && (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 16 }}>
             {successMsg && (
-              <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.3)", color: "#22d3a8", fontSize: 13, fontWeight: 600 }}>✓ {successMsg}</div>
+              <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(63,174,125,0.12)", border: "1px solid rgba(63,174,125,0.3)", color: "#3fae7d", fontSize: 13, fontWeight: 600 }}>✓ {successMsg}</div>
             )}
 
             {filtered.length === 0 ? (
@@ -2919,11 +2925,11 @@ function KnowledgePage() {
                     onClick={() => setViewNote(note)}
                     className="pcard"
                     style={{ padding: "18px 20px", cursor: "pointer", position: "relative", overflow: "hidden",
-                      border: `1px solid ${viewNote?.id === note.id ? "rgba(59,130,246,0.5)" : "var(--border-glass)"}`,
-                      background: viewNote?.id === note.id ? "rgba(59,130,246,0.06)" : "rgba(255,255,255,0.032)",
+                      border: `1px solid ${viewNote?.id === note.id ? "rgba(255,106,82,0.5)" : "var(--border-glass)"}`,
+                      background: viewNote?.id === note.id ? "rgba(255,106,82,0.06)" : "rgba(255,255,255,0.032)",
                     }}>
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2.5, background: CAT_COLOR[note.category] || "#3b82f6" }} />
-                    <div className="glow-orb" style={{ top: -20, right: -20, width: 80, height: 80, background: CAT_COLOR[note.category] || "#3b82f6", opacity: 0.05 }} />
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2.5, background: CAT_COLOR[note.category] || "#ff6a52" }} />
+                    <div className="glow-orb" style={{ top: -20, right: -20, width: 80, height: 80, background: CAT_COLOR[note.category] || "#ff6a52", opacity: 0.05 }} />
                     <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.35, flex: 1 }}>{note.title}</div>
                       {note.pinned && <span title="Pinned" style={{ fontSize: 13, flexShrink: 0 }}>📌</span>}
@@ -2932,7 +2938,7 @@ function KnowledgePage() {
                       {note.body}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span className="badge" style={{ background: `${CAT_COLOR[note.category] || "#3b82f6"}18`, color: CAT_COLOR[note.category] || "#3b82f6", borderColor: `${CAT_COLOR[note.category] || "#3b82f6"}33`, textTransform: "capitalize" }}>{note.category}</span>
+                      <span className="badge" style={{ background: `${CAT_COLOR[note.category] || "#ff6a52"}18`, color: CAT_COLOR[note.category] || "#ff6a52", borderColor: `${CAT_COLOR[note.category] || "#ff6a52"}33`, textTransform: "capitalize" }}>{note.category}</span>
                       <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{formatDate(note.updated_at)}</span>
                     </div>
                   </div>
@@ -2945,8 +2951,8 @@ function KnowledgePage() {
         {/* Right — note viewer (notes tab only) */}
         {activeTab === "notes" && viewNote && (
           <div style={{ width: "clamp(280px, 30vw, 380px)", flexShrink: 0, background: "linear-gradient(160deg, rgba(20,22,46,0.95) 0%, rgba(14,17,36,0.98) 100%)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "var(--radius-xl)", padding: "24px 24px 20px", height: "fit-content", position: "sticky", top: 80, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
-            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: CAT_COLOR[viewNote.category] || "#3b82f6", borderRadius: "16px 16px 0 0" }} />
-            <div className="glow-orb" style={{ top: -30, right: -30, width: 120, height: 120, background: CAT_COLOR[viewNote.category] || "#3b82f6", opacity: 0.06 }} />
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: CAT_COLOR[viewNote.category] || "#ff6a52", borderRadius: "16px 16px 0 0" }} />
+            <div className="glow-orb" style={{ top: -30, right: -30, width: 120, height: 120, background: CAT_COLOR[viewNote.category] || "#ff6a52", opacity: 0.06 }} />
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, gap: 8 }}>
               <div style={{ fontSize: 16, fontWeight: 700, color: "var(--color-text-primary)", lineHeight: 1.3, flex: 1 }}>{viewNote.title}</div>
@@ -2954,7 +2960,7 @@ function KnowledgePage() {
             </div>
 
             <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap", alignItems: "center" }}>
-              <span className="badge" style={{ background: `${CAT_COLOR[viewNote.category] || "#3b82f6"}18`, color: CAT_COLOR[viewNote.category] || "#3b82f6", borderColor: `${CAT_COLOR[viewNote.category] || "#3b82f6"}33`, textTransform: "capitalize" }}>{viewNote.category}</span>
+              <span className="badge" style={{ background: `${CAT_COLOR[viewNote.category] || "#ff6a52"}18`, color: CAT_COLOR[viewNote.category] || "#ff6a52", borderColor: `${CAT_COLOR[viewNote.category] || "#ff6a52"}33`, textTransform: "capitalize" }}>{viewNote.category}</span>
               <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>by {viewNote.author}</span>
               <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>· {formatDate(viewNote.updated_at)}</span>
             </div>
@@ -2962,14 +2968,14 @@ function KnowledgePage() {
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.75, whiteSpace: "pre-wrap", marginBottom: 20, maxHeight: 380, overflowY: "auto", paddingRight: 4 }}>{viewNote.body}</div>
 
             <div style={{ display: "flex", gap: 8, borderTop: "1px solid var(--border-glass)", paddingTop: 16 }}>
-              <button onClick={() => handlePin(viewNote.id)} className="btn-ghost" style={{ flex: 1, height: 34, fontSize: 12, background: viewNote.pinned ? "rgba(59,130,246,0.12)" : undefined, color: viewNote.pinned ? "#3b82f6" : undefined, borderColor: viewNote.pinned ? "rgba(59,130,246,0.3)" : undefined }}>
+              <button onClick={() => handlePin(viewNote.id)} className="btn-ghost" style={{ flex: 1, height: 34, fontSize: 12, background: viewNote.pinned ? "rgba(255,106,82,0.12)" : undefined, color: viewNote.pinned ? "#ff6a52" : undefined, borderColor: viewNote.pinned ? "rgba(255,106,82,0.3)" : undefined }}>
                 {viewNote.pinned ? "📌 Pinned" : "📌 Pin"}
               </button>
               {(isArchitect || isNavigator) && (
                 <button onClick={() => { openEdit(viewNote); setViewNote(null); }} className="btn-ghost" style={{ flex: 1, height: 34, fontSize: 12 }}>Edit</button>
               )}
               {isArchitect && (
-                <button onClick={() => handleDelete(viewNote.id)} style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid rgba(248,113,113,0.3)", background: "rgba(248,113,113,0.06)", color: "#f87171", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+                <button onClick={() => handleDelete(viewNote.id)} style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid rgba(255,77,94,0.3)", background: "rgba(255,77,94,0.06)", color: "#ff4d5e", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
               )}
             </div>
           </div>
@@ -2999,14 +3005,14 @@ function KnowledgePage() {
                   <label style={labelStyle}>Category</label>
                   <select value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} className="field-input" style={{ height: 42, cursor: "pointer" }}>
                     {CATEGORIES.filter(c => c.value !== "all").map(c => (
-                      <option key={c.value} value={c.value} style={{ background: "#1e2140", color: "#f0f2ff" }}>{c.label}</option>
+                      <option key={c.value} value={c.value} style={{ background: "#1a0a08", color: "#efe7df" }}>{c.label}</option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label style={{ ...labelStyle, marginBottom: 8 }}>Pin</label>
-                  <div onClick={() => setForm(f => ({...f, pinned: !f.pinned}))} style={{ width: 46, height: 26, borderRadius: 999, background: form.pinned ? "var(--accent-blue)" : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s", boxShadow: form.pinned ? "0 0 12px rgba(59,130,246,0.4)" : "none" }}>
-                    <div style={{ position: "absolute", top: 3, left: form.pinned ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
+                  <div onClick={() => setForm(f => ({...f, pinned: !f.pinned}))} style={{ width: 46, height: 26, borderRadius: 999, background: form.pinned ? "var(--accent-blue)" : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s", boxShadow: form.pinned ? "0 0 12px rgba(255,106,82,0.4)" : "none" }}>
+                    <div style={{ position: "absolute", top: 3, left: form.pinned ? 23 : 3, width: 20, height: 20, borderRadius: "50%", background: "#f5f0eb", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
                   </div>
                 </div>
               </div>
@@ -3187,13 +3193,13 @@ function SettingsPage() {
         <div style={{ fontSize: 13, color: "var(--color-text-primary)", fontWeight: 500 }}>{label}</div>
         {sub && <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>{sub}</div>}
       </div>
-      <div onClick={onChange} style={{ width: 44, height: 24, borderRadius: 999, background: value ? "#3b82f6" : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
-        <div style={{ position: "absolute", top: 2, left: value ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
+      <div onClick={onChange} style={{ width: 44, height: 24, borderRadius: 999, background: value ? "#ff6a52" : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
+        <div style={{ position: "absolute", top: 2, left: value ? 22 : 2, width: 20, height: 20, borderRadius: "50%", background: "#f5f0eb", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
       </div>
     </div>
   );
 
-  const ROLE_BADGES = { architect: { label: "Architect", color: "#f59e0b" }, navigator: { label: "Navigator", color: "#3b82f6" }, operator: { label: "Operator", color: "#22d3a8" } };
+  const ROLE_BADGES = { architect: { label: "Architect", color: "#d99a3f" }, navigator: { label: "Navigator", color: "#ff6a52" }, operator: { label: "Operator", color: "#3fae7d" } };
   const role = ROLE_BADGES[user?.role] || ROLE_BADGES.operator;
 
   const TIMEZONES = ["UTC","America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Sao_Paulo","Europe/London","Europe/Paris","Europe/Berlin","Europe/Moscow","Asia/Dubai","Asia/Karachi","Asia/Kolkata","Asia/Dhaka","Asia/Bangkok","Asia/Singapore","Asia/Tokyo","Asia/Shanghai","Australia/Sydney","Pacific/Auckland"];
@@ -3220,10 +3226,10 @@ function SettingsPage() {
           {TABS.map(tab => (
             <button key={tab.key} onClick={() => { setActiveTab(tab.key); if (tab.key === "billing") loadBillingStatus(); }}
               style={{ width: "100%", padding: "10px 14px", borderRadius: 10, border: "none", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: activeTab === tab.key ? 600 : 400, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10, transition: "all 0.15s",
-                background: activeTab === tab.key ? "rgba(59,130,246,0.14)" : "transparent",
-                color: activeTab === tab.key ? "#e0eaff" : "var(--color-text-secondary)",
-                borderLeft: `3px solid ${activeTab === tab.key ? "#3b82f6" : "transparent"}`,
-                boxShadow: activeTab === tab.key ? "inset 0 0 0 1px rgba(59,130,246,0.2)" : "none",
+                background: activeTab === tab.key ? "rgba(255,106,82,0.14)" : "transparent",
+                color: activeTab === tab.key ? "#efe7df" : "var(--color-text-secondary)",
+                borderLeft: `3px solid ${activeTab === tab.key ? "#ff6a52" : "transparent"}`,
+                boxShadow: activeTab === tab.key ? "inset 0 0 0 1px rgba(255,106,82,0.2)" : "none",
               }}>
               <span style={{ fontSize: 15 }}>{tab.icon}</span>{tab.label}
             </button>
@@ -3233,8 +3239,8 @@ function SettingsPage() {
         {/* Right content */}
         <div style={{ flex: 1 }}>
           {/* Flash messages */}
-          {successMsg && <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(34,211,168,0.12)", border: "1px solid rgba(34,211,168,0.3)", color: "#22d3a8", fontSize: 13, fontWeight: 600, marginBottom: 16 }}>✓ {successMsg}</div>}
-          {errorMsg   && <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171", fontSize: 13, marginBottom: 16 }}>⚠ {errorMsg}</div>}
+          {successMsg && <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(63,174,125,0.12)", border: "1px solid rgba(63,174,125,0.3)", color: "#3fae7d", fontSize: 13, fontWeight: 600, marginBottom: 16 }}>✓ {successMsg}</div>}
+          {errorMsg   && <div style={{ padding: "10px 16px", borderRadius: 8, background: "rgba(255,77,94,0.1)", border: "1px solid rgba(255,77,94,0.25)", color: "#ff4d5e", fontSize: 13, marginBottom: 16 }}>⚠ {errorMsg}</div>}
 
           {/* -- PROFILE -- */}
           {activeTab === "profile" && (
@@ -3244,7 +3250,7 @@ function SettingsPage() {
 
                 {/* Avatar */}
                 <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22 }}>
-                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--grad-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: "var(--grad-primary)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: "#f5f0eb", flexShrink: 0 }}>
                     {(profile.name || profile.username || "?")[0]?.toUpperCase()}
                   </div>
                   <div>
@@ -3270,13 +3276,13 @@ function SettingsPage() {
                   <div>
                     <label style={labelStyle}>Timezone</label>
                     <select value={profile.timezone} onChange={e => setProfile(p => ({...p, timezone: e.target.value}))} style={{ ...inputStyle, cursor: "pointer" }}>
-                      {TIMEZONES.map(tz => <option key={tz} value={tz} style={{ background: "#1e2140", color: "#f0f2ff" }}>{tz}</option>)}
+                      {TIMEZONES.map(tz => <option key={tz} value={tz} style={{ background: "#1a0a08", color: "#efe7df" }}>{tz}</option>)}
                     </select>
                   </div>
                 </div>
 
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
-                  <button onClick={saveProfile} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                  <button onClick={saveProfile} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
                     {saving ? "Saving…" : "Save Profile"}
                   </button>
                 </div>
@@ -3319,14 +3325,14 @@ function SettingsPage() {
                     <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
                       <div style={{ height: "100%", borderRadius: 999, transition: "width 0.3s, background 0.3s",
                         width: pwForm.next.length < 6 ? "25%" : pwForm.next.length < 10 ? "60%" : "100%",
-                        background: pwForm.next.length < 6 ? "#f87171" : pwForm.next.length < 10 ? "#f59e0b" : "#22d3a8",
+                        background: pwForm.next.length < 6 ? "#ff4d5e" : pwForm.next.length < 10 ? "#d99a3f" : "#3fae7d",
                       }} />
                     </div>
                   </div>
                 )}
 
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
-                  <button onClick={savePassword} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                  <button onClick={savePassword} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
                     {saving ? "Updating…" : "Update Password"}
                   </button>
                 </div>
@@ -3340,7 +3346,7 @@ function SettingsPage() {
               <div style={sectionStyle}>
                 <div style={sectionTitle}>Workspace Settings</div>
                 {!isArchitect && (
-                  <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)", color: "#f59e0b", fontSize: 12, marginBottom: 16 }}>
+                  <div style={{ padding: "12px 14px", borderRadius: 8, background: "rgba(217,154,63,0.08)", border: "1px solid rgba(217,154,63,0.2)", color: "#d99a3f", fontSize: 12, marginBottom: 16 }}>
                     ⚠ Only Architects can edit workspace settings
                   </div>
                 )}
@@ -3364,12 +3370,12 @@ function SettingsPage() {
                     <label style={labelStyle}>Plan</label>
                     <div style={{ display: "flex", gap: 10 }}>
                       {["free", "pro", "team"].map(p => (
-                        <div key={p} style={{ flex: 1, padding: "14px 16px", borderRadius: 10, border: `1px solid ${workspace.plan === p ? "#3b82f6" : "var(--border-glass)"}`, background: workspace.plan === p ? "rgba(79,142,247,0.1)" : "rgba(255,255,255,0.03)", cursor: "default" }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: workspace.plan === p ? "#3b82f6" : "var(--color-text-secondary)", textTransform: "capitalize", marginBottom: 4 }}>{p === "team" ? "Team" : p.charAt(0).toUpperCase()+p.slice(1)}</div>
+                        <div key={p} style={{ flex: 1, padding: "14px 16px", borderRadius: 10, border: `1px solid ${workspace.plan === p ? "#ff6a52" : "var(--border-glass)"}`, background: workspace.plan === p ? "rgba(255,106,82,0.1)" : "rgba(255,255,255,0.03)", cursor: "default" }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: workspace.plan === p ? "#ff6a52" : "var(--color-text-secondary)", textTransform: "capitalize", marginBottom: 4 }}>{p === "team" ? "Team" : p.charAt(0).toUpperCase()+p.slice(1)}</div>
                           <div style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>
                             {p === "free" ? "Up to 3 users" : p === "pro" ? "$19/mo · Unlimited users" : "$49/mo · Multi-workspace"}
                           </div>
-                          {workspace.plan === p && <div style={{ fontSize: 10, fontWeight: 700, color: "#22d3a8", marginTop: 4 }}>✓ Current plan</div>}
+                          {workspace.plan === p && <div style={{ fontSize: 10, fontWeight: 700, color: "#3fae7d", marginTop: 4 }}>✓ Current plan</div>}
                         </div>
                       ))}
                     </div>
@@ -3377,7 +3383,7 @@ function SettingsPage() {
                 </div>
                 {isArchitect && (
                   <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
-                    <button onClick={saveWorkspace} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
+                    <button onClick={saveWorkspace} disabled={saving} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.7 : 1 }}>
                       {saving ? "Saving…" : "Save Workspace"}
                     </button>
                   </div>
@@ -3395,7 +3401,7 @@ function SettingsPage() {
               <Toggle value={notif.slack_mentions} onChange={() => setNotif(n => ({...n, slack_mentions: !n.slack_mentions}))} label="Slack mentions" sub="Receive pings when you're assigned a task" />
               <Toggle value={notif.browser_push} onChange={() => setNotif(n => ({...n, browser_push: !n.browser_push}))} label="Browser push notifications" sub="Real-time alerts in your browser" />
               <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
-                <button onClick={saveNotif} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                <button onClick={saveNotif} style={{ height: 38, padding: "0 22px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                   Save Preferences
                 </button>
               </div>
@@ -3408,18 +3414,18 @@ function SettingsPage() {
               {/* Cancel confirmation modal */}
               {cancelConfirm && (
                 <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-                  <div style={{ background: "linear-gradient(160deg,#14162e,#0e1124)", border: "1px solid rgba(248,113,113,0.3)", borderRadius: 20, padding: "32px 36px", maxWidth: 420, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}>
-                    <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(248,113,113,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 18 }}>⚠️</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#f1f3fc", marginBottom: 10, fontFamily: "var(--font-display)" }}>Cancel your subscription?</div>
+                  <div style={{ background: "linear-gradient(160deg,#150806,#100604)", border: "1px solid rgba(255,77,94,0.3)", borderRadius: 20, padding: "32px 36px", maxWidth: 420, width: "100%", boxShadow: "0 24px 80px rgba(0,0,0,0.7)" }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(255,77,94,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 18 }}>⚠️</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#efe7df", marginBottom: 10, fontFamily: "var(--font-display)" }}>Cancel your subscription?</div>
                     <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: 16 }}>
                       Your access will continue until the end of the current billing period. After that, your account will be locked.
                     </div>
-                    <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)", marginBottom: 24 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: "#f87171", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,77,94,0.08)", border: "1px solid rgba(255,77,94,0.25)", marginBottom: 24 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: "#ff4d5e", marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
                         <span>🔒</span> Important — Account Access
                       </div>
-                      <div style={{ fontSize: 12, color: "rgba(248,113,113,0.85)", lineHeight: 1.65 }}>
-                        After cancellation, <strong style={{ color: "#f87171" }}>you will not be able to create a new account</strong> on this platform until management reviews and approves your request. Please contact your workspace administrator if you need access reinstated.
+                      <div style={{ fontSize: 12, color: "rgba(255,77,94,0.85)", lineHeight: 1.65 }}>
+                        After cancellation, <strong style={{ color: "#ff4d5e" }}>you will not be able to create a new account</strong> on this platform until management reviews and approves your request. Please contact your workspace administrator if you need access reinstated.
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
@@ -3428,9 +3434,9 @@ function SettingsPage() {
                         Keep Subscription
                       </button>
                       <button onClick={handleCancelSubscription} disabled={cancelLoading}
-                        style={{ flex: 1, height: 42, borderRadius: 10, border: "none", background: cancelLoading ? "rgba(248,113,113,0.4)" : "#f87171", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: cancelLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                        style={{ flex: 1, height: 42, borderRadius: 10, border: "none", background: cancelLoading ? "rgba(255,77,94,0.4)" : "#ff4d5e", color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: cancelLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                         {cancelLoading
-                          ? <><span style={{ width: 13, height: 13, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /> Cancelling…</>
+                          ? <><span style={{ width: 13, height: 13, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#f5f0eb", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} /> Cancelling…</>
                           : "Yes, Cancel"}
                       </button>
                     </div>
@@ -3445,19 +3451,19 @@ function SettingsPage() {
 
                 {billingLoading && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--color-text-tertiary)", fontSize: 13, padding: "20px 0" }}>
-                    <span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+                    <span style={{ width: 16, height: 16, border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "#ff6a52", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
                     Loading billing status…
                   </div>
                 )}
 
                 {!billingLoading && billingStatus && (() => {
                   const STATUS_INFO = {
-                    active:    { label: "Active",    color: "#22d3a8", bg: "rgba(34,211,168,0.1)",  border: "rgba(34,211,168,0.25)",  icon: "✅" },
-                    trialing:  { label: "Trial",     color: "#f59e0b", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)",  icon: "⏱" },
-                    past_due:  { label: "Past Due",  color: "#f87171", bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)", icon: "⚠️" },
-                    cancelled: { label: "Cancelled", color: "#9ca3af", bg: "rgba(156,163,175,0.1)", border: "rgba(156,163,175,0.2)",  icon: "✕" },
-                    exempt:    { label: "Admin",     color: "#a78bfa", bg: "rgba(167,139,250,0.1)", border: "rgba(167,139,250,0.25)", icon: "🛡" },
-                    unknown:   { label: "Unknown",   color: "#9ca3af", bg: "rgba(156,163,175,0.1)", border: "rgba(156,163,175,0.2)",  icon: "?" },
+                    active:    { label: "Active",    color: "#3fae7d", bg: "rgba(63,174,125,0.1)",  border: "rgba(63,174,125,0.25)",  icon: "✅" },
+                    trialing:  { label: "Trial",     color: "#d99a3f", bg: "rgba(217,154,63,0.1)",  border: "rgba(217,154,63,0.25)",  icon: "⏱" },
+                    past_due:  { label: "Past Due",  color: "#ff4d5e", bg: "rgba(255,77,94,0.1)", border: "rgba(255,77,94,0.25)", icon: "⚠️" },
+                    cancelled: { label: "Cancelled", color: "#9a908a", bg: "rgba(156,163,175,0.1)", border: "rgba(156,163,175,0.2)",  icon: "✕" },
+                    exempt:    { label: "Admin",     color: "#ff8a4c", bg: "rgba(167,139,250,0.1)", border: "rgba(167,139,250,0.25)", icon: "🛡" },
+                    unknown:   { label: "Unknown",   color: "#9a908a", bg: "rgba(156,163,175,0.1)", border: "rgba(156,163,175,0.2)",  icon: "?" },
                   };
                   const st = billingStatus.status || "unknown";
                   const info = STATUS_INFO[st] || STATUS_INFO.unknown;
@@ -3490,12 +3496,12 @@ function SettingsPage() {
 
                       {/* Post-cancellation approval notice */}
                       {cancelDone && (
-                        <div style={{ padding: "16px 18px", borderRadius: 12, background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.22)", marginBottom: 16 }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: "#f87171", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ padding: "16px 18px", borderRadius: 12, background: "rgba(255,77,94,0.07)", border: "1px solid rgba(255,77,94,0.22)", marginBottom: 16 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: "#ff4d5e", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                             <span>🔒</span> Account Access After Cancellation
                           </div>
-                          <div style={{ fontSize: 12, color: "rgba(248,113,113,0.8)", lineHeight: 1.7 }}>
-                            Your current access will remain active until the end of the billing period. Once it expires, <strong style={{ color: "#f87171" }}>you will not be able to create a new account</strong> on this platform without management approval. To request reinstatement, please contact your workspace administrator.
+                          <div style={{ fontSize: 12, color: "rgba(255,77,94,0.8)", lineHeight: 1.7 }}>
+                            Your current access will remain active until the end of the billing period. Once it expires, <strong style={{ color: "#ff4d5e" }}>you will not be able to create a new account</strong> on this platform without management approval. To request reinstatement, please contact your workspace administrator.
                           </div>
                         </div>
                       )}
@@ -3505,15 +3511,15 @@ function SettingsPage() {
                         <div style={{
                           padding: "18px 20px",
                           borderRadius: 14,
-                          background: "linear-gradient(135deg, rgba(139,92,246,0.1), rgba(59,130,246,0.08))",
-                          border: "1px solid rgba(139,92,246,0.35)",
-                          boxShadow: "0 0 24px rgba(139,92,246,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
+                          background: "linear-gradient(135deg, rgba(200,31,48,0.1), rgba(255,106,82,0.08))",
+                          border: "1px solid rgba(200,31,48,0.35)",
+                          boxShadow: "0 0 24px rgba(200,31,48,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
                           marginBottom: 16,
                         }}>
                           <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-                            <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(139,92,246,0.15)", border: "1px solid rgba(139,92,246,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>💳</div>
+                            <div style={{ width: 40, height: 40, borderRadius: 10, background: "rgba(200,31,48,0.15)", border: "1px solid rgba(200,31,48,0.3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>💳</div>
                             <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 13, fontWeight: 700, color: "#c4b5fd", marginBottom: 4 }}>Action required — Add your payment details</div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: "#ffb199", marginBottom: 4 }}>Action required — Add your payment details</div>
                               <div style={{ fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.65, marginBottom: 14 }}>
                                 We recently migrated our payment system. Your trial and all your data are intact, but we need your card details to continue your subscription after the trial ends. No charge until your trial expires.
                               </div>
@@ -3529,8 +3535,8 @@ function SettingsPage() {
                                 style={{
                                   height: 38, padding: "0 20px", borderRadius: 9,
                                   border: "none",
-                                  background: "linear-gradient(135deg,#7c3aed,#3b82f6)",
-                                  color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13,
+                                  background: "linear-gradient(135deg,#7a1420,#ff6a52)",
+                                  color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13,
                                   fontWeight: 700, cursor: "pointer",
                                   boxShadow: "0 4px 14px rgba(124,58,237,0.4)",
                                   transition: "opacity 0.15s",
@@ -3560,11 +3566,11 @@ function SettingsPage() {
                         {canCancel && (
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0" }}>
                             <div>
-                              <div style={{ fontSize: 13, fontWeight: 600, color: "#f87171" }}>Cancel subscription</div>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: "#ff4d5e" }}>Cancel subscription</div>
                               <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>You'll keep access until the end of the current billing period</div>
                             </div>
                             <button onClick={() => setCancelConfirm(true)}
-                              style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.4)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                              style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(255,77,94,0.4)", background: "rgba(255,77,94,0.08)", color: "#ff4d5e", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
                               Cancel Plan
                             </button>
                           </div>
@@ -3580,7 +3586,7 @@ function SettingsPage() {
                               const r = await fetch(`${API}/billing/checkout`, { method: "POST", headers: hdrs });
                               const d = await r.json();
                               if (d.checkout_url) window.location.href = d.checkout_url;
-                            }} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#3b82f6,#8b5cf6)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+                            }} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#ff6a52,#c81f30)", color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
                               Resubscribe →
                             </button>
                           </div>
@@ -3595,15 +3601,15 @@ function SettingsPage() {
 
           {/* -- DANGER ZONE -- */}
           {activeTab === "danger" && (
-            <div style={{ ...sectionStyle, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.04)" }}>
-              <div style={{ ...sectionTitle, color: "#f87171", borderBottomColor: "rgba(248,113,113,0.2)" }}>⚠ Danger Zone</div>
+            <div style={{ ...sectionStyle, border: "1px solid rgba(255,77,94,0.25)", background: "rgba(255,77,94,0.04)" }}>
+              <div style={{ ...sectionTitle, color: "#ff4d5e", borderBottomColor: "rgba(255,77,94,0.2)" }}>⚠ Danger Zone</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid rgba(248,113,113,0.1)" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0", borderBottom: "1px solid rgba(255,77,94,0.1)" }}>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Sign out</div>
                     <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Sign out of your account on this device</div>
                   </div>
-                  <button onClick={logout} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.4)", background: "transparent", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  <button onClick={logout} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(255,77,94,0.4)", background: "transparent", color: "#ff4d5e", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                     Sign Out
                   </button>
                 </div>
@@ -3613,7 +3619,7 @@ function SettingsPage() {
                       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>Delete workspace</div>
                       <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2 }}>Permanently delete workspace and all data. This cannot be undone.</div>
                     </div>
-                    <button onClick={() => flash("Contact support to delete your workspace", true)} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.4)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    <button onClick={() => flash("Contact support to delete your workspace", true)} style={{ height: 36, padding: "0 18px", borderRadius: 8, border: "1px solid rgba(255,77,94,0.4)", background: "rgba(255,77,94,0.08)", color: "#ff4d5e", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                       Delete Workspace
                     </button>
                   </div>
@@ -3717,9 +3723,9 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
   }), [sourceTasks]);
 
   const METRICS = useMemo(() => [
-    { label: "To Do",       value: counts.to_do,       icon: <IconCheckbox />, color: "#3b82f6", variant: "blue"  },
-    { label: "In Progress", value: counts.in_progress, icon: <IconProgress />, color: "#f59e0b", variant: "amber" },
-    { label: "Completed",   value: counts.completed,   icon: <IconDone />,     color: "#22d3a8", variant: "teal"  },
+    { label: "To Do",       value: counts.to_do,       icon: <IconCheckbox />, color: "#ff6a52", variant: "blue"  },
+    { label: "In Progress", value: counts.in_progress, icon: <IconProgress />, color: "#d99a3f", variant: "amber" },
+    { label: "Completed",   value: counts.completed,   icon: <IconDone />,     color: "#3fae7d", variant: "teal"  },
   ], [counts]);
 
   // Call /process-message directly with the auth token so the task gets
@@ -3757,12 +3763,12 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         : isNavigator
           ? `${user?.team_name || "Team"} tasks`
           : "Tasks in your workspace",
-      color: "#3b82f6",
+      color: "#ff6a52",
     },
     {
       label: "Individual",
       description: "My assigned tasks",
-      color: "#8b5cf6",
+      color: "#c81f30",
     },
   ];
 
@@ -3788,7 +3794,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             aria-label="Search tasks or assignees"
             className="field-input"
             style={{ paddingLeft: 32, borderRadius: 999, height: 36 }}
-            onFocus={e => { e.target.style.borderColor = "rgba(59,130,246,0.55)"; e.target.style.background = "rgba(59,130,246,0.07)"; e.target.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.14)"; }}
+            onFocus={e => { e.target.style.borderColor = "rgba(255,106,82,0.55)"; e.target.style.background = "rgba(255,106,82,0.07)"; e.target.style.boxShadow = "0 0 0 3px rgba(255,106,82,0.14)"; }}
             onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.background = "rgba(255,255,255,0.04)"; e.target.style.boxShadow = "none"; }}
           />
         </div>
@@ -3796,10 +3802,10 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         {/* Status badges + actions */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
           {[
-            { label: "to do",       count: counts.to_do,       color: "#f59e0b" },
-            { label: "in progress", count: counts.in_progress, color: "#3b82f6" },
-            { label: "done",        count: counts.completed,   color: "#22d3a8" },
-            { label: "cancelled",   count: counts.cancelled,   color: "#6b7280" },
+            { label: "to do",       count: counts.to_do,       color: "#d99a3f" },
+            { label: "in progress", count: counts.in_progress, color: "#ff6a52" },
+            { label: "done",        count: counts.completed,   color: "#3fae7d" },
+            { label: "cancelled",   count: counts.cancelled,   color: "#9a908a" },
           ].map(s => (
             <span key={s.label} style={{
               display: "inline-flex", alignItems: "center", gap: 5,
@@ -3833,7 +3839,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             <h1 style={{
               fontSize: 28, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.1,
               fontFamily: "var(--font-display)",
-              background: "linear-gradient(135deg, #f1f3fc 0%, #93c5fd 50%, #c4b5fd 100%)",
+              background: "linear-gradient(135deg, #efe7df 0%, #ffb199 50%, #ffb199 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
             }}>
               Hey, {user?.name?.split(" ")[0] || "there"} ✦
@@ -3848,8 +3854,8 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             <EmailTaskInbox />
             <div style={{
               padding: "6px 14px", borderRadius: 999,
-              background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.22)",
-              fontSize: 12, fontWeight: 600, color: "#22d3a8",
+              background: "rgba(63,174,125,0.1)", border: "1px solid rgba(63,174,125,0.22)",
+              fontSize: 12, fontWeight: 600, color: "#3fae7d",
               display: "flex", alignItems: "center", gap: 7,
             }}>
               <span className="pulse-dot" aria-hidden="true" />
@@ -3862,24 +3868,24 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         {error && (
           <div role="alert" style={{
             padding: "12px 18px", borderRadius: 10, fontSize: 13,
-            background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)",
-            color: "#f87171", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+            background: "rgba(255,77,94,0.1)", border: "1px solid rgba(255,77,94,0.25)",
+            color: "#ff4d5e", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
           }}>
             <span>⚠ {error}</span>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={clearError} style={{ border: "1px solid rgba(248,113,113,0.3)", borderRadius: 6, background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Dismiss</button>
-              <button onClick={handleReload} style={{ border: "1px solid rgba(248,113,113,0.3)", borderRadius: 6, background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Retry</button>
+              <button onClick={clearError} style={{ border: "1px solid rgba(255,77,94,0.3)", borderRadius: 6, background: "transparent", color: "#ff4d5e", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Dismiss</button>
+              <button onClick={handleReload} style={{ border: "1px solid rgba(255,77,94,0.3)", borderRadius: 6, background: "transparent", color: "#ff4d5e", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Retry</button>
             </div>
           </div>
         )}
         {myError && isIndividualTab && (
           <div role="alert" style={{
             padding: "12px 18px", borderRadius: 10, fontSize: 13,
-            background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)",
-            color: "#f87171", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+            background: "rgba(255,77,94,0.1)", border: "1px solid rgba(255,77,94,0.25)",
+            color: "#ff4d5e", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
           }}>
             <span>⚠ {myError}</span>
-            <button onClick={fetchMyTasks} style={{ border: "1px solid rgba(248,113,113,0.3)", borderRadius: 6, background: "transparent", color: "#f87171", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Retry</button>
+            <button onClick={fetchMyTasks} style={{ border: "1px solid rgba(255,77,94,0.3)", borderRadius: 6, background: "transparent", color: "#ff4d5e", cursor: "pointer", fontSize: 12, fontWeight: 600, padding: "3px 10px" }}>Retry</button>
           </div>
         )}
 
@@ -3894,7 +3900,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             }}>
               <div aria-hidden="true" style={{
                 position: "absolute", top: 0, left: 0, right: 0, height: 2, borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
-                background: m.variant === "blue" ? "linear-gradient(90deg,#3b82f6,#8b5cf6)" : m.variant === "amber" ? "linear-gradient(90deg,#f59e0b,#fb923c)" : "linear-gradient(90deg,#10b981,#06b6d4)",
+                background: m.variant === "blue" ? "linear-gradient(90deg,#ff6a52,#c81f30)" : m.variant === "amber" ? "linear-gradient(90deg,#d99a3f,#c9702e)" : "linear-gradient(90deg,#3fae7d,#d99a3f)",
               }} />
               <div className="glow-orb" style={{ top: -10, left: -10, width: 100, height: 100, background: m.color, opacity: 0.07 }} />
               <div style={{ position: "absolute", right: 14, bottom: 14, opacity: 0.2 }}><Sparkline color={m.color} /></div>
@@ -3980,7 +3986,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
           {/* Kanban board */}
           {isLoadingSource && sourceTasks.length === 0 ? (
             <div role="status" aria-label="Loading tasks" style={{ textAlign: "center", padding: "60px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+              <div style={{ width: 24, height: 24, border: "2px solid rgba(255,106,82,0.2)", borderTopColor: "#ff6a52", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
               <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading tasks…</span>
             </div>
           ) : (
@@ -4115,7 +4121,7 @@ function IntegrationsPage() {
           borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13,
           color: "var(--color-text-primary)", outline: "none",
         }}
-        onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+        onFocus={e => { e.target.style.borderColor = "rgba(255,106,82,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(255,106,82,0.12)"; }}
         onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
       />
     </div>
@@ -4147,11 +4153,11 @@ function IntegrationsPage() {
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 6,
       padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600,
-      background: configured ? "rgba(34,211,168,0.12)" : "rgba(255,255,255,0.05)",
-      border: `1px solid ${configured ? "rgba(34,211,168,0.3)" : "var(--border-glass)"}`,
-      color: configured ? "#22d3a8" : "var(--color-text-tertiary)",
+      background: configured ? "rgba(63,174,125,0.12)" : "rgba(255,255,255,0.05)",
+      border: `1px solid ${configured ? "rgba(63,174,125,0.3)" : "var(--border-glass)"}`,
+      color: configured ? "#3fae7d" : "var(--color-text-tertiary)",
     }}>
-      <span style={{ width: 6, height: 6, borderRadius: "50%", background: configured ? "#22d3a8" : "#555a80" }} />
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: configured ? "#3fae7d" : "#6b6058" }} />
       {configured ? "Configured" : "Not configured"}
     </span>
   );
@@ -4159,15 +4165,15 @@ function IntegrationsPage() {
   const msgBanner = (service) => saveMsg?.service === service ? (
     <div style={{
       padding: "8px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
-      background: saveMsg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)",
-      border: `1px solid ${saveMsg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`,
-      color: saveMsg.type === "success" ? "#22d3a8" : "#f87171",
+      background: saveMsg.type === "success" ? "rgba(63,174,125,0.1)" : "rgba(255,77,94,0.1)",
+      border: `1px solid ${saveMsg.type === "success" ? "rgba(63,174,125,0.3)" : "rgba(255,77,94,0.3)"}`,
+      color: saveMsg.type === "success" ? "#3fae7d" : "#ff4d5e",
     }}>{saveMsg.text}</div>
   ) : null;
 
   if (loading) return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+      <div style={{ width: 24, height: 24, border: "2px solid rgba(255,106,82,0.2)", borderTopColor: "#ff6a52", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
     </main>
   );
 
@@ -4186,9 +4192,9 @@ function IntegrationsPage() {
       {result && (
         <div style={{
           padding: "14px 18px", borderRadius: 12,
-          background: result.error ? "rgba(248,113,113,0.1)" : "rgba(34,211,168,0.08)",
-          border: `1px solid ${result.error ? "rgba(248,113,113,0.3)" : "rgba(34,211,168,0.25)"}`,
-          color: result.error ? "#f87171" : "var(--color-text-primary)",
+          background: result.error ? "rgba(255,77,94,0.1)" : "rgba(63,174,125,0.08)",
+          border: `1px solid ${result.error ? "rgba(255,77,94,0.3)" : "rgba(63,174,125,0.25)"}`,
+          color: result.error ? "#ff4d5e" : "var(--color-text-primary)",
           fontSize: 13,
         }}>
           {result.error ? (
@@ -4196,9 +4202,9 @@ function IntegrationsPage() {
           ) : (
             <span>
               ✅ <strong>{result.integration}</strong> import complete —{" "}
-              <span style={{ color: "#22d3a8" }}>{result.imported} imported</span>
+              <span style={{ color: "#3fae7d" }}>{result.imported} imported</span>
               {result.skipped > 0 && <span> · {result.skipped} already imported</span>}
-              {result.failed > 0 && <span style={{ color: "#f87171" }}>, {result.failed} failed</span>}
+              {result.failed > 0 && <span style={{ color: "#ff4d5e" }}>, {result.failed} failed</span>}
               {" "}out of {result.total_found} found
             </span>
           )}
@@ -4211,7 +4217,7 @@ function IntegrationsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>𝓝</div>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#f5f0eb", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>𝓝</div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Notion</div>
                 <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Import pages from a Notion database as tasks</div>
@@ -4236,7 +4242,7 @@ function IntegrationsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0052cc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 800 }}>J</div>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0052cc", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#f5f0eb", fontWeight: 800 }}>J</div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Jira</div>
                 <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Import issues from an Atlassian Jira project</div>
@@ -4263,7 +4269,7 @@ function IntegrationsPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0079bf", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", fontWeight: 800 }}>T</div>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#0079bf", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#f5f0eb", fontWeight: 800 }}>T</div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Trello</div>
                 <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Import cards from a Trello list as tasks</div>
@@ -4365,12 +4371,12 @@ function LocalePage() {
 
   const selectStyle = {
     width: "100%", height: 38, padding: "0 12px",
-    background: "#1e2140", border: "1px solid var(--border-glass)",
+    background: "#1a0a08", border: "1px solid var(--border-glass)",
     borderRadius: 8, fontFamily: "var(--font-sans)", fontSize: 13,
-    color: "#f0f2ff", outline: "none", cursor: "pointer",
+    color: "#efe7df", outline: "none", cursor: "pointer",
     appearance: "none", WebkitAppearance: "none",
   };
-  const optStyle = { background: "#1e2140", color: "#f0f2ff" };
+  const optStyle = { background: "#1a0a08", color: "#efe7df" };
 
   const labelStyle = { fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", marginBottom: 6, display: "block" };
 
@@ -4384,9 +4390,9 @@ function LocalePage() {
   const msgBanner = (scope) => saveMsg?.scope === scope ? (
     <div style={{
       padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 500,
-      background: saveMsg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)",
-      border: `1px solid ${saveMsg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`,
-      color: saveMsg.type === "success" ? "#22d3a8" : "#f87171",
+      background: saveMsg.type === "success" ? "rgba(63,174,125,0.1)" : "rgba(255,77,94,0.1)",
+      border: `1px solid ${saveMsg.type === "success" ? "rgba(63,174,125,0.3)" : "rgba(255,77,94,0.3)"}`,
+      color: saveMsg.type === "success" ? "#3fae7d" : "#ff4d5e",
     }}>{saveMsg.text}</div>
   ) : null;
 
@@ -4394,7 +4400,7 @@ function LocalePage() {
     <button onClick={onClick} disabled={saving === scope} style={{
       height: 36, padding: "0 20px", borderRadius: 8, border: "none",
       background: "var(--grad-primary)",
-      color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
+      color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
       cursor: saving === scope ? "not-allowed" : "pointer",
       opacity: saving === scope ? 0.6 : 1,
     }}>{saving === scope ? "Saving…" : "Save"}</button>
@@ -4406,7 +4412,7 @@ function LocalePage() {
 
   if (loading) return (
     <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+      <div style={{ width: 24, height: 24, border: "2px solid rgba(255,106,82,0.2)", borderTopColor: "#ff6a52", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
     </main>
   );
 
@@ -4430,12 +4436,12 @@ function LocalePage() {
         ].map(p => (
           <div key={p.label} style={{
             padding: "6px 14px", borderRadius: 999,
-            background: "rgba(79,142,247,0.1)", border: "1px solid rgba(79,142,247,0.25)",
+            background: "rgba(255,106,82,0.1)", border: "1px solid rgba(255,106,82,0.25)",
             display: "flex", alignItems: "center", gap: 8,
           }}>
             <span style={{ fontSize: 14 }}>{p.icon}</span>
             <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{p.label}:</span>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#3b82f6" }}>{p.value}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#ff6a52" }}>{p.value}</span>
           </div>
         ))}
       </div>
@@ -4444,7 +4450,7 @@ function LocalePage() {
       {card(
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(79,142,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>👤</div>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(255,106,82,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>👤</div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>My Preferences</div>
               <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Applied to your account only</div>
@@ -4457,7 +4463,7 @@ function LocalePage() {
               <label style={labelStyle}>Language</label>
               <div style={{ position: "relative" }}>
                 <select value={lang} onChange={e => setLang(e.target.value)} style={selectStyle}
-                  onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+                  onFocus={e => { e.target.style.borderColor = "rgba(255,106,82,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(255,106,82,0.12)"; }}
                   onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
                 >
                   {options && Object.entries(options.languages).map(([code, name]) => (
@@ -4473,7 +4479,7 @@ function LocalePage() {
               <label style={labelStyle}>Timezone</label>
               <div style={{ position: "relative" }}>
                 <select value={tz} onChange={e => setTz(e.target.value)} style={selectStyle}
-                  onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+                  onFocus={e => { e.target.style.borderColor = "rgba(255,106,82,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(255,106,82,0.12)"; }}
                   onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
                 >
                   {options?.timezones?.map(t => (
@@ -4489,7 +4495,7 @@ function LocalePage() {
               <label style={labelStyle}>Currency</label>
               <div style={{ position: "relative" }}>
                 <select value={curr} onChange={e => setCurr(e.target.value)} style={selectStyle}
-                  onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+                  onFocus={e => { e.target.style.borderColor = "rgba(255,106,82,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(255,106,82,0.12)"; }}
                   onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
                 >
                   {options && Object.entries(options.currencies).map(([code, label]) => (
@@ -4512,14 +4518,14 @@ function LocalePage() {
       {isArchitect && card(
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(123,92,240,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏢</div>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(200,31,48,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>🏢</div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Workspace Defaults</div>
               <div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Applied to new members who haven't set their own preferences</div>
             </div>
             <span style={{
               marginLeft: "auto", padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600,
-              background: "rgba(123,92,240,0.15)", border: "1px solid rgba(123,92,240,0.3)", color: "#8b5cf6",
+              background: "rgba(200,31,48,0.15)", border: "1px solid rgba(200,31,48,0.3)", color: "#c81f30",
             }}>Architect only</span>
           </div>
 
@@ -4651,7 +4657,7 @@ function TeamsPage() {
   const lbl = { fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", letterSpacing: "0.04em", marginBottom: 6, display: "block" };
   const card = (ch) => <div style={{ background: "rgba(255,255,255,0.04)", backdropFilter: "blur(12px)", border: "1px solid var(--border-glass)", borderRadius: 16, padding: "22px 24px" }}>{ch}</div>;
 
-  if (loading) return <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /></main>;
+  if (loading) return <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 24, height: 24, border: "2px solid rgba(255,106,82,0.2)", borderTopColor: "#ff6a52", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /></main>;
 
   return (
     <main style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 820 }}>
@@ -4659,21 +4665,21 @@ function TeamsPage() {
         <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Microsoft Teams</h1>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>Connect your workspace to Microsoft Teams. Create tasks directly from Teams channels by mentioning the bot.</p>
       </div>
-      {msg && <div style={{ padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: msg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`, color: msg.type === "success" ? "#22d3a8" : "#f87171" }}>{msg.text}</div>}
+      {msg && <div style={{ padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: msg.type === "success" ? "rgba(63,174,125,0.1)" : "rgba(255,77,94,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(63,174,125,0.3)" : "rgba(255,77,94,0.3)"}`, color: msg.type === "success" ? "#3fae7d" : "#ff4d5e" }}>{msg.text}</div>}
       {card(<div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 44, height: 44, borderRadius: 12, background: status?.connected ? "rgba(34,211,168,0.12)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>💬</div>
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: status?.connected ? "rgba(63,174,125,0.12)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>💬</div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Teams Connection</div>
             <div style={{ fontSize: 12, marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: status?.connected ? "#22d3a8" : "#6b7280", display: "inline-block" }} />
-              <span style={{ color: status?.connected ? "#22d3a8" : "var(--color-text-tertiary)" }}>{status?.connected ? `Connected &mdash; Tenant: ${status.tenant_id}` : "Not connected"}</span>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: status?.connected ? "#3fae7d" : "#9a908a", display: "inline-block" }} />
+              <span style={{ color: status?.connected ? "#3fae7d" : "var(--color-text-tertiary)" }}>{status?.connected ? `Connected &mdash; Tenant: ${status.tenant_id}` : "Not connected"}</span>
             </div>
           </div>
-          {status?.connected && isArchitect && <button onClick={handleDisconnect} disabled={saving} style={{ height: 32, padding: "0 14px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)", background: "rgba(248,113,113,0.08)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Disconnect</button>}
+          {status?.connected && isArchitect && <button onClick={handleDisconnect} disabled={saving} style={{ height: 32, padding: "0 14px", borderRadius: 8, border: "1px solid rgba(255,77,94,0.3)", background: "rgba(255,77,94,0.08)", color: "#ff4d5e", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Disconnect</button>}
         </div>
-        <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(79,142,247,0.06)", border: "1px solid rgba(79,142,247,0.15)", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.8 }}>
-          <strong style={{ color: "#3b82f6", display: "block", marginBottom: 6 }}>⚙ Setup Instructions</strong>
+        <div style={{ padding: "14px 16px", borderRadius: 10, background: "rgba(255,106,82,0.06)", border: "1px solid rgba(255,106,82,0.15)", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.8 }}>
+          <strong style={{ color: "#ff6a52", display: "block", marginBottom: 6 }}>⚙ Setup Instructions</strong>
           1. Azure Portal → create a Bot resource → enable Teams channel.<br />
           2. Set <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>TEAMS_APP_ID</code> and <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>TEAMS_APP_SECRET</code> in Railway.<br />
           3. Set messaging endpoint: <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 5px", borderRadius: 4 }}>{status?.webhook_url || `${API}/teams/webhook`}</code><br />
@@ -4683,32 +4689,32 @@ function TeamsPage() {
           <label style={lbl}>Azure AD Tenant ID</label>
           <div style={{ display: "flex", gap: 10 }}>
             <input value={tenantId} onChange={e => setTenantId(e.target.value)} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style={{ ...inp, flex: 1 }} />
-            <button onClick={handleSaveConfig} disabled={saving || !tenantId.trim()} style={{ height: 38, padding: "0 20px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: (saving || !tenantId.trim()) ? 0.6 : 1 }}>{saving ? "Saving…" : "Save"}</button>
+            <button onClick={handleSaveConfig} disabled={saving || !tenantId.trim()} style={{ height: 38, padding: "0 20px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: (saving || !tenantId.trim()) ? 0.6 : 1 }}>{saving ? "Saving…" : "Save"}</button>
           </div>
         </div>}
       </div>)}
       {card(<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div><div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)" }}>Registered Channels</div><div style={{ fontSize: 12, color: "var(--color-text-tertiary)", marginTop: 2 }}>Channels that receive proactive task notifications</div></div>
-          {isArchitect && <button onClick={() => setShowForm(f => !f)} style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "1px solid rgba(79,142,247,0.3)", background: "rgba(79,142,247,0.08)", color: "#3b82f6", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{showForm ? "Cancel" : "+ Add Channel"}</button>}
+          {isArchitect && <button onClick={() => setShowForm(f => !f)} style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "1px solid rgba(255,106,82,0.3)", background: "rgba(255,106,82,0.08)", color: "#ff6a52", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{showForm ? "Cancel" : "+ Add Channel"}</button>}
         </div>
-        {showForm && isArchitect && <div style={{ padding: 18, borderRadius: 12, background: "rgba(79,142,247,0.05)", border: "1px solid rgba(79,142,247,0.15)" }}>
+        {showForm && isArchitect && <div style={{ padding: 18, borderRadius: 12, background: "rgba(255,106,82,0.05)", border: "1px solid rgba(255,106,82,0.15)" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px,1fr))", gap: 12 }}>
             {[["channel_name","Channel Name","#general"],["channel_id","Channel ID","19:abc@thread.tacv2"],["service_url","Service URL","https://smba.trafficmanager.net/…"],["conversation_id","Conversation ID","19:abc@thread.tacv2"]].map(([k, label, ph]) => (
               <div key={k}><label style={lbl}>{label}</label><input value={chForm[k]} onChange={e => setChForm(f => ({ ...f, [k]: e.target.value }))} placeholder={ph} style={inp} /></div>
             ))}
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
-            <button onClick={handleRegisterChannel} disabled={saving || !chForm.channel_id || !chForm.channel_name} style={{ height: 36, padding: "0 20px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{saving ? "Registering…" : "Register Channel"}</button>
+            <button onClick={handleRegisterChannel} disabled={saving || !chForm.channel_id || !chForm.channel_name} style={{ height: 36, padding: "0 20px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{saving ? "Registering…" : "Register Channel"}</button>
           </div>
         </div>}
         {channels.length === 0 ? <div style={{ padding: 28, textAlign: "center", color: "var(--color-text-tertiary)", fontSize: 13, border: "1px dashed var(--border-glass)", borderRadius: 10 }}>No channels registered yet.{isArchitect && " Click \"+ Add Channel\" to register."}</div>
         : channels.map(ch => (
           <div key={ch.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)" }}>
-            <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(79,142,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>💬</div>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(255,106,82,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>💬</div>
             <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{ch.channel_name}</div><div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2, fontFamily: "var(--font-mono)" }}>{ch.channel_id}</div></div>
-            <div style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.25)", color: "#22d3a8" }}>Active</div>
-            {isArchitect && <button onClick={() => handleRemoveChannel(ch.id, ch.channel_name)} style={{ height: 28, padding: "0 12px", borderRadius: 6, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.06)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Remove</button>}
+            <div style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "rgba(63,174,125,0.1)", border: "1px solid rgba(63,174,125,0.25)", color: "#3fae7d" }}>Active</div>
+            {isArchitect && <button onClick={() => handleRemoveChannel(ch.id, ch.channel_name)} style={{ height: 28, padding: "0 12px", borderRadius: 6, border: "1px solid rgba(255,77,94,0.25)", background: "rgba(255,77,94,0.06)", color: "#ff4d5e", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Remove</button>}
           </div>
         ))}
       </div>)}
@@ -4784,9 +4790,9 @@ function ApiPage() {
     { method: "DELETE", path: "/api/v1/tasks/{id}",   desc: "Cancel a task (sets status to cancelled)" },
   ];
 
-  const METHOD_COLORS = { POST: "#22d3a8", GET: "#3b82f6", PUT: "#f59e0b", DELETE: "#f87171" };
+  const METHOD_COLORS = { POST: "#3fae7d", GET: "#ff6a52", PUT: "#d99a3f", DELETE: "#ff4d5e" };
 
-  if (loading) return <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 24, height: 24, border: "2px solid rgba(79,142,247,0.2)", borderTopColor: "#3b82f6", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /></main>;
+  if (loading) return <main style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 24, height: 24, border: "2px solid rgba(255,106,82,0.2)", borderTopColor: "#ff6a52", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /></main>;
 
   return (
     <main style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
@@ -4797,15 +4803,15 @@ function ApiPage() {
         </p>
       </div>
 
-      {msg && <div style={{ padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: msg.type === "success" ? "rgba(34,211,168,0.1)" : "rgba(248,113,113,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(34,211,168,0.3)" : "rgba(248,113,113,0.3)"}`, color: msg.type === "success" ? "#22d3a8" : "#f87171" }}>{msg.text}</div>}
+      {msg && <div style={{ padding: "10px 16px", borderRadius: 10, fontSize: 13, fontWeight: 500, background: msg.type === "success" ? "rgba(63,174,125,0.1)" : "rgba(255,77,94,0.1)", border: `1px solid ${msg.type === "success" ? "rgba(63,174,125,0.3)" : "rgba(255,77,94,0.3)"}`, color: msg.type === "success" ? "#3fae7d" : "#ff4d5e" }}>{msg.text}</div>}
 
       {/* Revealed key banner */}
       {revealedKey && (
-        <div style={{ padding: "16px 20px", borderRadius: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>⚠ Copy your API key now &mdash; it won't be shown again</div>
+        <div style={{ padding: "16px 20px", borderRadius: 12, background: "rgba(217,154,63,0.08)", border: "1px solid rgba(217,154,63,0.3)", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#d99a3f" }}>⚠ Copy your API key now &mdash; it won't be shown again</div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <code style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: 12, background: "rgba(0,0,0,0.3)", padding: "8px 12px", borderRadius: 8, color: "#e8eaf6", wordBreak: "break-all" }}>{revealedKey.key}</code>
-            <button onClick={() => copyKey(revealedKey.key)} style={{ height: 36, padding: "0 16px", borderRadius: 8, border: "none", background: copied ? "rgba(34,211,168,0.2)" : "rgba(245,158,11,0.2)", color: copied ? "#22d3a8" : "#f59e0b", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
+            <code style={{ flex: 1, fontFamily: "var(--font-mono)", fontSize: 12, background: "rgba(0,0,0,0.3)", padding: "8px 12px", borderRadius: 8, color: "#efe7df", wordBreak: "break-all" }}>{revealedKey.key}</code>
+            <button onClick={() => copyKey(revealedKey.key)} style={{ height: 36, padding: "0 16px", borderRadius: 8, border: "none", background: copied ? "rgba(63,174,125,0.2)" : "rgba(217,154,63,0.2)", color: copied ? "#3fae7d" : "#d99a3f", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>
               {copied ? "✓ Copied!" : "Copy"}
             </button>
           </div>
@@ -4820,10 +4826,10 @@ function ApiPage() {
           <div style={{ display: "flex", gap: 10 }}>
             <input value={newKeyName} onChange={e => setNewKeyName(e.target.value)} placeholder="Key name, e.g. Notion Integration" style={{ ...inp, flex: 1 }}
               onKeyDown={e => e.key === "Enter" && handleCreateKey()}
-              onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.12)"; }}
+              onFocus={e => { e.target.style.borderColor = "rgba(255,106,82,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(255,106,82,0.12)"; }}
               onBlur={e => { e.target.style.borderColor = "var(--border-glass)"; e.target.style.boxShadow = "none"; }}
             />
-            <button onClick={handleCreateKey} disabled={creating || !newKeyName.trim()} style={{ height: 38, padding: "0 20px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: (creating || !newKeyName.trim()) ? 0.6 : 1 }}>
+            <button onClick={handleCreateKey} disabled={creating || !newKeyName.trim()} style={{ height: 38, padding: "0 20px", borderRadius: 8, border: "none", background: "var(--grad-primary)", color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: (creating || !newKeyName.trim()) ? 0.6 : 1 }}>
               {creating ? "Creating…" : "Generate Key"}
             </button>
           </div>
@@ -4837,7 +4843,7 @@ function ApiPage() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {keys.map(k => (
               <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)" }}>
-                <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(79,142,247,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🔑</div>
+                <div style={{ width: 34, height: 34, borderRadius: 8, background: "rgba(255,106,82,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🔑</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "var(--color-text-primary)" }}>{k.name}</div>
                   <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 2, fontFamily: "var(--font-mono)" }}>
@@ -4845,8 +4851,8 @@ function ApiPage() {
                     {k.last_used_at && <span style={{ marginLeft: 10 }}>Last used: {new Date(k.last_used_at).toLocaleDateString()}</span>}
                   </div>
                 </div>
-                <div style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.25)", color: "#22d3a8" }}>Active</div>
-                {isArchitect && <button onClick={() => handleRevoke(k.id, k.name)} style={{ height: 28, padding: "0 12px", borderRadius: 6, border: "1px solid rgba(248,113,113,0.25)", background: "rgba(248,113,113,0.06)", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Revoke</button>}
+                <div style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: "rgba(63,174,125,0.1)", border: "1px solid rgba(63,174,125,0.25)", color: "#3fae7d" }}>Active</div>
+                {isArchitect && <button onClick={() => handleRevoke(k.id, k.name)} style={{ height: 28, padding: "0 12px", borderRadius: 6, border: "1px solid rgba(255,77,94,0.25)", background: "rgba(255,77,94,0.06)", color: "#ff4d5e", fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Revoke</button>}
               </div>
             ))}
           </div>
@@ -4864,9 +4870,9 @@ function ApiPage() {
             <span style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{e.desc}</span>
           </div>
         ))}
-        <div style={{ marginTop: 4, padding: "14px 16px", borderRadius: 10, background: "rgba(79,142,247,0.05)", border: "1px solid rgba(79,142,247,0.12)", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.8 }}>
-          <strong style={{ color: "#3b82f6" }}>Example request:</strong><br />
-          <code style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#e8eaf6", wordBreak: "break-all", overflowWrap: "anywhere" }}>
+        <div style={{ marginTop: 4, padding: "14px 16px", borderRadius: 10, background: "rgba(255,106,82,0.05)", border: "1px solid rgba(255,106,82,0.12)", fontSize: 12, color: "var(--color-text-secondary)", lineHeight: 1.8 }}>
+          <strong style={{ color: "#ff6a52" }}>Example request:</strong><br />
+          <code style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#efe7df", wordBreak: "break-all", overflowWrap: "anywhere" }}>
             curl -X POST {BACKEND}/api/v1/tasks \<br />
             &nbsp;&nbsp;-H "X-API-Key: sk_live_..." \<br />
             &nbsp;&nbsp;-H "Content-Type: application/json" \<br />
@@ -4877,7 +4883,7 @@ function ApiPage() {
 
       {/* Full docs link */}
       <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-glass)", fontSize: 12, color: "var(--color-text-tertiary)" }}>
-        📄 Full interactive API docs available at <code style={{ color: "#3b82f6", fontFamily: "var(--font-mono)" }}>{BACKEND}/docs</code> (FastAPI Swagger UI — no auth needed).
+        📄 Full interactive API docs available at <code style={{ color: "#ff6a52", fontFamily: "var(--font-mono)" }}>{BACKEND}/docs</code> (FastAPI Swagger UI — no auth needed).
       </div>
     </main>
   );
@@ -4886,9 +4892,9 @@ function ApiPage() {
 // -- Feedback System (Segment 14) ---------------------------------------------
 
 const FEEDBACK_TYPES = [
-  { id: "bug",             label: "Bug Report",      emoji: "🐛", color: "#f43f5e", desc: "Something is broken or not working right" },
-  { id: "feedback",        label: "General Feedback", emoji: "💬", color: "#3b82f6", desc: "Share your thoughts or experience" },
-  { id: "feature_request", label: "Feature Request",  emoji: "✨", color: "#8b5cf6", desc: "Suggest a new feature or improvement" },
+  { id: "bug",             label: "Bug Report",      emoji: "🐛", color: "#ff4d5e", desc: "Something is broken or not working right" },
+  { id: "feedback",        label: "General Feedback", emoji: "💬", color: "#ff6a52", desc: "Share your thoughts or experience" },
+  { id: "feature_request", label: "Feature Request",  emoji: "✨", color: "#c81f30", desc: "Suggest a new feature or improvement" },
 ];
 
 const POSITIONS = ["Architect", "Navigator", "Operator", "Solo"];
@@ -4907,7 +4913,7 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
 
   const inputStyle = {
     width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#f1f3fc",
+    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#efe7df",
     fontSize: 13, outline: "none", boxSizing: "border-box",
   };
 
@@ -4948,7 +4954,7 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
 
       {/* Modal card */}
       <div style={{
-        position: "relative", pointerEvents: "all", width: "min(420px, calc(100vw - 16px))", background: "#0d1117",
+        position: "relative", pointerEvents: "all", width: "min(420px, calc(100vw - 16px))", background: "#0c0908",
         border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20,
         boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
         animation: "slideUpIn 0.3s cubic-bezier(0.34,1.56,0.64,1)",
@@ -4957,7 +4963,7 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
         {/* Header */}
         <div style={{ padding: "20px 24px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#f1f3fc", fontFamily: "var(--font-display)" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#efe7df", fontFamily: "var(--font-display)" }}>
               {step === "success" ? "🎉 Thanks!" : step === "form" ? `${selected?.emoji} ${selected?.label}` : "Share Feedback"}
             </div>
             <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
@@ -4983,7 +4989,7 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
                 >
                   <div style={{ width: 40, height: 40, borderRadius: 10, background: `${t.color}22`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{t.emoji}</div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 600, color: "#f1f3fc" }}>{t.label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: "#efe7df" }}>{t.label}</div>
                     <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>{t.desc}</div>
                   </div>
                   <div style={{ marginLeft: "auto", color: "var(--color-text-tertiary)", fontSize: 16 }}>→</div>
@@ -5011,12 +5017,12 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
                   <label style={{ fontSize: 12, color: "var(--color-text-secondary)", display: "block", marginBottom: 6 }}>Position *</label>
                   <select
                     value={position} onChange={e => setPosition(e.target.value)}
-                    style={{ ...inputStyle, appearance: "none", cursor: "pointer", color: position ? "#f1f3fc" : "var(--color-text-tertiary)" }}
+                    style={{ ...inputStyle, appearance: "none", cursor: "pointer", color: position ? "#efe7df" : "var(--color-text-tertiary)" }}
                     onFocus={e => e.target.style.borderColor = selected?.color}
                     onBlur={e => e.target.style.borderColor = "rgba(255,255,255,0.1)"}
                   >
                     <option value="" disabled>Select role…</option>
-                    {POSITIONS.map(p => <option key={p} value={p} style={{ background: "#0d1117", color: "#f1f3fc" }}>{p}</option>)}
+                    {POSITIONS.map(p => <option key={p} value={p} style={{ background: "#0c0908", color: "#efe7df" }}>{p}</option>)}
                   </select>
                 </div>
               </div>
@@ -5027,7 +5033,7 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
                   placeholder={type === "bug" ? "e.g. Compliance page shows blank screen" : type === "feature_request" ? "e.g. Export tasks to CSV" : "e.g. The dashboard feels very fast!"}
                   style={{
                     width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#f1f3fc",
+                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#efe7df",
                     fontSize: 13, outline: "none", boxSizing: "border-box",
                   }}
                   onFocus={e => e.target.style.borderColor = selected?.color}
@@ -5043,7 +5049,7 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
                   placeholder={type === "bug" ? "Steps to reproduce, what you expected vs what happened..." : type === "feature_request" ? "Describe the feature, why it would help, any examples..." : "Tell us what you think — good or bad!"}
                   style={{
                     width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#f1f3fc",
+                    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "#efe7df",
                     fontSize: 13, outline: "none", resize: "vertical", boxSizing: "border-box",
                     fontFamily: "var(--font-sans)",
                   }}
@@ -5056,12 +5062,12 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
                   📍 Page context will be attached: <strong style={{ color: "var(--color-text-secondary)" }}>{currentPage}</strong>
                 </div>
               )}
-              {error && <div style={{ fontSize: 12, color: "#f43f5e", padding: "8px 12px", background: "rgba(244,63,94,0.1)", borderRadius: 8 }}>{error}</div>}
+              {error && <div style={{ fontSize: 12, color: "#ff4d5e", padding: "8px 12px", background: "rgba(255,77,94,0.1)", borderRadius: 8 }}>{error}</div>}
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => { setStep("type"); setError(""); }} style={{ flex: 1, padding: "10px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, color: "var(--color-text-secondary)", cursor: "pointer", fontSize: 13 }}>← Back</button>
                 <button onClick={submit} disabled={loading} style={{
                   flex: 2, padding: "10px", background: selected ? `linear-gradient(135deg, ${selected.color}, ${selected.color}cc)` : "var(--grad-primary)",
-                  border: "none", borderRadius: 10, color: "#fff", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontSize: 13, opacity: loading ? 0.7 : 1,
+                  border: "none", borderRadius: 10, color: "#f5f0eb", fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", fontSize: 13, opacity: loading ? 0.7 : 1,
                 }}>
                   {loading ? "Sending…" : `Submit ${selected?.label}`}
                 </button>
@@ -5073,13 +5079,13 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
           {step === "success" && (
             <div style={{ textAlign: "center", padding: "10px 0 4px" }}>
               <div style={{ fontSize: 56, marginBottom: 16 }}>🎉</div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#f1f3fc", marginBottom: 8 }}>Feedback received!</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#efe7df", marginBottom: 8 }}>Feedback received!</div>
               <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 24 }}>
                 We read every submission and use it to make the product better. Thank you for taking the time!
               </div>
               <button onClick={onClose} style={{
                 padding: "10px 24px", background: "var(--grad-primary)", border: "none", borderRadius: 10,
-                color: "#fff", fontWeight: 600, cursor: "pointer", fontSize: 13,
+                color: "#f5f0eb", fontWeight: 600, cursor: "pointer", fontSize: 13,
               }}>Close</button>
             </div>
           )}
@@ -5102,15 +5108,15 @@ function FeedbackButton({ user, token, currentPage }) {
           position: "fixed", bottom: 24, right: 24, zIndex: 1000,
           display: "flex", alignItems: "center", gap: 8,
           padding: "11px 18px 11px 14px",
-          background: "linear-gradient(135deg, #3b82f6, #8b5cf6)",
+          background: "linear-gradient(135deg, #ff6a52, #c81f30)",
           border: "none", borderRadius: 50, cursor: "pointer",
-          boxShadow: "0 4px 20px rgba(59,130,246,0.45)",
-          color: "#fff", fontWeight: 600, fontSize: 13,
+          boxShadow: "0 4px 20px rgba(255,106,82,0.45)",
+          color: "#f5f0eb", fontWeight: 600, fontSize: 13,
           fontFamily: "var(--font-sans)",
           transition: "transform 0.15s, box-shadow 0.15s",
         }}
-        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 6px 28px rgba(59,130,246,0.6)"; }}
-        onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(59,130,246,0.45)"; }}
+        onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.05)"; e.currentTarget.style.boxShadow = "0 6px 28px rgba(255,106,82,0.6)"; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(255,106,82,0.45)"; }}
       >
         <span style={{ fontSize: 16 }}>💬</span>
         Feedback
@@ -5186,7 +5192,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
     return (
       <div>
         {error && (
-          <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171", fontSize: 12, marginBottom: 12 }}>
+          <div style={{ padding: "10px 14px", borderRadius: 8, background: "rgba(255,77,94,0.1)", border: "1px solid rgba(255,77,94,0.25)", color: "#ff4d5e", fontSize: 12, marginBottom: 12 }}>
             ⚠ {error}
           </div>
         )}
@@ -5195,15 +5201,15 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
           disabled={loading}
           style={{
             width: "100%", height: 52, borderRadius: 14, border: "none",
-            background: loading ? "rgba(79,142,247,0.5)" : "linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%)",
-            color: "#fff", fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 700,
+            background: loading ? "rgba(255,106,82,0.5)" : "linear-gradient(135deg, #ff6a52 0%, #c81f30 100%)",
+            color: "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 15, fontWeight: 700,
             cursor: loading ? "not-allowed" : "pointer", letterSpacing: "-0.01em",
-            boxShadow: "0 0 28px rgba(79,142,247,0.4), 0 8px 20px rgba(0,0,0,0.3)",
+            boxShadow: "0 0 28px rgba(255,106,82,0.4), 0 8px 20px rgba(0,0,0,0.3)",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
           }}
         >
           {loading
-            ? <><span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /> Redirecting to checkout…</>
+            ? <><span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#f5f0eb", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /> Redirecting to checkout…</>
             : "💳 Activate Free Trial →"
           }
         </button>
@@ -5219,7 +5225,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
       display: "flex", alignItems: "center", justifyContent: "center",
       fontFamily: "var(--font-sans)",
     }}>
-      <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(255,106,82,0.12) 0%, transparent 70%)", pointerEvents: "none" }} />
 
       <div style={{
         position: "relative", width: "100%", maxWidth: 480, margin: "0 24px",
@@ -5228,13 +5234,13 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
         boxShadow: "0 32px 100px rgba(0,0,0,0.8)", overflow: "hidden",
         animation: "slideUpIn 0.4s cubic-bezier(0.34,1.56,0.64,1)",
       }}>
-        <div style={{ height: 3, background: "linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899)" }} />
+        <div style={{ height: 3, background: "linear-gradient(90deg, #ff6a52, #c81f30, #ff4d6a)" }} />
 
         <div style={{ padding: "32px 36px 36px" }}>
-          <div style={{ width: 56, height: 56, borderRadius: 16, background: isNewUser ? "rgba(16,185,129,0.15)" : isPastDue ? "rgba(245,158,11,0.15)" : "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 20 }}>
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: isNewUser ? "rgba(63,174,125,0.15)" : isPastDue ? "rgba(217,154,63,0.15)" : "rgba(255,106,82,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 20 }}>
             {isNewUser ? "🎉" : isPastDue ? "⚠️" : isCancelled ? "🔒" : "🚀"}
           </div>
-          <div style={{ fontSize: 21, fontWeight: 700, color: "#f1f3fc", marginBottom: 8, fontFamily: "var(--font-display)" }}>
+          <div style={{ fontSize: 21, fontWeight: 700, color: "#efe7df", marginBottom: 8, fontFamily: "var(--font-display)" }}>
             {isNewUser ? "Start Your 7-Day Free Trial" : isPastDue ? "Payment Failed" : isCancelled ? "Subscription Ended" : "Your Free Trial Has Ended"}
           </div>
           <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.7, marginBottom: isCancelled ? 14 : 20 }}>
@@ -5247,17 +5253,17 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
               : "Your trial has ended. Subscribe to keep access to all your tasks and workflows."}
           </div>
           {isCancelled && (
-            <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.25)", marginBottom: 20 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#f87171", marginBottom: 5, display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,77,94,0.08)", border: "1px solid rgba(255,77,94,0.25)", marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#ff4d5e", marginBottom: 5, display: "flex", alignItems: "center", gap: 6 }}>
                 <span>🔒</span> Account Access Restricted
               </div>
-              <div style={{ fontSize: 12, color: "rgba(248,113,113,0.85)", lineHeight: 1.7 }}>
-                Following your cancellation, <strong style={{ color: "#f87171" }}>you cannot create a new account</strong> on this platform. To regain access, either resubscribe below or contact your workspace administrator to request management approval for reinstatement.
+              <div style={{ fontSize: 12, color: "rgba(255,77,94,0.85)", lineHeight: 1.7 }}>
+                Following your cancellation, <strong style={{ color: "#ff4d5e" }}>you cannot create a new account</strong> on this platform. To regain access, either resubscribe below or contact your workspace administrator to request management approval for reinstatement.
               </div>
             </div>
           )}
           {isNewUser && daysLeft !== undefined && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, padding: "10px 14px", borderRadius: 10, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: 13, color: "#10b981", fontWeight: 600 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, padding: "10px 14px", borderRadius: 10, background: "rgba(63,174,125,0.08)", border: "1px solid rgba(63,174,125,0.2)", fontSize: 13, color: "#3fae7d", fontWeight: 600 }}>
               <span>⏱</span>
               <span>Free trial: <strong>{daysLeft} day{daysLeft === 1 ? "" : "s"} remaining</strong> &mdash; no charge until it ends</span>
             </div>
@@ -5265,28 +5271,28 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
             {["Unlimited tasks & team members", "AI-powered task creation from Slack", "Compliance & ownership reports", "Cancel anytime, no commitment"].map(f => (
               <div key={f} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: "var(--color-text-secondary)" }}>
-                <div style={{ width: 18, height: 18, borderRadius: 5, background: "rgba(59,130,246,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, flexShrink: 0 }}>✓</div>
+                <div style={{ width: 18, height: 18, borderRadius: 5, background: "rgba(255,106,82,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, flexShrink: 0 }}>✓</div>
                 {f}
               </div>
             ))}
           </div>
-          <div style={{ padding: "14px 18px", background: isNewUser ? "rgba(16,185,129,0.08)" : "rgba(59,130,246,0.08)", border: isNewUser ? "1px solid rgba(16,185,129,0.2)" : "1px solid rgba(59,130,246,0.2)", borderRadius: 12, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ padding: "14px 18px", background: isNewUser ? "rgba(63,174,125,0.08)" : "rgba(255,106,82,0.08)", border: isNewUser ? "1px solid rgba(63,174,125,0.2)" : "1px solid rgba(255,106,82,0.2)", borderRadius: 12, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{isNewUser ? "Free for 7 days, then" : "Monthly subscription"}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#f1f3fc", marginTop: 2 }}>$20 <span style={{ fontSize: 13, fontWeight: 400, color: "var(--color-text-secondary)" }}>/ user / month</span></div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#efe7df", marginTop: 2 }}>$20 <span style={{ fontSize: 13, fontWeight: 400, color: "var(--color-text-secondary)" }}>/ user / month</span></div>
             </div>
-            <div style={{ fontSize: 11, color: isNewUser ? "#10b981" : "#22d3ee", background: isNewUser ? "rgba(16,185,129,0.1)" : "rgba(34,211,238,0.1)", padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>{isNewUser ? "7 days FREE" : "Cancel anytime"}</div>
+            <div style={{ fontSize: 11, color: isNewUser ? "#3fae7d" : "#d99a3f", background: isNewUser ? "rgba(63,174,125,0.1)" : "rgba(34,211,238,0.1)", padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>{isNewUser ? "7 days FREE" : "Cancel anytime"}</div>
           </div>
 
-          {error && <div style={{ fontSize: 12, color: "#f43f5e", padding: "8px 12px", background: "rgba(244,63,94,0.1)", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
+          {error && <div style={{ fontSize: 12, color: "#ff4d5e", padding: "8px 12px", background: "rgba(255,77,94,0.1)", borderRadius: 8, marginBottom: 12 }}>{error}</div>}
 
           <button
             onClick={goToCheckout}
             disabled={loading}
-            style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: loading ? "rgba(59,130,246,0.5)" : "linear-gradient(135deg, #3b82f6, #8b5cf6)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 4px 20px rgba(59,130,246,0.4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
+            style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: loading ? "rgba(255,106,82,0.5)" : "linear-gradient(135deg, #ff6a52, #c81f30)", color: "#f5f0eb", fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", boxShadow: loading ? "none" : "0 4px 20px rgba(255,106,82,0.4)", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
           >
             {loading
-              ? <><span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /> Redirecting to checkout…</>
+              ? <><span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#f5f0eb", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /> Redirecting to checkout…</>
               : isNewUser ? "Continue to Secure Checkout →" : isPastDue ? "Update Payment Method →" : "Subscribe Now →"
             }
           </button>
@@ -5418,7 +5424,7 @@ function AuthenticatedApp() {
   if (!billingChecked) {
     return (
       <div style={{ minHeight: "100vh", background: "var(--bg-page)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid rgba(59,130,246,0.2)", borderTopColor: "#3b82f6", animation: "spin 0.8s linear infinite" }} />
+        <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid rgba(255,106,82,0.2)", borderTopColor: "#ff6a52", animation: "spin 0.8s linear infinite" }} />
       </div>
     );
   }
@@ -5475,36 +5481,36 @@ function AuthenticatedApp() {
         }}>
           <div style={{
             width: "100%", maxWidth: 480,
-            background: "linear-gradient(160deg,#111526 0%,#0c0f1e 60%,#080a16 100%)",
-            border: "1px solid rgba(79,142,247,0.35)", borderRadius: 24,
+            background: "linear-gradient(160deg,#140806 0%,#120705 60%,#0a0403 100%)",
+            border: "1px solid rgba(255,106,82,0.35)", borderRadius: 24,
             padding: "36px 32px",
-            boxShadow: "0 40px 100px rgba(0,0,0,0.8), 0 0 60px rgba(79,142,247,0.08)",
+            boxShadow: "0 40px 100px rgba(0,0,0,0.8), 0 0 60px rgba(255,106,82,0.08)",
             textAlign: "center",
           }}>
             {/* Icon */}
             <div style={{
               width: 70, height: 70, borderRadius: 20, margin: "0 auto 20px",
-              background: "rgba(79,142,247,0.12)", border: "1.5px solid rgba(79,142,247,0.35)",
+              background: "rgba(255,106,82,0.12)", border: "1.5px solid rgba(255,106,82,0.35)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 30, boxShadow: "0 0 32px rgba(79,142,247,0.2)",
+              fontSize: 30, boxShadow: "0 0 32px rgba(255,106,82,0.2)",
             }}>🚀</div>
 
             {/* Heading */}
             <div style={{
               fontSize: 22, fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 10,
               fontFamily: "var(--font-display)",
-              background: "linear-gradient(135deg, #f0f2ff 0%, #a5b4fc 100%)",
+              background: "linear-gradient(135deg, #efe7df 0%, #ffb199 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
             }}>You are in! Activate your free trial</div>
 
             {/* Body */}
             <div style={{ fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.75, marginBottom: 20 }}>
-              You have full access to explore the dashboard. To keep using AI Workflow Coordinator after 7 days, add your card details below. <strong style={{ color: "#a5b4fc" }}>You will not be charged for 7 days.</strong>
+              You have full access to explore the dashboard. To keep using AI Workflow Coordinator after 7 days, add your card details below. <strong style={{ color: "#ffb199" }}>You will not be charged for 7 days.</strong>
             </div>
 
             {/* Feature bullets */}
             <div style={{
-              background: "rgba(79,142,247,0.06)", border: "1px solid rgba(79,142,247,0.18)",
+              background: "rgba(255,106,82,0.06)", border: "1px solid rgba(255,106,82,0.18)",
               borderRadius: 14, padding: "14px 18px", marginBottom: 24, textAlign: "left",
             }}>
               {[
@@ -5556,16 +5562,16 @@ function AuthenticatedApp() {
       {billing?.status === "trialing" && billing?.days_left !== undefined && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, zIndex: 9000,
-          background: billing.days_left === 0 ? "linear-gradient(90deg,#ef4444,#dc2626)" : "linear-gradient(90deg,#f59e0b,#d97706)",
+          background: billing.days_left === 0 ? "linear-gradient(90deg,#e5283a,#b3182a)" : "linear-gradient(90deg,#d99a3f,#b3711f)",
           padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap",
-          fontSize: 13, fontWeight: 600, color: "#fff",
+          fontSize: 13, fontWeight: 600, color: "#f5f0eb",
         }}>
           <span>⏰ {billing.days_left === 0 ? "Your free trial expires today!" : `Your free trial ends in ${billing.days_left} day${billing.days_left === 1 ? "" : "s"}!`}</span>
           <button onClick={async () => {
             const res = await fetch(`${BASE_URL}/billing/checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
             const d = await res.json();
             window.location.href = d.checkout_url;
-          }} style={{ padding: "5px 14px", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 8, color: "#fff", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
+          }} style={{ padding: "5px 14px", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 8, color: "#f5f0eb", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
             Subscribe Now →
           </button>
         </div>
@@ -5575,7 +5581,7 @@ function AuthenticatedApp() {
       {/* Subtle dot grid background */}
       <div style={{ position: "fixed", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "32px 32px", pointerEvents: "none", zIndex: 0 }} />
       {/* Ambient top glow */}
-      <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+      <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(255,106,82,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
 
       <Sidebar activeNav={activeNav} onNavChange={setActiveNav} navBadges={navBadges} />
       <div style={{ paddingLeft: winWidth < 900 ? 64 : (sidebarCollapsed ? 64 : 228), display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1, transition: "padding-left 0.25s cubic-bezier(0.4,0,0.2,1)", minWidth: 0, overflowX: "auto" }}>
@@ -5642,10 +5648,10 @@ function FreelancerDashboard() {
   };
 
   const CARDS = stats ? [
-    { label: "Total Referred",  value: stats.total,     color: "#3b82f6", icon: "👥", bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.25)" },
-    { label: "On Trial",        value: stats.trialing,  color: "#f59e0b", icon: "⏱",  bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)" },
-    { label: "Paid",            value: stats.paid,      color: "#22d3a8", icon: "💰", bg: "rgba(34,211,168,0.1)",  border: "rgba(34,211,168,0.25)" },
-    { label: "Cancelled",       value: stats.cancelled, color: "#f87171", icon: "✕",  bg: "rgba(248,113,113,0.1)", border: "rgba(248,113,113,0.25)" },
+    { label: "Total Referred",  value: stats.total,     color: "#ff6a52", icon: "👥", bg: "rgba(255,106,82,0.1)",  border: "rgba(255,106,82,0.25)" },
+    { label: "On Trial",        value: stats.trialing,  color: "#d99a3f", icon: "⏱",  bg: "rgba(217,154,63,0.1)",  border: "rgba(217,154,63,0.25)" },
+    { label: "Paid",            value: stats.paid,      color: "#3fae7d", icon: "💰", bg: "rgba(63,174,125,0.1)",  border: "rgba(63,174,125,0.25)" },
+    { label: "Cancelled",       value: stats.cancelled, color: "#ff4d5e", icon: "✕",  bg: "rgba(255,77,94,0.1)", border: "rgba(255,77,94,0.25)" },
   ] : [];
 
   const convRate = stats && stats.total > 0
@@ -5656,7 +5662,7 @@ function FreelancerDashboard() {
     <div style={{ minHeight: "100vh", background: "var(--bg-page)", fontFamily: "var(--font-sans)", position: "relative" }}>
       {/* Ambient background */}
       <div style={{ position: "fixed", inset: 0, backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)", backgroundSize: "32px 32px", pointerEvents: "none", zIndex: 0 }} />
-      <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(59,130,246,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
+      <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(255,106,82,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
 
       <div style={{ position: "relative", zIndex: 1, maxWidth: 860, margin: "0 auto", padding: "clamp(20px,4vw,48px) clamp(16px,3vw,32px)" }}>
 
@@ -5670,14 +5676,14 @@ function FreelancerDashboard() {
               Your referral dashboard — share your link and track every signup
             </div>
           </div>
-          <button onClick={logout} style={{ height: 36, padding: "0 16px", borderRadius: 8, border: "1px solid rgba(248,113,113,0.3)", background: "transparent", color: "#f87171", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+          <button onClick={logout} style={{ height: 36, padding: "0 16px", borderRadius: 8, border: "1px solid rgba(255,77,94,0.3)", background: "transparent", color: "#ff4d5e", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
             Sign Out
           </button>
         </div>
 
         {/* Error */}
         {error && (
-          <div style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.25)", color: "#f87171", fontSize: 13, marginBottom: 24 }}>
+          <div style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(255,77,94,0.1)", border: "1px solid rgba(255,77,94,0.25)", color: "#ff4d5e", fontSize: 13, marginBottom: 24 }}>
             ⚠ {error}
           </div>
         )}
@@ -5685,7 +5691,7 @@ function FreelancerDashboard() {
         {/* Loading */}
         {loading && (
           <div style={{ display: "flex", alignItems: "center", gap: 12, color: "var(--color-text-tertiary)", fontSize: 13, padding: "40px 0" }}>
-            <span style={{ width: 18, height: 18, border: "2px solid rgba(255,255,255,0.1)", borderTopColor: "#3b82f6", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
+            <span style={{ width: 18, height: 18, border: "2px solid rgba(255,255,255,0.1)", borderTopColor: "#ff6a52", borderRadius: "50%", display: "inline-block", animation: "spin 0.7s linear infinite" }} />
             Loading your stats…
           </div>
         )}
@@ -5693,25 +5699,25 @@ function FreelancerDashboard() {
         {!loading && stats && (
           <>
             {/* Referral link card */}
-            <div style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.1))", border: "1px solid rgba(59,130,246,0.25)", borderRadius: 18, padding: "24px 28px", marginBottom: 28 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#3b82f6", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
+            <div style={{ background: "linear-gradient(135deg, rgba(255,106,82,0.12), rgba(200,31,48,0.1))", border: "1px solid rgba(255,106,82,0.25)", borderRadius: 18, padding: "24px 28px", marginBottom: 28 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#ff6a52", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>
                 🔗 Your Unique Referral Link
               </div>
               <div style={{ fontSize: 13, color: "var(--color-text-tertiary)", marginBottom: 14, lineHeight: 1.6 }}>
                 Share this link. Every user who signs up through it is automatically counted under your name.
               </div>
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <div style={{ flex: 1, minWidth: 200, padding: "10px 14px", background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontFamily: "monospace", fontSize: 13, color: "#a5b4fc", letterSpacing: "0.02em", wordBreak: "break-all" }}>
+                <div style={{ flex: 1, minWidth: 200, padding: "10px 14px", background: "rgba(0,0,0,0.25)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontFamily: "monospace", fontSize: 13, color: "#ffb199", letterSpacing: "0.02em", wordBreak: "break-all" }}>
                   {stats.referral_link}
                 </div>
                 <button onClick={copyLink}
-                  style={{ height: 42, padding: "0 20px", borderRadius: 10, border: "none", background: copied ? "rgba(34,211,168,0.2)" : "linear-gradient(135deg,#3b82f6,#8b5cf6)", color: copied ? "#22d3a8" : "#fff", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s", border: copied ? "1px solid rgba(34,211,168,0.4)" : "none" }}>
+                  style={{ height: 42, padding: "0 20px", borderRadius: 10, border: "none", background: copied ? "rgba(63,174,125,0.2)" : "linear-gradient(135deg,#ff6a52,#c81f30)", color: copied ? "#3fae7d" : "#f5f0eb", fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s", border: copied ? "1px solid rgba(63,174,125,0.4)" : "none" }}>
                   {copied ? "✓ Copied!" : "Copy Link"}
                 </button>
               </div>
               <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>Your code:</span>
-                <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#a5b4fc", background: "rgba(99,102,241,0.15)", padding: "2px 10px", borderRadius: 6 }}>
+                <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 700, color: "#ffb199", background: "rgba(99,102,241,0.15)", padding: "2px 10px", borderRadius: 6 }}>
                   {stats.referral_code}
                 </span>
               </div>
@@ -5738,12 +5744,12 @@ function FreelancerDashboard() {
                 <div style={{ fontSize: 13, fontWeight: 700, color: "var(--color-text-primary)", fontFamily: "var(--font-display)" }}>
                   Trial → Paid Conversion
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: convRate >= 50 ? "#22d3a8" : convRate >= 25 ? "#f59e0b" : "#f87171", fontFamily: "var(--font-display)" }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: convRate >= 50 ? "#3fae7d" : convRate >= 25 ? "#d99a3f" : "#ff4d5e", fontFamily: "var(--font-display)" }}>
                   {convRate}%
                 </div>
               </div>
               <div style={{ height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 999, overflow: "hidden" }}>
-                <div style={{ height: "100%", width: `${convRate}%`, borderRadius: 999, background: convRate >= 50 ? "linear-gradient(90deg,#22d3a8,#0ea5e9)" : convRate >= 25 ? "linear-gradient(90deg,#f59e0b,#ef4444)" : "#f87171", transition: "width 0.8s ease" }} />
+                <div style={{ height: "100%", width: `${convRate}%`, borderRadius: 999, background: convRate >= 50 ? "linear-gradient(90deg,#3fae7d,#3fae7d)" : convRate >= 25 ? "linear-gradient(90deg,#d99a3f,#e5283a)" : "#ff4d5e", transition: "width 0.8s ease" }} />
               </div>
               <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 10 }}>
                 {stats.paid} paid out of {stats.total} total referrals
@@ -5787,36 +5793,36 @@ function InvitePage() {
   const containerStyle = {
     minHeight: "100vh", display: "flex", flexDirection: "column",
     alignItems: "center", justifyContent: "center",
-    background: "linear-gradient(135deg, #020812 0%, #040f1e 100%)",
+    background: "linear-gradient(135deg, #0a0302 0%, #160705 100%)",
     fontFamily: "'Share Tech Mono', monospace",
   };
 
   if (status === "loading") return (
     <div style={containerStyle}>
-      <div style={{ fontSize: 13, color: "rgba(0,229,255,0.5)", letterSpacing: "0.2em" }}>RESOLVING INVITE…</div>
+      <div style={{ fontSize: 13, color: "rgba(255,138,76,0.5)", letterSpacing: "0.2em" }}>RESOLVING INVITE…</div>
     </div>
   );
 
   if (status === "notfound") return (
     <div style={containerStyle}>
-      <div style={{ fontSize: 22, color: "#ff2d55", marginBottom: 12 }}>✕</div>
+      <div style={{ fontSize: 22, color: "#ff4d5e", marginBottom: 12 }}>✕</div>
       <div style={{ fontSize: 13, color: "rgba(255,45,85,0.8)", letterSpacing: "0.15em" }}>INVITE LINK NOT FOUND</div>
-      <a href="/" style={{ marginTop: 20, fontSize: 11, color: "rgba(0,229,255,0.5)", textDecoration: "none", letterSpacing: "0.1em" }}>← GO HOME</a>
+      <a href="/" style={{ marginTop: 20, fontSize: 11, color: "rgba(255,138,76,0.5)", textDecoration: "none", letterSpacing: "0.1em" }}>← GO HOME</a>
     </div>
   );
 
   return (
     <div style={containerStyle}>
-      <div style={{ textAlign: "center", padding: 40, border: "1px solid rgba(0,229,255,0.2)", borderRadius: 8, background: "rgba(0,229,255,0.03)", maxWidth: 360 }}>
+      <div style={{ textAlign: "center", padding: 40, border: "1px solid rgba(255,138,76,0.2)", borderRadius: 8, background: "rgba(255,138,76,0.03)", maxWidth: 360 }}>
         <div style={{ fontSize: 28, marginBottom: 10 }}>◈</div>
-        <div style={{ fontSize: 11, color: "rgba(0,229,255,0.4)", letterSpacing: "0.2em", marginBottom: 16 }}>YOU WERE INVITED BY</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: "#00e5ff", letterSpacing: "0.05em", marginBottom: 20, fontFamily: "'Orbitron', monospace" }}>{name}</div>
-        <div style={{ fontSize: 11, color: "rgba(0,229,255,0.5)", letterSpacing: "0.12em" }}>Redirecting to registration…</div>
-        <div style={{ marginTop: 16, height: 2, background: "rgba(0,229,255,0.1)", borderRadius: 1, overflow: "hidden" }}>
-          <div style={{ height: "100%", background: "#00e5ff", animation: "invite-progress 1.8s linear forwards" }} />
+        <div style={{ fontSize: 11, color: "rgba(255,138,76,0.4)", letterSpacing: "0.2em", marginBottom: 16 }}>YOU WERE INVITED BY</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: "#ff8a4c", letterSpacing: "0.05em", marginBottom: 20, fontFamily: "'Orbitron', monospace" }}>{name}</div>
+        <div style={{ fontSize: 11, color: "rgba(255,138,76,0.5)", letterSpacing: "0.12em" }}>Redirecting to registration…</div>
+        <div style={{ marginTop: 16, height: 2, background: "rgba(255,138,76,0.1)", borderRadius: 1, overflow: "hidden" }}>
+          <div style={{ height: "100%", background: "#ff8a4c", animation: "invite-progress 1.8s linear forwards" }} />
         </div>
         <style>{`@keyframes invite-progress { from { width: 0% } to { width: 100% } }`}</style>
-        <a href={`/?ref=${slug}`} style={{ display: "block", marginTop: 14, fontSize: 10, color: "rgba(0,229,255,0.3)", textDecoration: "none" }}>Click here if not redirected</a>
+        <a href={`/?ref=${slug}`} style={{ display: "block", marginTop: 14, fontSize: 10, color: "rgba(255,138,76,0.3)", textDecoration: "none" }}>Click here if not redirected</a>
       </div>
     </div>
   );
