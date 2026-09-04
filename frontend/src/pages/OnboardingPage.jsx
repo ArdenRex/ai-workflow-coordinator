@@ -13,7 +13,7 @@ const STYLES = `
 
   .ob-root {
     min-height: 100vh;
-    background: #0d0f1e;
+    background: #120705;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -28,7 +28,7 @@ const STYLES = `
     position: fixed;
     top: -200px; left: -200px;
     width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(79,142,247,0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(255,106,82,0.08) 0%, transparent 70%);
     pointer-events: none;
   }
 
@@ -37,7 +37,7 @@ const STYLES = `
     position: fixed;
     bottom: -200px; right: -200px;
     width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(123,92,240,0.07) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(200,31,48,0.07) 0%, transparent 70%);
     pointer-events: none;
   }
 
@@ -70,19 +70,19 @@ const STYLES = `
   .ob-logo-icon {
     width: 36px; height: 36px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%);
+    background: linear-gradient(135deg, #ff6a52 0%, #c81f30 100%);
     display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700; color: #fff;
-    box-shadow: 0 0 20px rgba(79,142,247,0.4);
+    font-size: 14px; font-weight: 700; color: #f5f0eb;
+    box-shadow: 0 0 20px rgba(255,106,82,0.4);
   }
 
   .ob-logo-text {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 16px; font-weight: 800;
-    color: #e8eaf6; letter-spacing: -0.02em;
+    color: #efe7df; letter-spacing: -0.02em;
   }
 
-  .ob-logo-sub { font-size: 11px; color: #555a80; margin-top: 1px; }
+  .ob-logo-sub { font-size: 11px; color: #6b6058; margin-top: 1px; }
 
   /* Progress bar */
   .ob-progress {
@@ -99,13 +99,13 @@ const STYLES = `
     flex: 1;
   }
 
-  .ob-step-dot.done    { background: linear-gradient(90deg, #4f8ef7, #7b5cf0); }
-  .ob-step-dot.active  { background: linear-gradient(90deg, #4f8ef7, #7b5cf0); opacity: 0.5; }
+  .ob-step-dot.done    { background: linear-gradient(90deg, #ff6a52, #c81f30); }
+  .ob-step-dot.active  { background: linear-gradient(90deg, #ff6a52, #c81f30); opacity: 0.5; }
   .ob-step-dot.pending { background: rgba(255,255,255,0.08); }
 
   .ob-step-label {
     font-size: 11px; font-weight: 600;
-    color: #555a80;
+    color: #6b6058;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     white-space: nowrap;
@@ -116,14 +116,14 @@ const STYLES = `
     font-size: 22px; font-weight: 800;
     letter-spacing: -0.03em;
     margin-bottom: 6px;
-    background: linear-gradient(135deg, #f0f2ff 0%, #a5b4fc 100%);
+    background: linear-gradient(135deg, #efe7df 0%, #ffb199 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .ob-subtitle {
-    font-size: 13px; color: #8b90b8;
+    font-size: 13px; color: #9a908a;
     margin-bottom: 28px; line-height: 1.5;
   }
 
@@ -148,15 +148,15 @@ const STYLES = `
   }
 
   .ob-role-card:hover {
-    border-color: rgba(79,142,247,0.3);
-    background: rgba(79,142,247,0.05);
+    border-color: rgba(255,106,82,0.3);
+    background: rgba(255,106,82,0.05);
     transform: translateY(-2px);
   }
 
   .ob-role-card.selected {
-    border-color: rgba(79,142,247,0.6);
-    background: rgba(79,142,247,0.1);
-    box-shadow: 0 0 20px rgba(79,142,247,0.15);
+    border-color: rgba(255,106,82,0.6);
+    background: rgba(255,106,82,0.1);
+    box-shadow: 0 0 20px rgba(255,106,82,0.15);
   }
 
   .ob-role-card.selected::before {
@@ -164,7 +164,7 @@ const STYLES = `
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 2px;
-    background: linear-gradient(90deg, #4f8ef7, #7b5cf0);
+    background: linear-gradient(90deg, #ff6a52, #c81f30);
   }
 
   .ob-role-emoji {
@@ -175,14 +175,14 @@ const STYLES = `
 
   .ob-role-name {
     font-size: 14px; font-weight: 700;
-    color: #e8eaf6;
+    color: #efe7df;
     margin-bottom: 4px;
     letter-spacing: -0.01em;
   }
 
   .ob-role-desc {
     font-size: 11px;
-    color: #8b90b8;
+    color: #9a908a;
     line-height: 1.4;
   }
 
@@ -191,7 +191,7 @@ const STYLES = `
     top: 10px; right: 10px;
     width: 18px; height: 18px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #4f8ef7, #7b5cf0);
+    background: linear-gradient(135deg, #ff6a52, #c81f30);
     display: flex; align-items: center; justify-content: center;
     opacity: 0;
     transition: opacity 0.2s;
@@ -222,19 +222,19 @@ const STYLES = `
   }
 
   .ob-toggle-btn.active {
-    background: linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%);
-    color: #fff;
-    box-shadow: 0 0 16px rgba(79,142,247,0.3);
+    background: linear-gradient(135deg, #ff6a52 0%, #c81f30 100%);
+    color: #f5f0eb;
+    box-shadow: 0 0 16px rgba(255,106,82,0.3);
   }
 
   .ob-toggle-btn.inactive {
     background: transparent;
-    color: #8b90b8;
+    color: #9a908a;
   }
 
   .ob-toggle-btn.inactive:hover {
     background: rgba(255,255,255,0.06);
-    color: #e8eaf6;
+    color: #efe7df;
   }
 
   /* Input */
@@ -243,7 +243,7 @@ const STYLES = `
   .ob-label {
     display: block;
     font-size: 12px; font-weight: 600;
-    color: #8b90b8;
+    color: #9a908a;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 8px;
@@ -257,22 +257,22 @@ const STYLES = `
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 10px;
     font-family: 'Inter', sans-serif;
-    font-size: 14px; color: #e8eaf6;
+    font-size: 14px; color: #efe7df;
     outline: none;
     transition: all 0.15s;
     box-sizing: border-box;
   }
 
   .ob-input:focus {
-    border-color: rgba(79,142,247,0.6);
-    background: rgba(79,142,247,0.07);
-    box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+    border-color: rgba(255,106,82,0.6);
+    background: rgba(255,106,82,0.07);
+    box-shadow: 0 0 0 3px rgba(255,106,82,0.12);
   }
 
-  .ob-input::placeholder { color: #555a80; }
+  .ob-input::placeholder { color: #6b6058; }
 
   .ob-hint {
-    font-size: 11px; color: #555a80;
+    font-size: 11px; color: #6b6058;
     margin-top: 6px; line-height: 1.4;
   }
 
@@ -289,7 +289,7 @@ const STYLES = `
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,0.1);
     background: rgba(255,255,255,0.04);
-    color: #8b90b8;
+    color: #9a908a;
     font-family: 'Inter', sans-serif;
     font-size: 14px; font-weight: 600;
     cursor: pointer;
@@ -299,7 +299,7 @@ const STYLES = `
 
   .ob-btn-back:hover {
     background: rgba(255,255,255,0.08);
-    color: #e8eaf6;
+    color: #efe7df;
   }
 
   .ob-btn-next {
@@ -307,13 +307,13 @@ const STYLES = `
     height: 46px;
     border-radius: 12px;
     border: none;
-    background: linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%);
-    color: #fff;
+    background: linear-gradient(135deg, #ff6a52 0%, #c81f30 100%);
+    color: #f5f0eb;
     font-family: 'Inter', sans-serif;
     font-size: 14px; font-weight: 600;
     cursor: pointer;
     transition: all 0.15s;
-    box-shadow: 0 0 24px rgba(79,142,247,0.35);
+    box-shadow: 0 0 24px rgba(255,106,82,0.35);
     display: flex; align-items: center; justify-content: center; gap: 8px;
   }
 
@@ -332,9 +332,9 @@ const STYLES = `
   .ob-error {
     padding: 12px 14px;
     border-radius: 10px;
-    background: rgba(248,113,113,0.1);
-    border: 1px solid rgba(248,113,113,0.25);
-    color: #f87171;
+    background: rgba(255,77,94,0.1);
+    border: 1px solid rgba(255,77,94,0.25);
+    color: #ff4d5e;
     font-size: 13px;
     margin-bottom: 16px;
   }
@@ -343,7 +343,7 @@ const STYLES = `
   .spinner {
     width: 16px; height: 16px;
     border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: #fff;
+    border-top-color: #f5f0eb;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
     flex-shrink: 0;
@@ -572,7 +572,7 @@ export default function OnboardingPage({ onComplete }) {
                   >
                     <div className="ob-role-badge">
                       <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                        <path d="M1 4l2.5 2.5L9 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M1 4l2.5 2.5L9 1" stroke="#f5f0eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </div>
                     <span className="ob-role-emoji">{role.emoji}</span>
