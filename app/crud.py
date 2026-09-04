@@ -6,7 +6,7 @@ All database read/write operations. Keeps business logic out of route handlers.
 
 import logging
 import secrets
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy import select, func
@@ -377,6 +377,52 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
         return None
     if not verify_password(password, user.password_hash):
         return None
+    return user
+
+
+# ── Forgot / reset password ───────────────────────────────────────────────────
+
+RESET_TOKEN_EXPIRE_MINUTES = 60
+
+
+def create_password_reset_token(db: Session, user: User) -> str:
+    """
+    Generates a fresh, URL-safe reset token for the user, stores its hash
+    expiry, and returns the raw token (to be emailed — never stored in plain
+    form anywhere else).
+    """
+    token = secrets.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expires = datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_EXPIRE_MINUTES)
+    db.commit()
+    db.refresh(user)
+    return token
+
+
+def get_user_by_reset_token(db: Session, token: str) -> Optional[User]:
+    """Returns the user for a still-valid (unexpired) reset token, else None."""
+    if not token:
+        return None
+    user = db.query(User).filter(User.reset_token == token).first()
+    if not user or not user.reset_token_expires:
+        return None
+
+    expires = user.reset_token_expires
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+
+    if expires < datetime.now(timezone.utc):
+        return None
+    return user
+
+
+def reset_password(db: Session, user: User, new_password: str) -> User:
+    """Sets a new password for the user and invalidates the reset token."""
+    user.password_hash = hash_password(new_password)
+    user.reset_token = None
+    user.reset_token_expires = None
+    db.commit()
+    db.refresh(user)
     return user
 
 
