@@ -5,7 +5,7 @@ const STYLES = `
 
   .legal-root {
     min-height: 100vh;
-    background: #0d0f1e;
+    background: #120705;
     font-family: 'Inter', system-ui, sans-serif;
     padding: clamp(24px, 4vw, 60px) clamp(16px, 4vw, 24px);
     position: relative;
@@ -17,7 +17,7 @@ const STYLES = `
     position: fixed;
     top: -200px; left: -200px;
     width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(79,142,247,0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(255,106,82,0.08) 0%, transparent 70%);
     pointer-events: none;
   }
 
@@ -26,7 +26,7 @@ const STYLES = `
     position: fixed;
     bottom: -200px; right: -200px;
     width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(123,92,240,0.07) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(200,31,48,0.07) 0%, transparent 70%);
     pointer-events: none;
   }
 
@@ -55,7 +55,7 @@ const STYLES = `
     gap: 8px;
     background: none;
     border: none;
-    color: #8b90b8;
+    color: #9a908a;
     font-family: 'Inter', sans-serif;
     font-size: 13px;
     font-weight: 500;
@@ -65,7 +65,7 @@ const STYLES = `
     transition: color 0.15s;
   }
 
-  .legal-back:hover { color: #e8eaf6; }
+  .legal-back:hover { color: #efe7df; }
 
   .legal-logo {
     display: flex;
@@ -77,23 +77,23 @@ const STYLES = `
   .legal-logo-icon {
     width: 36px; height: 36px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%);
+    background: linear-gradient(135deg, #ff6a52 0%, #c81f30 100%);
     display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700; color: #fff;
-    box-shadow: 0 0 20px rgba(79,142,247,0.4);
+    font-size: 14px; font-weight: 700; color: #f5f0eb;
+    box-shadow: 0 0 20px rgba(255,106,82,0.4);
     flex-shrink: 0;
   }
 
   .legal-logo-text {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 16px; font-weight: 800;
-    color: #e8eaf6;
+    color: #efe7df;
     letter-spacing: -0.02em;
   }
 
   .legal-logo-sub {
     font-size: 11px;
-    color: #555a80;
+    color: #6b6058;
     margin-top: 1px;
   }
 
@@ -101,7 +101,7 @@ const STYLES = `
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 28px; font-weight: 800;
     letter-spacing: -0.03em;
-    background: linear-gradient(135deg, #f0f2ff 0%, #a5b4fc 100%);
+    background: linear-gradient(135deg, #efe7df 0%, #ffb199 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -110,7 +110,7 @@ const STYLES = `
 
   .legal-updated {
     font-size: 12px;
-    color: #555a80;
+    color: #6b6058;
     margin-bottom: 32px;
   }
 
@@ -127,14 +127,14 @@ const STYLES = `
   .legal-h2 {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 15px; font-weight: 700;
-    color: #e8eaf6;
+    color: #efe7df;
     margin-bottom: 10px;
     letter-spacing: -0.01em;
   }
 
   .legal-p {
     font-size: 14px;
-    color: #8b90b8;
+    color: #9a908a;
     line-height: 1.75;
     margin-bottom: 10px;
   }
@@ -146,7 +146,7 @@ const STYLES = `
 
   .legal-ul li {
     font-size: 14px;
-    color: #8b90b8;
+    color: #9a908a;
     line-height: 1.75;
     padding-left: 18px;
     position: relative;
@@ -157,12 +157,12 @@ const STYLES = `
     content: '–';
     position: absolute;
     left: 0;
-    color: #4f8ef7;
+    color: #ff6a52;
   }
 
   .legal-highlight {
-    background: rgba(79,142,247,0.08);
-    border: 1px solid rgba(79,142,247,0.2);
+    background: rgba(255,106,82,0.08);
+    border: 1px solid rgba(255,106,82,0.2);
     border-radius: 12px;
     padding: 16px 18px;
     margin-bottom: 20px;
@@ -170,11 +170,11 @@ const STYLES = `
 
   .legal-highlight .legal-p {
     margin-bottom: 0;
-    color: #a5b4fc;
+    color: #ffb199;
   }
 
   .legal-link {
-    color: #4f8ef7;
+    color: #ff6a52;
     text-decoration: none;
   }
 
@@ -185,7 +185,7 @@ const STYLES = `
     padding-top: 24px;
     border-top: 1px solid rgba(255,255,255,0.07);
     font-size: 13px;
-    color: #555a80;
+    color: #6b6058;
     text-align: center;
   }
 
@@ -222,7 +222,7 @@ export default function RefundPage() {
           <div className="legal-section">
             <div className="legal-highlight">
               <p className="legal-p">
-                We offer a <strong style={{color:"#e8eaf6"}}>48-hour refund window</strong> from your first charge. If you are not satisfied after your free trial ends and are billed, contact us within 48 hours for a full refund — no questions asked.
+                We offer a <strong style={{color:"#efe7df"}}>48-hour refund window</strong> from your first charge. If you are not satisfied after your free trial ends and are billed, contact us within 48 hours for a full refund — no questions asked.
               </p>
             </div>
           </div>
