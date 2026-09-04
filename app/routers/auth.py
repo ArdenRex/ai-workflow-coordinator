@@ -6,6 +6,8 @@ Authentication endpoints.
 POST /auth/register          → Step 1: create account (email + password)
 POST /auth/onboarding        → Step 2+3: choose role + create/join workspace
 POST /auth/login             → Email + password login
+POST /auth/forgot-password   → Request a password reset email
+POST /auth/reset-password    → Reset password using the emailed token
 POST /auth/logout            → Clear refresh token cookie
 GET  /auth/me                → Get current logged-in user profile
 GET  /auth/slack/login       → Begin Slack OAuth login flow
@@ -34,13 +36,15 @@ from app.auth import (
 )
 from app.database import get_db
 from app.models import User, UserRole, FreelancerRequest, Freelancer
-from app.notifications import notify_new_signup
+from app.notifications import notify_new_signup, send_password_reset_email
 from app.schemas import (
+    ForgotPasswordRequest,
     LoginRequest,
     OnboardingRequest,
     OnboardingResponse,
     RegisterRequest,
     RegisterResponse,
+    ResetPasswordRequest,
     TokenResponse,
     UserResponse,
     WorkspaceResponse,
@@ -340,6 +344,67 @@ def login(
         role=role,
         user=UserResponse.model_validate(user),
     )
+
+
+# ── Forgot password ───────────────────────────────────────────────────────────
+
+@router.post(
+    "/forgot-password",
+    summary="Request a password reset email",
+)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Generates a reset token (valid 60 minutes) and emails a reset link to the
+    user. Always returns a generic success message, whether or not the email
+    is registered, so this endpoint can't be used to check which emails exist.
+    """
+    generic_message = {
+        "message": "If an account exists for that email, a password reset link has been sent."
+    }
+
+    user = crud.get_user_by_email(db, payload.email)
+    if not user or not user.password_hash:
+        # Unknown email, or a Slack-only account with no password to reset.
+        logger.info("Forgot-password requested for unknown/passwordless email=%s", payload.email)
+        return generic_message
+
+    token = crud.create_password_reset_token(db, user)
+    reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
+
+    sent = send_password_reset_email(user.name, user.email, reset_link)
+    if sent:
+        logger.info("Password reset email sent: user_id=%d", user.id)
+    else:
+        logger.error("Password reset email FAILED to send: user_id=%d", user.id)
+
+    return generic_message
+
+
+# ── Reset password ────────────────────────────────────────────────────────────
+
+@router.post(
+    "/reset-password",
+    summary="Reset password using the token emailed to the user",
+)
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Validates the reset token (unexpired) and sets the new password."""
+    user = crud.get_user_by_reset_token(db, payload.token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This reset link is invalid or has expired. Please request a new one.",
+        )
+
+    crud.reset_password(db, user, payload.new_password)
+    logger.info("Password reset successful: user_id=%d", user.id)
+
+    return {"message": "Your password has been reset. You can now log in."}
 
 
 # ── Logout ────────────────────────────────────────────────────────────────────
