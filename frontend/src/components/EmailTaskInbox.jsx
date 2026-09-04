@@ -41,8 +41,8 @@ export default function EmailTaskInbox() {
           padding:     "10px 20px",
           borderRadius: 8,
           border:      "none",
-          background:  "#2563eb",
-          color:       "#fff",
+          background:  "#c81f30",
+          color:       "#f5f0eb",
           fontSize:    14,
           fontWeight:  600,
           cursor:      "pointer",
@@ -54,8 +54,8 @@ export default function EmailTaskInbox() {
       >
         {/* Simple envelope icon */}
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 5h18a1 1 0 011 1v12a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z" stroke="#fff" strokeWidth="1.6"/>
-          <path d="M2.5 6.5l9.5 7 9.5-7" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M3 5h18a1 1 0 011 1v12a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z" stroke="#f5f0eb" strokeWidth="1.6"/>
+          <path d="M2.5 6.5l9.5 7 9.5-7" stroke="#f5f0eb" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
         {copied ? "Copied!" : TASK_EMAIL}
       </button>
