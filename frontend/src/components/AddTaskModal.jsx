@@ -36,7 +36,7 @@ export default function AddTaskModal({ onClose, onAdd }) {
   }
 
   const PRIORITY_COLORS = {
-    critical: "#f87171", high: "#fb923c", medium: "#4f8ef7", low: "#22d3a8"
+    critical: "#ff4d5e", high: "#c9702e", medium: "#ff6a52", low: "#3fae7d"
   };
 
   return (
@@ -52,10 +52,10 @@ export default function AddTaskModal({ onClose, onAdd }) {
     >
       <div style={{
         width: "100%", maxWidth: 540,
-        background: "#14183a",
+        background: "#190a07",
         border: "1px solid rgba(255,255,255,0.14)",
         borderRadius: 20, padding: "28px",
-        boxShadow: "0 24px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(79,142,247,0.12)",
+        boxShadow: "0 24px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,106,82,0.12)",
         display: "flex", flexDirection: "column", gap: 18,
       }}>
         {/* Header */}
@@ -98,7 +98,7 @@ export default function AddTaskModal({ onClose, onAdd }) {
                   fontFamily: "var(--font-sans, sans-serif)",
                   transition: "all 0.15s",
                 }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(79,142,247,0.08)"; e.currentTarget.style.borderColor = "rgba(79,142,247,0.3)"; e.currentTarget.style.color = "var(--color-text-primary)"; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,106,82,0.08)"; e.currentTarget.style.borderColor = "rgba(255,106,82,0.3)"; e.currentTarget.style.color = "var(--color-text-primary)"; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}
                 >{ex}</button>
               ))}
@@ -126,12 +126,12 @@ export default function AddTaskModal({ onClose, onAdd }) {
                 outline: "none", boxSizing: "border-box",
                 transition: "border-color 0.15s, box-shadow 0.15s",
               }}
-              onFocus={e => { e.target.style.borderColor = "rgba(79,142,247,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.1)"; }}
+              onFocus={e => { e.target.style.borderColor = "rgba(255,106,82,0.5)"; e.target.style.boxShadow = "0 0 0 3px rgba(255,106,82,0.1)"; }}
               onBlur={e => { e.target.style.borderColor = "rgba(255,255,255,0.1)"; e.target.style.boxShadow = "none"; }}
             />
 
             {error && (
-              <p style={{ margin: 0, fontSize: 12, color: "#f87171", padding: "8px 12px", background: "rgba(248,113,113,0.08)", borderRadius: 8, border: "1px solid rgba(248,113,113,0.2)" }}>
+              <p style={{ margin: 0, fontSize: 12, color: "#ff4d5e", padding: "8px 12px", background: "rgba(255,77,94,0.08)", borderRadius: 8, border: "1px solid rgba(255,77,94,0.2)" }}>
                 ⚠ {error}
               </p>
             )}
@@ -152,16 +152,16 @@ export default function AddTaskModal({ onClose, onAdd }) {
               <button onClick={handleSubmit} disabled={!message.trim() || loading} style={{
                 padding: "9px 22px", fontSize: 13, fontWeight: 600, cursor: message.trim() && !loading ? "pointer" : "not-allowed",
                 border: "none", borderRadius: 999,
-                background: message.trim() && !loading ? "linear-gradient(135deg,#4f8ef7,#7b5cf0)" : "rgba(255,255,255,0.07)",
-                color: message.trim() && !loading ? "#fff" : "var(--color-text-tertiary)",
+                background: message.trim() && !loading ? "linear-gradient(135deg,#ff6a52,#c81f30)" : "rgba(255,255,255,0.07)",
+                color: message.trim() && !loading ? "#f5f0eb" : "var(--color-text-tertiary)",
                 fontFamily: "var(--font-sans, sans-serif)",
-                boxShadow: message.trim() && !loading ? "0 0 20px rgba(79,142,247,0.35)" : "none",
+                boxShadow: message.trim() && !loading ? "0 0 20px rgba(255,106,82,0.35)" : "none",
                 transition: "all 0.15s",
                 display: "flex", alignItems: "center", gap: 8,
               }}>
                 {loading ? (
                   <>
-                    <span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.25)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                    <span style={{ width: 14, height: 14, border: "2px solid rgba(255,255,255,0.25)", borderTopColor: "#f5f0eb", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
                     Extracting…
                   </>
                 ) : "Extract & Save"}
@@ -173,8 +173,8 @@ export default function AddTaskModal({ onClose, onAdd }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div style={{
               padding: "12px 16px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-              background: "rgba(34,211,168,0.1)", border: "1px solid rgba(34,211,168,0.25)",
-              color: "#22d3a8", display: "flex", alignItems: "center", gap: 8,
+              background: "rgba(63,174,125,0.1)", border: "1px solid rgba(63,174,125,0.25)",
+              color: "#3fae7d", display: "flex", alignItems: "center", gap: 8,
             }}>
               <span>✓</span> Task #{result.task.id} created successfully
             </div>
@@ -190,7 +190,7 @@ export default function AddTaskModal({ onClose, onAdd }) {
                   <span style={{ color: "var(--color-text-tertiary)", flexShrink: 0, fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", paddingTop: 1 }}>{label}</span>
                   <span style={{
                     fontWeight: 600, textAlign: "right", maxWidth: "70%",
-                    color: label === "Priority" ? (PRIORITY_COLORS[val] || "#4f8ef7") : "var(--color-text-primary)",
+                    color: label === "Priority" ? (PRIORITY_COLORS[val] || "#ff6a52") : "var(--color-text-primary)",
                   }}>{val}</span>
                 </div>
               ))}
@@ -199,9 +199,9 @@ export default function AddTaskModal({ onClose, onAdd }) {
             <button onClick={onClose} style={{
               padding: "10px", fontSize: 13, fontWeight: 600, cursor: "pointer",
               border: "none", borderRadius: 999,
-              background: "linear-gradient(135deg,#4f8ef7,#7b5cf0)",
-              color: "#fff", fontFamily: "var(--font-sans, sans-serif)",
-              boxShadow: "0 0 16px rgba(79,142,247,0.35)",
+              background: "linear-gradient(135deg,#ff6a52,#c81f30)",
+              color: "#f5f0eb", fontFamily: "var(--font-sans, sans-serif)",
+              boxShadow: "0 0 16px rgba(255,106,82,0.35)",
             }}>Done</button>
           </div>
         )}
