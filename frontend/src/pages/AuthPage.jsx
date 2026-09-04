@@ -11,7 +11,7 @@ const STYLES = `
 
   .auth-root {
     min-height: 100vh;
-    background: #0d0f1e;
+    background: #120705;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -28,7 +28,7 @@ const STYLES = `
     position: fixed;
     top: -200px; left: -200px;
     width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(79,142,247,0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(255,106,82,0.08) 0%, transparent 70%);
     pointer-events: none;
   }
   .auth-root::after {
@@ -36,7 +36,7 @@ const STYLES = `
     position: fixed;
     bottom: -200px; right: -200px;
     width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(123,92,240,0.07) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(200,31,48,0.07) 0%, transparent 70%);
     pointer-events: none;
   }
 
@@ -69,33 +69,33 @@ const STYLES = `
   .auth-logo-icon {
     width: 36px; height: 36px;
     border-radius: 10px;
-    background: linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%);
+    background: linear-gradient(135deg, #ff6a52 0%, #c81f30 100%);
     display: flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700; color: #fff;
-    box-shadow: 0 0 20px rgba(79,142,247,0.4);
+    font-size: 14px; font-weight: 700; color: #f5f0eb;
+    box-shadow: 0 0 20px rgba(255,106,82,0.4);
     flex-shrink: 0;
   }
 
   .auth-logo-text {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 16px; font-weight: 800;
-    color: #e8eaf6;
+    color: #efe7df;
     letter-spacing: -0.02em;
   }
 
   .auth-logo-sub {
     font-size: 11px;
-    color: #555a80;
+    color: #6b6058;
     margin-top: 1px;
   }
 
   .auth-title {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 24px; font-weight: 800;
-    color: #e8eaf6;
+    color: #efe7df;
     letter-spacing: -0.03em;
     margin-bottom: 6px;
-    background: linear-gradient(135deg, #f0f2ff 0%, #a5b4fc 100%);
+    background: linear-gradient(135deg, #efe7df 0%, #ffb199 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -103,7 +103,7 @@ const STYLES = `
 
   .auth-subtitle {
     font-size: 13px;
-    color: #8b90b8;
+    color: #9a908a;
     margin-bottom: 28px;
     line-height: 1.5;
   }
@@ -131,19 +131,19 @@ const STYLES = `
   }
 
   .auth-tab.active {
-    background: linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%);
-    color: #fff;
-    box-shadow: 0 0 16px rgba(79,142,247,0.35);
+    background: linear-gradient(135deg, #ff6a52 0%, #c81f30 100%);
+    color: #f5f0eb;
+    box-shadow: 0 0 16px rgba(255,106,82,0.35);
   }
 
   .auth-tab.inactive {
     background: transparent;
-    color: #8b90b8;
+    color: #9a908a;
   }
 
   .auth-tab.inactive:hover {
     background: rgba(255,255,255,0.06);
-    color: #e8eaf6;
+    color: #efe7df;
   }
 
   /* Form fields */
@@ -154,7 +154,7 @@ const STYLES = `
   .auth-label {
     display: block;
     font-size: 12px; font-weight: 600;
-    color: #8b90b8;
+    color: #9a908a;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 8px;
@@ -169,19 +169,19 @@ const STYLES = `
     border-radius: 10px;
     font-family: 'Inter', sans-serif;
     font-size: 14px;
-    color: #e8eaf6;
+    color: #efe7df;
     outline: none;
     transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
     box-sizing: border-box;
   }
 
   .auth-input:focus {
-    border-color: rgba(79,142,247,0.6);
-    background: rgba(79,142,247,0.07);
-    box-shadow: 0 0 0 3px rgba(79,142,247,0.12);
+    border-color: rgba(255,106,82,0.6);
+    background: rgba(255,106,82,0.07);
+    box-shadow: 0 0 0 3px rgba(255,106,82,0.12);
   }
 
-  .auth-input::placeholder { color: #555a80; }
+  .auth-input::placeholder { color: #6b6058; }
 
   /* Remember me row */
   .auth-remember {
@@ -205,14 +205,14 @@ const STYLES = `
   }
 
   .auth-checkbox.checked {
-    background: linear-gradient(135deg, #4f8ef7, #7b5cf0);
+    background: linear-gradient(135deg, #ff6a52, #c81f30);
     border-color: transparent;
-    box-shadow: 0 0 10px rgba(79,142,247,0.4);
+    box-shadow: 0 0 10px rgba(255,106,82,0.4);
   }
 
   .auth-remember-label {
     font-size: 13px;
-    color: #8b90b8;
+    color: #9a908a;
   }
 
   /* Primary button */
@@ -221,13 +221,13 @@ const STYLES = `
     height: 46px;
     border-radius: 12px;
     border: none;
-    background: linear-gradient(135deg, #4f8ef7 0%, #7b5cf0 100%);
-    color: #fff;
+    background: linear-gradient(135deg, #ff6a52 0%, #c81f30 100%);
+    color: #f5f0eb;
     font-family: 'Inter', sans-serif;
     font-size: 14px; font-weight: 600;
     cursor: pointer;
     transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
-    box-shadow: 0 0 24px rgba(79,142,247,0.35);
+    box-shadow: 0 0 24px rgba(255,106,82,0.35);
     margin-bottom: 16px;
     display: flex; align-items: center; justify-content: center; gap: 8px;
   }
@@ -235,7 +235,7 @@ const STYLES = `
   .auth-btn:hover:not(:disabled) {
     opacity: 0.9;
     transform: translateY(-1px);
-    box-shadow: 0 4px 32px rgba(79,142,247,0.45);
+    box-shadow: 0 4px 32px rgba(255,106,82,0.45);
   }
 
   .auth-btn:disabled {
@@ -250,7 +250,7 @@ const STYLES = `
     align-items: center;
     gap: 12px;
     margin-bottom: 16px;
-    color: #555a80;
+    color: #6b6058;
     font-size: 12px;
   }
 
@@ -269,7 +269,7 @@ const STYLES = `
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,0.1);
     background: rgba(74,21,75,0.25);
-    color: #e8eaf6;
+    color: #efe7df;
     font-family: 'Inter', sans-serif;
     font-size: 14px; font-weight: 600;
     cursor: pointer;
@@ -287,9 +287,9 @@ const STYLES = `
   .auth-error {
     padding: 12px 14px;
     border-radius: 10px;
-    background: rgba(248,113,113,0.1);
-    border: 1px solid rgba(248,113,113,0.25);
-    color: #f87171;
+    background: rgba(255,77,94,0.1);
+    border: 1px solid rgba(255,77,94,0.25);
+    color: #ff4d5e;
     font-size: 13px;
     margin-bottom: 16px;
     animation: shake 0.3s ease;
@@ -360,7 +360,7 @@ const STYLES = `
   }
 
   .auth-footer a {
-    color: #7c84a8;
+    color: #8a8078;
     text-decoration: none;
     padding: 4px 12px;
     border-radius: 20px;
@@ -370,7 +370,7 @@ const STYLES = `
   }
 
   .auth-footer a:hover {
-    color: #c4b5fd;
+    color: #ffb199;
     border-color: rgba(139, 92, 246, 0.45);
     background: rgba(139, 92, 246, 0.1);
     box-shadow:
@@ -391,9 +391,9 @@ const STYLES = `
   .auth-success {
     padding: 12px 14px;
     border-radius: 10px;
-    background: rgba(34,211,168,0.1);
-    border: 1px solid rgba(34,211,168,0.25);
-    color: #22d3a8;
+    background: rgba(63,174,125,0.1);
+    border: 1px solid rgba(63,174,125,0.25);
+    color: #3fae7d;
     font-size: 13px;
     margin-bottom: 16px;
   }
@@ -403,7 +403,7 @@ const STYLES = `
   .spinner {
     width: 16px; height: 16px;
     border: 2px solid rgba(255,255,255,0.3);
-    border-top-color: #fff;
+    border-top-color: #f5f0eb;
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
     flex-shrink: 0;
@@ -571,7 +571,7 @@ export default function AuthPage({ onAuthSuccess }) {
               <div className={`auth-checkbox ${rememberMe ? "checked" : ""}`}>
                 {rememberMe && (
                   <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
-                    <path d="M1 4l2.5 2.5L9 1" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M1 4l2.5 2.5L9 1" stroke="#f5f0eb" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 )}
               </div>
