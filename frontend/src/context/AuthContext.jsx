@@ -250,6 +250,28 @@ export function AuthProvider({ children }) {
     window.location.href = `${BASE}/auth/slack/login`;
   }, []);
 
+  const forgotPassword = useCallback(async ({ email }) => {
+    setError(null);
+    const res = await apiFetch("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(extractErrorDetail(data, "Could not send reset email."));
+    return data; // { message }
+  }, []);
+
+  const resetPassword = useCallback(async ({ token, newPassword }) => {
+    setError(null);
+    const res = await apiFetch("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(extractErrorDetail(data, "Could not reset password."));
+    return data; // { message }
+  }, []);
+
   // ── Role helpers ───────────────────────────────────────────────────────────
   const isArchitect = user?.role === "architect";
   const isNavigator = user?.role === "navigator";
@@ -275,6 +297,8 @@ export function AuthProvider({ children }) {
       logout,
       loginWithSlack,
       completeOnboarding,
+      forgotPassword,
+      resetPassword,
     }}>
       {children}
     </AuthContext.Provider>
