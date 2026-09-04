@@ -4,6 +4,7 @@
 
 import { useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
+import PasswordInput from "../components/PasswordInput";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const STYLES = `
@@ -295,6 +296,44 @@ const STYLES = `
     animation: shake 0.3s ease;
   }
 
+  /* Forgot password link */
+  .auth-forgot-link {
+    display: block;
+    text-align: right;
+    font-size: 12px;
+    color: #9a908a;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin: 8px 0 20px;
+    font-family: 'Inter', sans-serif;
+    transition: color 0.15s;
+  }
+
+  .auth-forgot-link:hover {
+    color: #ffb199;
+  }
+
+  .auth-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #9a908a;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-bottom: 20px;
+    font-family: 'Inter', sans-serif;
+    transition: color 0.15s;
+  }
+
+  .auth-back-link:hover {
+    color: #ffb199;
+  }
+
 
   @media (max-width: 768px) {
     .auth-card { border-radius: 20px; }
@@ -424,9 +463,9 @@ function SlackLogo() {
 
 // ── Auth Page ─────────────────────────────────────────────────────────────────
 export default function AuthPage({ onAuthSuccess }) {
-  const { login, register, loginWithSlack } = useAuth();
+  const { login, register, loginWithSlack, forgotPassword } = useAuth();
 
-  const [tab, setTab]               = useState("login");  // "login" | "register"
+  const [tab, setTab]               = useState("login");  // "login" | "register" | "forgot"
   const [name, setName]             = useState("");
   const [email, setEmail]           = useState("");
   const [password, setPassword]     = useState("");
@@ -447,7 +486,10 @@ export default function AuthPage({ onAuthSuccess }) {
     setLoading(true);
 
     try {
-      if (tab === "login") {
+      if (tab === "forgot") {
+        await forgotPassword({ email });
+        setSuccess("If an account exists for that email, a reset link is on its way. Check your inbox.");
+      } else if (tab === "login") {
         const data = await login({ email, password, rememberMe });
         onAuthSuccess(data.user);
       } else {
@@ -462,7 +504,7 @@ export default function AuthPage({ onAuthSuccess }) {
     } finally {
       setLoading(false);
     }
-  }, [tab, name, email, password, rememberMe, login, register, onAuthSuccess]);
+  }, [tab, name, email, password, rememberMe, login, register, forgotPassword, onAuthSuccess]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") handleSubmit();
@@ -485,29 +527,43 @@ export default function AuthPage({ onAuthSuccess }) {
 
           {/* Title */}
           <div className="auth-title">
-            {tab === "login" ? "Welcome back" : "Create your account"}
+            {tab === "login" ? "Welcome back" : tab === "register" ? "Create your account" : "Reset your password"}
           </div>
           <div className="auth-subtitle">
             {tab === "login"
               ? "Sign in to access your personal dashboard."
-              : "Join AI Workflow Coordinator and manage your tasks smarter."}
+              : tab === "register"
+              ? "Join AI Workflow Coordinator and manage your tasks smarter."
+              : "Enter your email and we'll send you a link to reset your password."}
           </div>
 
-          {/* Tab switcher */}
-          <div className="auth-tabs" role="tablist">
-            <button
-              role="tab"
-              aria-selected={tab === "login"}
-              className={`auth-tab ${tab === "login" ? "active" : "inactive"}`}
-              onClick={() => switchTab("login")}
-            >Sign In</button>
-            <button
-              role="tab"
-              aria-selected={tab === "register"}
-              className={`auth-tab ${tab === "register" ? "active" : "inactive"}`}
-              onClick={() => switchTab("register")}
-            >Create Account</button>
-          </div>
+          {/* Tab switcher (hidden on the forgot-password screen) */}
+          {tab !== "forgot" && (
+            <div className="auth-tabs" role="tablist">
+              <button
+                role="tab"
+                aria-selected={tab === "login"}
+                className={`auth-tab ${tab === "login" ? "active" : "inactive"}`}
+                onClick={() => switchTab("login")}
+              >Sign In</button>
+              <button
+                role="tab"
+                aria-selected={tab === "register"}
+                className={`auth-tab ${tab === "register" ? "active" : "inactive"}`}
+                onClick={() => switchTab("register")}
+              >Create Account</button>
+            </div>
+          )}
+
+          {/* Back link (forgot-password screen only) */}
+          {tab === "forgot" && (
+            <button className="auth-back-link" onClick={() => switchTab("login")}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+              Back to Sign In
+            </button>
+          )}
 
           {/* Error / Success banners */}
           {error   && <div className="auth-error"   role="alert">⚠ {error}</div>}
@@ -543,19 +599,26 @@ export default function AuthPage({ onAuthSuccess }) {
             />
           </div>
 
-          {/* Password */}
-          <div className="auth-field" style={{ marginBottom: tab === "login" ? 0 : 16 }}>
-            <label className="auth-label">Password</label>
-            <input
-              className="auth-input"
-              type="password"
-              placeholder={tab === "register" ? "Min. 8 characters" : "••••••••"}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              onKeyDown={handleKeyDown}
-              autoComplete={tab === "login" ? "current-password" : "new-password"}
-            />
-          </div>
+          {/* Password (login / register only — not shown on forgot-password) */}
+          {tab !== "forgot" && (
+            <div className="auth-field" style={{ marginBottom: tab === "login" ? 0 : 16 }}>
+              <label className="auth-label">Password</label>
+              <PasswordInput
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={tab === "register" ? "Min. 8 characters" : "••••••••"}
+                autoComplete={tab === "login" ? "current-password" : "new-password"}
+              />
+            </div>
+          )}
+
+          {/* Forgot password link (login only) */}
+          {tab === "login" && (
+            <button className="auth-forgot-link" onClick={() => switchTab("forgot")}>
+              Forgot password?
+            </button>
+          )}
 
           {/* Remember Me (login only) */}
           {tab === "login" && (
@@ -566,7 +629,6 @@ export default function AuthPage({ onAuthSuccess }) {
               aria-checked={rememberMe}
               tabIndex={0}
               onKeyDown={e => e.key === " " && setRememberMe(v => !v)}
-              style={{ marginTop: 16 }}
             >
               <div className={`auth-checkbox ${rememberMe ? "checked" : ""}`}>
                 {rememberMe && (
@@ -589,19 +651,21 @@ export default function AuthPage({ onAuthSuccess }) {
             style={{ marginTop: tab === "register" ? 8 : 0 }}
           >
             {loading
-              ? <><div className="spinner" />{tab === "login" ? "Signing in…" : "Creating account…"}</>
-              : tab === "login" ? "Sign In" : "Create Account"
+              ? <><div className="spinner" />{tab === "login" ? "Signing in…" : tab === "register" ? "Creating account…" : "Sending reset link…"}</>
+              : tab === "login" ? "Sign In" : tab === "register" ? "Create Account" : "Send Reset Link"
             }
           </button>
 
-          {/* Divider */}
-          <div className="auth-divider">or continue with</div>
-
-          {/* Slack OAuth */}
-          <button className="auth-slack-btn" onClick={loginWithSlack}>
-            <SlackLogo />
-            Continue with Slack
-          </button>
+          {/* Divider + Slack (hidden on forgot-password screen) */}
+          {tab !== "forgot" && (
+            <>
+              <div className="auth-divider">or continue with</div>
+              <button className="auth-slack-btn" onClick={loginWithSlack}>
+                <SlackLogo />
+                Continue with Slack
+              </button>
+            </>
+          )}
 
         </div>
 
