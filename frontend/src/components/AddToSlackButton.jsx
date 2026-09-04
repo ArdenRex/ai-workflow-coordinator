@@ -37,7 +37,7 @@ export default function AddToSlackButton() {
           borderRadius: 8,
           border:      "none",
           background:  "#4A154B",
-          color:       "#fff",
+          color:       "#f5f0eb",
           fontSize:    14,
           fontWeight:  600,
           cursor:      "pointer",
@@ -58,17 +58,17 @@ export default function AddToSlackButton() {
       </button>
 
       {status === "success" && (
-        <div style={{ fontSize: 13, color: "#22d3a8", fontWeight: 600 }}>
+        <div style={{ fontSize: 13, color: "#3fae7d", fontWeight: 600 }}>
           ✅ Slack connected! The bot is now installed in your workspace.
         </div>
       )}
       {status === "cancelled" && (
-        <div style={{ fontSize: 13, color: "#f87171" }}>
+        <div style={{ fontSize: 13, color: "#ff4d5e" }}>
           ❌ Installation cancelled.
         </div>
       )}
       {status === "error" && (
-        <div style={{ fontSize: 13, color: "#f87171" }}>
+        <div style={{ fontSize: 13, color: "#ff4d5e" }}>
           ⚠️ Something went wrong. Please try again.
         </div>
       )}
