@@ -16,10 +16,10 @@ function formatDeadline(raw, timezone) {
 }
 
 const PRIORITY_CONFIG = {
-  critical: { label: "critical", bg: "rgba(248,113,113,0.14)", color: "#f87171", dot: "#ef4444", border: "rgba(239,68,68,0.25)"  },
-  high:     { label: "high",     bg: "rgba(251,146,60,0.14)",  color: "#fb923c", dot: "#f97316", border: "rgba(249,115,22,0.25)" },
-  medium:   { label: "medium",   bg: "rgba(79,142,247,0.14)",  color: "#4f8ef7", dot: "#3b82f6", border: "rgba(59,130,246,0.25)" },
-  low:      { label: "low",      bg: "rgba(34,211,168,0.14)",  color: "#22d3a8", dot: "#10b981", border: "rgba(16,185,129,0.25)" },
+  critical: { label: "critical", bg: "rgba(255,77,94,0.14)", color: "#ff4d5e", dot: "#e5283a", border: "rgba(229,40,58,0.25)"  },
+  high:     { label: "high",     bg: "rgba(201,112,46,0.14)",  color: "#c9702e", dot: "#c9702e", border: "rgba(201,112,46,0.25)" },
+  medium:   { label: "medium",   bg: "rgba(255,106,82,0.14)",  color: "#ff6a52", dot: "#ff6a52", border: "rgba(255,106,82,0.25)" },
+  low:      { label: "low",      bg: "rgba(63,174,125,0.14)",  color: "#3fae7d", dot: "#3fae7d", border: "rgba(63,174,125,0.25)" },
 };
 
 // Matches actual backend status values from models.py
@@ -36,11 +36,11 @@ function getInitials(name) {
 }
 
 const AVATAR_COLORS = [
-  { bg: "rgba(79,142,247,0.2)",  color: "#4f8ef7"  },
-  { bg: "rgba(123,92,240,0.2)",  color: "#7b5cf0"  },
-  { bg: "rgba(34,211,168,0.2)",  color: "#22d3a8"  },
-  { bg: "rgba(245,158,11,0.2)",  color: "#f59e0b"  },
-  { bg: "rgba(248,113,113,0.2)", color: "#f87171"  },
+  { bg: "rgba(255,106,82,0.2)",  color: "#ff6a52"  },
+  { bg: "rgba(200,31,48,0.2)",  color: "#c81f30"  },
+  { bg: "rgba(63,174,125,0.2)",  color: "#3fae7d"  },
+  { bg: "rgba(217,154,63,0.2)",  color: "#d99a3f"  },
+  { bg: "rgba(255,77,94,0.2)", color: "#ff4d5e"  },
 ];
 function avatarColor(name) {
   if (!name) return AVATAR_COLORS[0];
@@ -75,7 +75,7 @@ export default function TaskCard({ task, onMove, onDelete, timezone, style }) {
   return (
     <div
       style={{
-        background: "#161a35",
+        background: "#1c0b09",
         border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: 12,
         padding: "14px 16px",
@@ -128,19 +128,19 @@ export default function TaskCard({ task, onMove, onDelete, timezone, style }) {
             style={{
               width: 24, height: 24, borderRadius: 6, flexShrink: 0,
               border: confirmDelete
-                ? "1px solid rgba(248,113,113,0.5)"
+                ? "1px solid rgba(255,77,94,0.5)"
                 : "1px solid rgba(255,255,255,0.08)",
-              background: confirmDelete ? "rgba(248,113,113,0.15)" : "transparent",
-              color: confirmDelete ? "#f87171" : "var(--color-text-tertiary)",
+              background: confirmDelete ? "rgba(255,77,94,0.15)" : "transparent",
+              color: confirmDelete ? "#ff4d5e" : "var(--color-text-tertiary)",
               cursor: deleting ? "not-allowed" : "pointer",
               fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center",
               transition: "all 0.15s",
             }}
             onMouseEnter={e => {
               if (!confirmDelete) {
-                e.currentTarget.style.background  = "rgba(248,113,113,0.12)";
-                e.currentTarget.style.borderColor = "rgba(248,113,113,0.35)";
-                e.currentTarget.style.color       = "#f87171";
+                e.currentTarget.style.background  = "rgba(255,77,94,0.12)";
+                e.currentTarget.style.borderColor = "rgba(255,77,94,0.35)";
+                e.currentTarget.style.color       = "#ff4d5e";
               }
             }}
             onMouseLeave={e => {
@@ -159,9 +159,9 @@ export default function TaskCard({ task, onMove, onDelete, timezone, style }) {
       {/* Confirm delete hint */}
       {confirmDelete && (
         <p style={{
-          margin: 0, fontSize: 11, color: "#f87171",
-          background: "rgba(248,113,113,0.08)",
-          border: "1px solid rgba(248,113,113,0.2)",
+          margin: 0, fontSize: 11, color: "#ff4d5e",
+          background: "rgba(255,77,94,0.08)",
+          border: "1px solid rgba(255,77,94,0.2)",
           borderRadius: 6, padding: "4px 8px",
         }}>
           Click ✕ again to confirm deletion
@@ -225,9 +225,9 @@ export default function TaskCard({ task, onMove, onDelete, timezone, style }) {
                 transition: "background 0.12s, color 0.12s, border-color 0.12s",
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.background    = "rgba(79,142,247,0.12)";
-                e.currentTarget.style.color         = "#4f8ef7";
-                e.currentTarget.style.borderColor   = "rgba(79,142,247,0.3)";
+                e.currentTarget.style.background    = "rgba(255,106,82,0.12)";
+                e.currentTarget.style.color         = "#ff6a52";
+                e.currentTarget.style.borderColor   = "rgba(255,106,82,0.3)";
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.background    = "transparent";
