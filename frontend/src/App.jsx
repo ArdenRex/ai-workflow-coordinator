@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";   // ✅ NEW
 import AuthPage from "./pages/AuthPage";                          // ✅ NEW
+import ResetPasswordPage from "./pages/ResetPasswordPage";         // ✅ NEW
 import OnboardingPage from "./pages/OnboardingPage";             // ✅ NEW
 import AdminDashboard from "./pages/AdminDashboard";             // ✅ Super-admin
 import TermsPage from "./pages/TermsPage";                        // ✅ Legal
@@ -5835,6 +5836,9 @@ function AppRouter() {
   if (window.location.pathname === "/terms")   return <TermsPage />;
   if (window.location.pathname === "/privacy") return <PrivacyPage />;
   if (window.location.pathname === "/refund")  return <RefundPage />;
+
+  // Password reset — public route, works whether or not the user is logged in
+  if (window.location.pathname === "/reset-password") return <ResetPasswordPage />;
 
   // Handle /invite/:slug before auth check — public route
   if (window.location.pathname.startsWith("/invite/")) {
