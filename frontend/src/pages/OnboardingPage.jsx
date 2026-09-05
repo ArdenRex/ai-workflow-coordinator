@@ -6,45 +6,17 @@
 
 import { useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
+import AuthShell from "../components/AuthShell";
+import useTilt3D from "../motion/useTilt3D";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap');
-
-  .ob-root {
-    min-height: 100vh;
-    background: #120705;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Inter', system-ui, sans-serif;
-    padding: clamp(12px, 3vw, 24px);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .ob-root::before {
-    content: '';
-    position: fixed;
-    top: -200px; left: -200px;
-    width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(255,106,82,0.08) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  .ob-root::after {
-    content: '';
-    position: fixed;
-    bottom: -200px; right: -200px;
-    width: 500px; height: 500px;
-    background: radial-gradient(circle, rgba(200,31,48,0.07) 0%, transparent 70%);
-    pointer-events: none;
-  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
   .ob-card {
     width: 100%;
     max-width: 520px;
-    background: rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.035);
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 24px;
     padding: clamp(20px, 5vw, 40px);
@@ -53,7 +25,19 @@ const STYLES = `
     position: relative;
     z-index: 1;
     animation: cardIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+    overflow: hidden;
   }
+
+  div.ob-card-glare {
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 0;
+  }
+
+  .ob-card > * { position: relative; z-index: 1; }
 
   @keyframes cardIn {
     from { opacity: 0; transform: translateY(24px) scale(0.97); }
@@ -77,7 +61,7 @@ const STYLES = `
   }
 
   .ob-logo-text {
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: 'Space Grotesk', sans-serif;
     font-size: 16px; font-weight: 800;
     color: #efe7df; letter-spacing: -0.02em;
   }
@@ -112,7 +96,7 @@ const STYLES = `
   }
 
   .ob-title {
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: 'Space Grotesk', sans-serif;
     font-size: 22px; font-weight: 800;
     letter-spacing: -0.03em;
     margin-bottom: 6px;
@@ -523,6 +507,8 @@ export default function OnboardingPage({ onComplete }) {
     if (e.key === "Enter") handleNext();
   };
 
+  const { ref: tiltRef, style: tiltStyle, glareStyle, onPointerMove, onPointerLeave } = useTilt3D({ max: 3, scale: 1.004 });
+
   // ── Current step label ─────────────────────────────────────────────────────
   const stepLabels = isSolo
     ? ["Choose Role"]
@@ -530,11 +516,40 @@ export default function OnboardingPage({ onComplete }) {
       ? ["Choose Role", "Your Team", "Workspace"]
       : ["Choose Role", "Workspace"];
 
+  const heroCopy = (() => {
+    if (step === 0) {
+      return {
+        eyebrow: "SET UP YOUR WORKSPACE",
+        headline: "One dashboard, tuned to how you actually work.",
+        subtext: "Your role decides what you see — an Architect gets the whole board, a Solo founder gets a clean, private list. Pick the one that fits.",
+      };
+    }
+    if (isNavigator && step === 1) {
+      return {
+        eyebrow: "SET UP YOUR WORKSPACE",
+        headline: "Name the team you're navigating.",
+        subtext: "Every task assigned to this team will surface on your dashboard automatically — no manual sorting.",
+      };
+    }
+    return {
+      eyebrow: "SET UP YOUR WORKSPACE",
+      headline: "Almost there.",
+      subtext: "Create a workspace for your team, or join one with an invite code from your Architect.",
+    };
+  })();
+
   return (
     <>
       <style>{STYLES}</style>
-      <div className="ob-root">
-        <div className="ob-card">
+      <AuthShell eyebrow={heroCopy.eyebrow} headline={heroCopy.headline} subtext={heroCopy.subtext}>
+        <div
+          className="ob-card"
+          ref={tiltRef}
+          style={tiltStyle}
+          onPointerMove={onPointerMove}
+          onPointerLeave={onPointerLeave}
+        >
+          <div className="ob-card-glare" style={glareStyle} />
 
           {/* Logo */}
           <div className="ob-logo">
@@ -705,7 +720,7 @@ export default function OnboardingPage({ onComplete }) {
           )}
 
         </div>
-      </div>
+      </AuthShell>
     </>
   );
 }
