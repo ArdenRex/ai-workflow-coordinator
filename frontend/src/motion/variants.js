@@ -64,19 +64,26 @@ export const drawerSlide = {
 };
 
 // Modal/panel enter — scale + rise, tuned to feel weighted rather than
-// snappy-generic.
+// snappy-generic. Adds a slight 3D rotateX "tilt down into place" pop
+// (paired with a perspective on the wrapper) so modals read as part of
+// the same dimensional language as the tilt cards and Ignition core,
+// not a flat 2D overlay.
 export const modalTransition = {
-  initial: { opacity: 0, scale: 0.94, y: 12 },
+  initial: { opacity: 0, scale: 0.94, y: 12, rotateX: -8, transformPerspective: 1000 },
   animate: {
     opacity: 1,
     scale: 1,
     y: 0,
+    rotateX: 0,
+    transformPerspective: 1000,
     transition: { duration: 0.35, ease: EASE },
   },
   exit: {
     opacity: 0,
     scale: 0.96,
     y: 8,
+    rotateX: -4,
+    transformPerspective: 1000,
     transition: { duration: 0.2, ease: EASE },
   },
 };
