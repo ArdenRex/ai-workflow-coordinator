@@ -1,5 +1,7 @@
 // src/App.jsx
 import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { pageTransition } from "./motion/variants";
 import { AuthProvider, useAuth } from "./context/AuthContext";   // ✅ NEW
 import AuthPage from "./pages/AuthPage";                          // ✅ NEW
 import ResetPasswordPage from "./pages/ResetPasswordPage";         // ✅ NEW
@@ -10,6 +12,7 @@ import PrivacyPage from "./pages/PrivacyPage";                    // ✅ Legal
 import RefundPage from "./pages/RefundPage";                      // ✅ Legal
 import { useTasks } from "./hooks/useTasks";
 import KanbanColumn from "./components/KanbanColumn";
+import TiltPCard from "./components/TiltPCard";
 import AddTaskModal from "./components/AddTaskModal";
 import AddToSlackButton from "./components/AddToSlackButton";
 import EmailTaskInbox from "./components/EmailTaskInbox";
@@ -1259,9 +1262,8 @@ const NAV_ICONS = {
   ),
 };
 
-function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
+function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCollapse }) {
   const { user, logout } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
 
   const initials = user?.name
     ? user.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)
@@ -1309,7 +1311,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
         )}
 
         {/* Collapse toggle */}
-        <button onClick={() => setCollapsed(c => !c)} style={{
+        <button onClick={onToggleCollapse} style={{
           width: 22, height: 22, borderRadius: 6, border: "1px solid var(--border-glass)",
           background: "rgba(255,255,255,0.04)", cursor: "pointer", color: "var(--color-text-tertiary)",
           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
@@ -1363,42 +1365,53 @@ function Sidebar({ activeNav, onNavChange, navBadges = {} }) {
                     justifyContent: collapsed ? "center" : "flex-start",
                     position: "relative", marginBottom: 1,
                     color: isActive ? "#f5f0eb" : "var(--color-text-secondary)",
-                    background: isActive
-                      ? "linear-gradient(135deg, rgba(255,106,82,0.22) 0%, rgba(200,31,48,0.18) 100%)"
-                      : "transparent",
-                    border: isActive ? "1px solid rgba(255,106,82,0.3)" : "1px solid transparent",
-                    transition: "all 0.15s cubic-bezier(0.4,0,0.2,1)",
+                    transition: "color 0.15s cubic-bezier(0.4,0,0.2,1)",
                   }}
                   onMouseEnter={e => {
                     if (!isActive) {
                       e.currentTarget.style.background = "rgba(255,255,255,0.05)";
                       e.currentTarget.style.color = "var(--color-text-primary)";
-                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
                     }
                   }}
                   onMouseLeave={e => {
                     if (!isActive) {
                       e.currentTarget.style.background = "transparent";
                       e.currentTarget.style.color = "var(--color-text-secondary)";
-                      e.currentTarget.style.borderColor = "transparent";
                     }
                   }}
                 >
-                  {/* Active left bar */}
-                  {isActive && <div style={{ position: "absolute", left: -10, top: "50%", transform: "translateY(-50%)", width: 3, height: "60%", borderRadius: "0 3px 3px 0", background: "var(--grad-primary)", boxShadow: "0 0 8px rgba(255,106,82,0.6)" }} />}
+                  {/* Animated active pill — slides between items with a spring,
+                      instead of each item just snapping to its own static bg */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="sidebarActivePill"
+                      transition={{ type: "spring", stiffness: 480, damping: 38 }}
+                      style={{
+                        position: "absolute", inset: 0, borderRadius: 10,
+                        background: "linear-gradient(135deg, rgba(255,106,82,0.22) 0%, rgba(200,31,48,0.18) 100%)",
+                        border: "1px solid rgba(255,106,82,0.3)",
+                        boxShadow: "0 0 16px rgba(255,106,82,0.12)",
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
 
-                  <span style={{ color: isActive ? "#ff6a52" : "inherit", transition: "color 0.15s", flexShrink: 0 }}>
+                  {/* Active left bar */}
+                  {isActive && <div style={{ position: "absolute", left: -10, top: "50%", transform: "translateY(-50%)", width: 3, height: "60%", borderRadius: "0 3px 3px 0", background: "var(--grad-primary)", boxShadow: "0 0 8px rgba(255,106,82,0.6)", zIndex: 1 }} />}
+
+                  <span style={{ position: "relative", zIndex: 1, color: isActive ? "#ff6a52" : "inherit", transition: "color 0.15s", flexShrink: 0 }}>
                     {NAV_ICONS[item.icon]}
                   </span>
 
                   {!effectiveCollapsed && (
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: isActive ? 600 : 400, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
+                    <span style={{ position: "relative", zIndex: 1, flex: 1, fontSize: 13, fontWeight: isActive ? 600 : 400, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
                       {item.label}
                     </span>
                   )}
 
                   {!effectiveCollapsed && badgeValue !== null && (
                     <span style={{
+                      position: "relative", zIndex: 1,
                       minWidth: 20, height: 18, padding: "0 5px", borderRadius: 999,
                       fontSize: 10, fontWeight: 700, color: "#f5f0eb",
                       background: badgeColor,
@@ -2185,13 +2198,13 @@ function ReportsPage() {
                 { label: "Overdue", value: stats.overdue.length, sub: stats.overdue.length ? "Need attention" : "All on track ✓", color: stats.overdue.length ? "#ff4d5e" : "#3fae7d" },
                 { label: "Avg / Day", value: stats.avgPerDay, sub: `Tasks created per day`, color: "#ff8a4c" },
               ].map(m => (
-                <div key={m.label} className="pcard" style={{ padding: "20px 22px", position: "relative", overflow: "hidden" }}>
+                <TiltPCard key={m.label} style={{ padding: "20px 22px" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.85 }} />
                   <div className="glow-orb" style={{ top: -20, left: -20, width: 80, height: 80, background: m.color, opacity: 0.06 }} />
                   <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8, fontFamily: "var(--font-display)" }}>{m.label}</div>
                   <div style={{ fontSize: 34, fontWeight: 800, color: m.color, lineHeight: 1, marginBottom: 5, fontFamily: "var(--font-display)", letterSpacing: "-0.03em" }}>{m.value}</div>
                   <div style={{ fontSize: 11, color: "var(--color-text-tertiary)" }}>{m.sub}</div>
-                </div>
+                </TiltPCard>
               ))}
             </div>
 
@@ -2472,13 +2485,13 @@ function CompliancePage() {
                 { label: "High Not Started", value: compliance.highNotStarted.length,   color: compliance.highNotStarted.length ? "#ff4d5e" : "#3fae7d", icon: "🔴" },
                 { label: "No Deadline",      value: compliance.noDeadline.length,       color: compliance.noDeadline.length > 3 ? "#d99a3f" : "#3fae7d", icon: "📅" },
               ].map(m => (
-                <div key={m.label} className="pcard" style={{ padding: "18px 16px 16px", position: "relative", overflow: "hidden" }}>
+                <TiltPCard key={m.label} style={{ padding: "18px 16px 16px" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: m.color, opacity: 0.8 }} />
                   <div className="glow-orb" style={{ top: -20, left: -20, width: 80, height: 80, background: m.color, opacity: 0.06 }} />
                   <div style={{ fontSize: 20, marginBottom: 8 }}>{m.icon}</div>
                   <div style={{ fontSize: 28, fontWeight: 800, color: m.color, lineHeight: 1, marginBottom: 5, fontFamily: "var(--font-display)" }}>{m.value}</div>
                   <div style={{ fontSize: 10, fontWeight: 600, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{m.label}</div>
-                </div>
+                </TiltPCard>
               ))}
             </div>
             </div>
@@ -2922,10 +2935,10 @@ function KnowledgePage() {
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14, alignContent: "start" }}>
                 {filtered.map(note => (
-                  <div key={note.id}
+                  <TiltPCard key={note.id}
                     onClick={() => setViewNote(note)}
-                    className="pcard"
-                    style={{ padding: "18px 20px", cursor: "pointer", position: "relative", overflow: "hidden",
+                    tiltMax={4}
+                    style={{ padding: "18px 20px", cursor: "pointer",
                       border: `1px solid ${viewNote?.id === note.id ? "rgba(255,106,82,0.5)" : "var(--border-glass)"}`,
                       background: viewNote?.id === note.id ? "rgba(255,106,82,0.06)" : "rgba(255,255,255,0.032)",
                     }}>
@@ -2942,7 +2955,7 @@ function KnowledgePage() {
                       <span className="badge" style={{ background: `${CAT_COLOR[note.category] || "#ff6a52"}18`, color: CAT_COLOR[note.category] || "#ff6a52", borderColor: `${CAT_COLOR[note.category] || "#ff6a52"}33`, textTransform: "capitalize" }}>{note.category}</span>
                       <span style={{ fontSize: 10, color: "var(--color-text-tertiary)" }}>{formatDate(note.updated_at)}</span>
                     </div>
-                  </div>
+                  </TiltPCard>
                 ))}
               </div>
             )}
@@ -3893,10 +3906,10 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         {/* Metrics */}
         <div className="fade-up delay-1 stagger" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(160px,1fr))", gap: 16 }}>
           {METRICS.map((m, i) => (
-            <div key={m.label} className="pcard" style={{
+            <TiltPCard key={m.label} tiltMax={4} style={{
               backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
               padding: "22px 24px", boxShadow: "0 4px 24px rgba(0,0,0,0.3)",
-              position: "relative", overflow: "hidden", cursor: "default",
+              cursor: "default",
               animationDelay: `${0.05 + i * 0.05}s`,
             }}>
               <div aria-hidden="true" style={{
@@ -3910,7 +3923,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
               <div style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--color-text-primary)", lineHeight: 1, fontFamily: "var(--font-display)" }}>
                 {isLoadingSource ? <div className="skeleton" style={{ width: 60, height: 38, display: "inline-block" }} /> : <span className="count-up">{m.value}</span>}
               </div>
-            </div>
+            </TiltPCard>
           ))}
         </div>
 
@@ -4028,11 +4041,13 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         </div>
       </main>
 
-      {showModal && (
-        <div role="dialog" aria-modal="true" aria-label="Add new task" style={{ position: "fixed", inset: 0, zIndex: 100 }}>
-          <AddTaskModal onClose={() => setShowModal(false)} onAdd={handleModalAdd} />
-        </div>
-      )}
+      <AnimatePresence>
+        {showModal && (
+          <div role="dialog" aria-modal="true" aria-label="Add new task" style={{ position: "fixed", inset: 0, zIndex: 100 }}>
+            <AddTaskModal onClose={() => setShowModal(false)} onAdd={handleModalAdd} />
+          </div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -4949,16 +4964,30 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 clamp(8px,3vw,24px) 90px 0", pointerEvents: "none" }}>
+    <motion.div
+      initial={{ opacity: 1 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 1 }}
+      style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 clamp(8px,3vw,24px) 90px 0", pointerEvents: "none" }}>
       {/* Backdrop */}
-      <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", pointerEvents: "all" }} />
+      <motion.div
+        onClick={onClose}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)", pointerEvents: "all" }} />
 
       {/* Modal card */}
-      <div style={{
+      <motion.div
+        initial={{ opacity: 0, y: 24, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 14, scale: 0.97 }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        style={{
         position: "relative", pointerEvents: "all", width: "min(420px, calc(100vw - 16px))", background: "#0c0908",
         border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20,
         boxShadow: "0 24px 80px rgba(0,0,0,0.7)",
-        animation: "slideUpIn 0.3s cubic-bezier(0.34,1.56,0.64,1)",
         overflow: "hidden",
       }}>
         {/* Header */}
@@ -5091,8 +5120,8 @@ function FeedbackModal({ onClose, user, token, currentPage }) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -5123,7 +5152,9 @@ function FeedbackButton({ user, token, currentPage }) {
         Feedback
       </button>
 
-      {open && <FeedbackModal onClose={() => setOpen(false)} user={user} token={token} currentPage={currentPage} />}
+      <AnimatePresence>
+        {open && <FeedbackModal onClose={() => setOpen(false)} user={user} token={token} currentPage={currentPage} />}
+      </AnimatePresence>
     </>
   );
 }
@@ -5584,37 +5615,53 @@ function AuthenticatedApp() {
       {/* Ambient top glow */}
       <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(255,106,82,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
 
-      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} navBadges={navBadges} />
+      <Sidebar
+        activeNav={activeNav}
+        onNavChange={setActiveNav}
+        navBadges={navBadges}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(c => !c)}
+      />
       <div style={{ paddingLeft: winWidth < 900 ? 64 : (sidebarCollapsed ? 64 : 228), display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1, transition: "padding-left 0.25s cubic-bezier(0.4,0,0.2,1)", minWidth: 0, overflowX: "auto" }}>
-        {activeNav === 0 ? (
-          <Dashboard
-            tasks={tasks} total={total} loading={loading} error={error}
-            submitting={submitting} moveTask={moveTask} removeTask={removeTask}
-            addTask={addTask} reload={reload} clearError={clearError}
-          />
-        ) : activeNav === 1 ? (
-          <TasksPage />
-        ) : activeNav === 2 ? (
-          <CompliancePage />
-        ) : activeNav === 3 ? (
-          <KnowledgePage />
-        ) : activeNav === 4 ? (
-          <ReportsPage />
-        ) : activeNav === 5 ? (
-          <OwnershipGraph />
-        ) : activeNav === 6 ? (
-          <IntegrationsPage />
-        ) : activeNav === 7 ? (
-          <LocalePage />
-        ) : activeNav === 8 ? (
-          <TeamsPage />
-        ) : activeNav === 9 ? (
-          <ApiPage />
-        ) : activeNav === 10 ? (
-          <SettingsPage />
-        ) : (
-          <PlaceholderPage label={currentNavLabel} />
-        )}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeNav}
+            initial={pageTransition.initial}
+            animate={pageTransition.animate}
+            exit={pageTransition.exit}
+            style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}
+          >
+            {activeNav === 0 ? (
+              <Dashboard
+                tasks={tasks} total={total} loading={loading} error={error}
+                submitting={submitting} moveTask={moveTask} removeTask={removeTask}
+                addTask={addTask} reload={reload} clearError={clearError}
+              />
+            ) : activeNav === 1 ? (
+              <TasksPage />
+            ) : activeNav === 2 ? (
+              <CompliancePage />
+            ) : activeNav === 3 ? (
+              <KnowledgePage />
+            ) : activeNav === 4 ? (
+              <ReportsPage />
+            ) : activeNav === 5 ? (
+              <OwnershipGraph />
+            ) : activeNav === 6 ? (
+              <IntegrationsPage />
+            ) : activeNav === 7 ? (
+              <LocalePage />
+            ) : activeNav === 8 ? (
+              <TeamsPage />
+            ) : activeNav === 9 ? (
+              <ApiPage />
+            ) : activeNav === 10 ? (
+              <SettingsPage />
+            ) : (
+              <PlaceholderPage label={currentNavLabel} />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );
