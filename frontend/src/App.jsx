@@ -1517,7 +1517,6 @@ function AnimatedNumber({ value }) {
     const controls = animate(mv, value, { duration: 0.7, ease: [0.16, 1, 0.3, 1] });
     const unsub = rounded.on("change", v => setDisplay(v));
     return () => { controls.stop(); unsub(); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   return <span>{display}</span>;
