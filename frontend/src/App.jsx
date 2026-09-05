@@ -1,7 +1,8 @@
 // src/App.jsx
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { pageTransition } from "./motion/variants";
+import { pageTransition, staggerContainer, fadeUpItem } from "./motion/variants";
+import IgnitionCore from "./three/IgnitionCore";
 import { AuthProvider, useAuth } from "./context/AuthContext";   // ✅ NEW
 import AuthPage from "./pages/AuthPage";                          // ✅ NEW
 import ResetPasswordPage from "./pages/ResetPasswordPage";         // ✅ NEW
@@ -3790,9 +3791,16 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
     <>
       {/* Topbar */}
       <header className="page-header">
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)", lineHeight: 1.2 }}>Dashboard</div>
-          <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 1 }}>Your AI assistant team is ready</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {/* Ambient brand core — small + calm, built for exactly this spot
+              (see three/IgnitionCore.jsx usage note). Purely decorative. */}
+          <div style={{ width: 34, height: 34, flexShrink: 0 }} aria-hidden="true">
+            <IgnitionCore size={34} intensity={0.45} />
+          </div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--color-text-primary)", letterSpacing: "-0.02em", fontFamily: "var(--font-display)", lineHeight: 1.2 }}>Dashboard</div>
+            <div style={{ fontSize: 11, color: "var(--color-text-tertiary)", marginTop: 1 }}>Your AI assistant team is ready</div>
+          </div>
         </div>
 
         {/* Search */}
@@ -3828,19 +3836,43 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
               border: "1px solid var(--border-glass)",
             }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.color, flexShrink: 0 }} aria-hidden="true" />
-              {s.count} {s.label}
+              {/* Count pops in fresh whenever it changes, instead of just
+                  silently updating the text node. */}
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={s.count}
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6, position: "absolute" }}
+                  transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  {s.count}
+                </motion.span>
+              </AnimatePresence>
+              {s.label}
             </span>
           ))}
 
-          <button onClick={handleReload} title="Refresh" aria-label="Refresh tasks" disabled={isLoadingSource}
+          <motion.button
+            onClick={handleReload} title="Refresh" aria-label="Refresh tasks" disabled={isLoadingSource}
             className="btn-ghost has-tooltip" data-tip="Refresh"
-            style={{ width: 36, height: 36, padding: 0, justifyContent: "center", opacity: isLoadingSource ? 0.5 : 1, fontSize: 15 }}
-          >↻</button>
+            whileTap={{ scale: 0.9 }}
+            style={{ width: 36, height: 36, padding: 0, justifyContent: "center", opacity: isLoadingSource ? 0.5 : 1, fontSize: 15, display: "flex", alignItems: "center" }}
+          >
+            <motion.span
+              animate={isLoadingSource ? { rotate: 360 } : { rotate: 0 }}
+              transition={isLoadingSource ? { duration: 0.8, repeat: Infinity, ease: "linear" } : { duration: 0.2 }}
+              style={{ display: "inline-block" }}
+            >↻</motion.span>
+          </motion.button>
 
-          <button onClick={() => setShowModal(true)} disabled={submitting} aria-label="Create new task"
+          <motion.button
+            onClick={() => setShowModal(true)} disabled={submitting} aria-label="Create new task"
             className="btn-primary"
+            whileHover={{ scale: submitting ? 1 : 1.03 }}
+            whileTap={{ scale: submitting ? 1 : 0.97 }}
             style={{ borderRadius: 999, fontSize: 13, letterSpacing: "-0.01em", opacity: submitting ? 0.6 : 1 }}
-          >{submitting ? "Adding…" : "✦ New task"}</button>
+          >{submitting ? "Adding…" : "✦ New task"}</motion.button>
         </div>
       </header>
 
@@ -3939,43 +3971,58 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
                   key={tab.label}
                   onClick={() => setActiveTab(i)}
                   style={{
-                    padding: "8px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600,
-                    cursor: "pointer", border: "none", fontFamily: "var(--font-sans)",
-                    background: isActive ? `linear-gradient(135deg, ${tab.color}22, ${tab.color}14)` : "transparent",
+                    position: "relative", padding: "8px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600,
+                    cursor: "pointer", border: "1px solid transparent", fontFamily: "var(--font-sans)",
+                    background: "transparent",
                     color: isActive ? tab.color : "var(--color-text-secondary)",
-                    borderColor: isActive ? `${tab.color}40` : "transparent",
-                    borderWidth: 1, borderStyle: "solid",
-                    boxShadow: isActive ? `0 0 16px ${tab.color}25` : "none",
-                    transition: "all 0.15s",
+                    transition: "color 0.15s",
                     display: "flex", alignItems: "center", gap: 7,
                   }}
-                  onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "var(--color-text-primary)"; }}}
-                  onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = "var(--color-text-primary)"; }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = "var(--color-text-secondary)"; }}
                 >
-                  {/* Icon */}
-                  {i === 0 ? (
-                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
-                      <circle cx="5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.4"/>
-                      <circle cx="10.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.4" opacity="0.7"/>
-                      <path d="M1.5 13c0-1.7 1.6-3 3.5-3s3.5 1.3 3.5 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                      <path d="M10.5 10.5c1.6.3 3 1.5 3 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.6"/>
-                    </svg>
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
-                      <circle cx="7.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
-                      <path d="M3 13c0-2.2 2-4 4.5-4s4.5 1.8 4.5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                    </svg>
+                  {/* Sliding active pill — shared layoutId means framer-motion
+                      animates it smoothly from the previous tab's position/size
+                      instead of the old instant background swap. */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="dashboardTabPill"
+                      transition={{ type: "spring", stiffness: 500, damping: 36 }}
+                      style={{
+                        position: "absolute", inset: 0, borderRadius: 10,
+                        background: `linear-gradient(135deg, ${tab.color}22, ${tab.color}14)`,
+                        border: `1px solid ${tab.color}40`,
+                        boxShadow: `0 0 16px ${tab.color}25`,
+                      }}
+                    />
                   )}
-                  {tab.label}
-                  {/* Task count badge */}
-                  <span style={{
-                    minWidth: 20, height: 18, borderRadius: 999, fontSize: 10, fontWeight: 700,
-                    background: isActive ? `${tab.color}25` : "rgba(255,255,255,0.07)",
-                    color: isActive ? tab.color : "var(--color-text-tertiary)",
-                    border: `1px solid ${isActive ? tab.color + "40" : "transparent"}`,
-                    display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px",
-                  }}>
-                    {i === 0 ? (loading ? "…" : tasks.length) : (myLoading ? "…" : myTasks.length)}
+                  {/* Content sits above the pill */}
+                  <span style={{ position: "relative", display: "flex", alignItems: "center", gap: 7 }}>
+                    {/* Icon */}
+                    {i === 0 ? (
+                      <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
+                        <circle cx="5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.4"/>
+                        <circle cx="10.5" cy="5.5" r="2" stroke="currentColor" strokeWidth="1.4" opacity="0.7"/>
+                        <path d="M1.5 13c0-1.7 1.6-3 3.5-3s3.5 1.3 3.5 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                        <path d="M10.5 10.5c1.6.3 3 1.5 3 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" opacity="0.6"/>
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
+                        <circle cx="7.5" cy="5" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+                        <path d="M3 13c0-2.2 2-4 4.5-4s4.5 1.8 4.5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                      </svg>
+                    )}
+                    {tab.label}
+                    {/* Task count badge */}
+                    <span style={{
+                      minWidth: 20, height: 18, borderRadius: 999, fontSize: 10, fontWeight: 700,
+                      background: isActive ? `${tab.color}25` : "rgba(255,255,255,0.07)",
+                      color: isActive ? tab.color : "var(--color-text-tertiary)",
+                      border: `1px solid ${isActive ? tab.color + "40" : "transparent"}`,
+                      display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px",
+                    }}>
+                      {i === 0 ? (loading ? "…" : tasks.length) : (myLoading ? "…" : myTasks.length)}
+                    </span>
                   </span>
                 </button>
               );
@@ -3999,35 +4046,66 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
 
           {/* Kanban board */}
           {isLoadingSource && sourceTasks.length === 0 ? (
-            <div role="status" aria-label="Loading tasks" style={{ textAlign: "center", padding: "60px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-              <div style={{ width: 24, height: 24, border: "2px solid rgba(255,106,82,0.2)", borderTopColor: "#ff6a52", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            <motion.div
+              role="status" aria-label="Loading tasks"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
+              style={{ textAlign: "center", padding: "60px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}
+            >
+              {/* Two counter-rotating rings instead of a flat spinner — a
+                  small nod to the same "layered/dimensional" motion used
+                  elsewhere (Ignition core, tilt cards) rather than a plain
+                  CSS spinner. */}
+              <div style={{ position: "relative", width: 28, height: 28 }}>
+                <div style={{ position: "absolute", inset: 0, border: "2px solid rgba(255,106,82,0.18)", borderTopColor: "#ff6a52", borderRadius: "50%", animation: "spin 0.9s linear infinite" }} />
+                <div style={{ position: "absolute", inset: 5, border: "2px solid rgba(217,154,63,0.18)", borderBottomColor: "#d99a3f", borderRadius: "50%", animation: "spin 1.3s linear infinite reverse" }} />
+              </div>
               <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading tasks…</span>
-            </div>
+            </motion.div>
           ) : (
             <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(220px, 1fr))`,
-                gap: 20, alignItems: "start",
-                minWidth: COLUMNS.length * 240,
-              }}>
-                {columns.map(col => (
-                  <KanbanColumn
-                    key={col.status} status={col.status} label={col.label}
-                    tasks={col.tasks} onMove={moveTask} onDelete={removeTask}
-                    timezone={user?.timezone}
-                  />
-                ))}
-              </div>
+              {/* Crossfade the whole board when switching Team/Individual —
+                  keyed on activeTab so AnimatePresence treats it as a fresh
+                  mount and plays the stagger-in again, instead of the old
+                  instant swap. */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  variants={staggerContainer}
+                  initial="hidden"
+                  animate="show"
+                  exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(220px, 1fr))`,
+                    gap: 20, alignItems: "start",
+                    minWidth: COLUMNS.length * 240,
+                  }}
+                >
+                  {columns.map(col => (
+                    <KanbanColumn
+                      key={col.status} status={col.status} label={col.label}
+                      tasks={col.tasks} onMove={moveTask} onDelete={removeTask}
+                      timezone={user?.timezone}
+                    />
+                  ))}
+                </motion.div>
+              </AnimatePresence>
             </div>
           )}
 
           {/* Empty state */}
           {!isLoadingSource && sourceTasks.length === 0 && (
-            <div style={{ textAlign: "center", padding: "60px 0", border: "1px dashed var(--border-glass)", borderRadius: 16 }}>
-              <div style={{ fontSize: 36, marginBottom: 10, opacity: 0.3 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              style={{ textAlign: "center", padding: "60px 0", border: "1px dashed var(--border-glass)", borderRadius: 16 }}
+            >
+              <motion.div
+                animate={{ y: [0, -8, 0] }}
+                transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
+                style={{ fontSize: 36, marginBottom: 10, opacity: 0.3 }}
+              >
                 {activeTab === 0 ? "👥" : "👤"}
-              </div>
+              </motion.div>
               <div style={{ fontSize: 14, color: "var(--color-text-secondary)", marginBottom: 6 }}>
                 {activeTab === 0 ? "No team tasks yet" : "No individual tasks yet"}
               </div>
@@ -4036,7 +4114,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
                   ? "Tasks created by your team will appear here"
                   : "Tasks assigned to you will appear here — create one or ask your team lead"}
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
       </main>
