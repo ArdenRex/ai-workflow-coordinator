@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useContext, useMemo } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import IgnitionCore from "../three/IgnitionCore";
+import { overlayFade, modalTransition, drawerSlide } from "../motion/variants";
 
 const API = process.env.REACT_APP_API_URL || "";
 
@@ -135,7 +138,6 @@ function ExportModal({ open, onClose, m }) {
   const green = dark ? "#3fae7d" : "#1d9e75";
 
   useEffect(() => {
-    if (!open) { setPhase("idle"); setProgress(0); }
     if (open) setPhase("selecting");
   }, [open]);
 
@@ -152,8 +154,6 @@ function ExportModal({ open, onClose, m }) {
     }, 220 + Math.random() * 180);
   };
 
-  if (!open) return null;
-
   const dataSets = [
     { key: "users", label: "User Registry", icon: "⬡", count: m?.users?.total, color: "#ff8a4c", desc: "All user records, roles, subscription status" },
     { key: "revenue", label: "Revenue Ledger", icon: "◎", count: m?.revenue?.monthly_breakdown?.length, color: "#3fae7d", desc: "MRR, ARR, monthly breakdown, plan data" },
@@ -168,7 +168,6 @@ function ExportModal({ open, onClose, m }) {
     background: dark ? "rgba(0,2,12,0.88)" : "rgba(10,30,60,0.6)",
     backdropFilter: "blur(12px) saturate(1.3)",
     display: "flex", alignItems: "center", justifyContent: "center",
-    animation: "fadeIn 0.2s ease both",
   };
 
   const panelStyle = {
@@ -182,13 +181,16 @@ function ExportModal({ open, onClose, m }) {
       : `0 0 0 1px rgba(${cyan},0.1), 0 24px 60px rgba(0,80,180,0.2), inset 0 1px 0 rgba(255,255,255,0.7)`,
     clipPath: "polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px))",
     overflow: "hidden",
-    animation: "exportRise 0.45s cubic-bezier(0.16,1,0.3,1) both",
     position: "relative",
   };
 
   return (
-    <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget && phase !== "exporting") onClose(); }}>
-      <div style={panelStyle}>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          variants={overlayFade} initial="initial" animate="animate" exit="exit"
+          style={overlayStyle} onClick={e => { if (e.target === e.currentTarget && phase !== "exporting") onClose(); }}>
+          <motion.div variants={modalTransition} initial="initial" animate="animate" exit="exit" style={panelStyle}>
         {/* Prismatic top edge */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${cyanHex}, ${green}, rgba(217,74,122,0.8), ${cyanHex}, transparent)`, boxShadow: `0 0 20px rgba(${cyan},0.5)` }} />
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: `linear-gradient(180deg, ${cyanHex}, rgba(${cyan},0.3), transparent)` }} />
@@ -358,8 +360,10 @@ function ExportModal({ open, onClose, m }) {
             </div>
           )}
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -1863,12 +1867,16 @@ function RoleChip({ role }) {
 function DeleteChoiceModal({ name, onDashboardOnly, onDataAndDashboard, onCancel }) {
   const { dark } = useTheme();
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 9999,
-      background: "rgba(0,0,0,0.72)", backdropFilter: "blur(6px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-    }} onClick={onCancel}>
-      <div onClick={e => e.stopPropagation()} style={{
+    <motion.div
+      variants={overlayFade} initial="initial" animate="animate" exit="exit"
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(0,0,0,0.72)", backdropFilter: "blur(6px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }} onClick={onCancel}>
+      <motion.div
+        variants={modalTransition} initial="initial" animate="animate" exit="exit"
+        onClick={e => e.stopPropagation()} style={{
         background: dark ? "linear-gradient(135deg,rgba(8,18,32,0.98) 0%,rgba(4,12,24,0.99) 100%)" : "rgba(225,238,255,0.98)",
         border: "1px solid rgba(255,77,94,0.4)",
         borderRadius: 10, padding: "30px 32px", minWidth: 340, maxWidth: 420,
@@ -1938,8 +1946,8 @@ function DeleteChoiceModal({ name, onDashboardOnly, onDataAndDashboard, onCancel
         >
           Cancel
         </button>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -2534,14 +2542,17 @@ function UsersTable({ showToast, onUserClick }) {
           </div>
         )}
       </div>
-      {deleteModal && (
-        <DeleteChoiceModal
-          name={deleteModal.name}
-          onDashboardOnly={handleDeleteDashboardOnly}
-          onDataAndDashboard={handleDeleteDataAndDashboard}
-          onCancel={() => setDeleteModal(null)}
-        />
-      )}
+      <AnimatePresence>
+        {deleteModal && (
+          <DeleteChoiceModal
+            key="delete-modal-users"
+            name={deleteModal.name}
+            onDashboardOnly={handleDeleteDashboardOnly}
+            onDataAndDashboard={handleDeleteDataAndDashboard}
+            onCancel={() => setDeleteModal(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -2834,14 +2845,17 @@ function WorkspacesTable({ showToast }) {
         <span style={{ color: "#d94a7a", fontFamily: "'Orbitron', monospace", fontWeight: 700, textShadow: "0 0 10px rgba(217,74,122,0.5)" }}>{data?.total}</span>
         <span>workspace nodes indexed in network</span>
       </div>
-      {deleteModal && (
-        <DeleteChoiceModal
-          name={deleteModal.name}
-          onDashboardOnly={handleDeleteDashboardOnly}
-          onDataAndDashboard={handleDeleteDataAndDashboard}
-          onCancel={() => setDeleteModal(null)}
-        />
-      )}
+      <AnimatePresence>
+        {deleteModal && (
+          <DeleteChoiceModal
+            key="delete-modal-workspaces"
+            name={deleteModal.name}
+            onDashboardOnly={handleDeleteDashboardOnly}
+            onDataAndDashboard={handleDeleteDataAndDashboard}
+            onCancel={() => setDeleteModal(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -4562,6 +4576,22 @@ function LoginScreen({ onLogin }) {
         background: "radial-gradient(ellipse 80% 60% at 50% 50%, rgba(0,40,100,0.35) 0%, rgba(0,20,60,0.2) 50%, transparent 100%)",
       }} />
 
+      {/* Ambient 3D reactor core — the gate the whole console is built around.
+          Sits behind the panel, dimmed and slightly blurred so it reads as
+          depth rather than competing with the credentials form. */}
+      <div style={{
+        position: "absolute", top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+        width: 720, height: 720,
+        zIndex: 1, pointerEvents: "none",
+        opacity: 0.55,
+        filter: "blur(1.5px) saturate(1.1)",
+        maskImage: "radial-gradient(circle, black 45%, transparent 72%)",
+        WebkitMaskImage: "radial-gradient(circle, black 45%, transparent 72%)",
+      }}>
+        <IgnitionCore size={720} intensity={0.8} />
+      </div>
+
       {/* Login panel */}
       <div style={{
         position: "relative", zIndex: 10,
@@ -4785,8 +4815,6 @@ function CommandPalette({ open, onClose, onNavigate, tabs, m }) {
     return () => window.removeEventListener("keydown", handler);
   }, [open, selected, filtered, onClose]);
 
-  if (!open) return null;
-
   // Group by category
   const grouped = filtered.reduce((acc, cmd) => {
     if (!acc[cmd.category]) acc[cmd.category] = [];
@@ -4797,24 +4825,27 @@ function CommandPalette({ open, onClose, onNavigate, tabs, m }) {
   let globalIdx = 0;
 
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed", inset: 0, zIndex: 9998,
-        background: "rgba(0,2,10,0.75)",
-        backdropFilter: "blur(8px)",
-        display: "flex", alignItems: "flex-start", justifyContent: "center",
-        paddingTop: "15vh",
-        animation: "paletteFadeIn 0.15s ease-out both",
-      }}>
-      <div onClick={e => e.stopPropagation()} style={{
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          variants={overlayFade} initial="initial" animate="animate" exit="exit"
+          onClick={onClose}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9998,
+            background: "rgba(0,2,10,0.75)",
+            backdropFilter: "blur(8px)",
+            display: "flex", alignItems: "flex-start", justifyContent: "center",
+            paddingTop: "15vh",
+          }}>
+          <motion.div
+            variants={modalTransition} initial="initial" animate="animate" exit="exit"
+            onClick={e => e.stopPropagation()} style={{
         width: 580, maxWidth: "90vw",
         background: "linear-gradient(160deg, rgba(0,5,20,0.99) 0%, rgba(0,10,28,0.98) 50%, rgba(0,4,16,0.99) 100%)",
         border: "1px solid rgba(255,138,76,0.35)",
         borderRadius: 10,
         clipPath: "polygon(0 0, calc(100% - 24px) 0, 100% 24px, 100% 100%, 24px 100%, 0 calc(100% - 24px))",
         boxShadow: "0 0 0 1px rgba(255,138,76,0.06), 0 40px 120px rgba(0,0,0,0.95), 0 0 100px rgba(255,138,76,0.1), inset 0 1px 0 rgba(255,255,255,0.08)",
-        animation: "paletteRise 0.2s cubic-bezier(0.16,1,0.3,1) both",
         overflow: "hidden",
       }}>
 
@@ -4935,8 +4966,10 @@ function CommandPalette({ open, onClose, onNavigate, tabs, m }) {
           ))}
           <div style={{ marginLeft: "auto", fontSize: 7, color: "rgba(255,138,76,0.15)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.15em" }}>ARCANEOS COMMAND BRIDGE</div>
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -4951,7 +4984,16 @@ function UserDetailDrawer({ user, open, onClose, showToast, onToggleActive }) {
   const textPrimary = dark ? "#efe7df" : "#1c0d0a";
   const textDim = dark ? "rgba(255,138,76,0.4)" : "rgba(0,80,160,0.5)";
 
-  if (!user) return null;
+  // The caller clears `user` the instant it closes the drawer, which used
+  // to unmount this whole component before its slide/fade-out transitions
+  // ever got a frame to play. Cache the last non-null user so the close
+  // animation has content to animate away, and only bail once it's never
+  // been opened at all.
+  const [cachedUser, setCachedUser] = useState(user);
+  useEffect(() => { if (user) setCachedUser(user); }, [user]);
+
+  if (!cachedUser) return null;
+  user = user || cachedUser; // keep rendering the last-known user while closing
 
   const isRoot = user.email === "wahaj@acedengroup.com";
   const accentColor = isRoot ? "#d99a3f" : user.is_active ? cyanHex : "#ff4d5e";
@@ -4985,17 +5027,19 @@ function UserDetailDrawer({ user, open, onClose, showToast, onToggleActive }) {
   return (
     <>
       {/* Backdrop */}
-      {open && (
-        <div
-          onClick={onClose}
-          style={{
-            position: "fixed", inset: 0, zIndex: 8000,
-            background: "rgba(0,2,10,0.55)",
-            backdropFilter: "blur(4px)",
-            animation: "fadeIn 0.2s ease-out both",
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            variants={overlayFade} initial="initial" animate="animate" exit="exit"
+            onClick={onClose}
+            style={{
+              position: "fixed", inset: 0, zIndex: 8000,
+              background: "rgba(0,2,10,0.55)",
+              backdropFilter: "blur(4px)",
+            }}
+          />
+        )}
+      </AnimatePresence>
       {/* Drawer panel */}
       <div style={{
         position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 8001,
@@ -5864,7 +5908,6 @@ function NotificationBell({ notifs, unreadCount, markRead, markAllRead }) {
 // ── KEYBOARD SHORTCUT CHEATSHEET MODAL ───────────────────────────────────────
 function KeyboardCheatsheet({ open, onClose }) {
   const { dark } = useTheme();
-  if (!open) return null;
 
   const SHORTCUTS = [
     { group: "NAVIGATION",  items: [
@@ -5889,14 +5932,19 @@ function KeyboardCheatsheet({ open, onClose }) {
   ];
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 9999,
-      background: "rgba(0,2,12,0.85)",
-      backdropFilter: "blur(16px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      animation: "paletteFadeIn 0.18s ease both",
-    }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          variants={overlayFade} initial="initial" animate="animate" exit="exit"
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(0,2,12,0.85)",
+            backdropFilter: "blur(16px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }} onClick={onClose}>
+          <motion.div
+            variants={modalTransition} initial="initial" animate="animate" exit="exit"
+            onClick={e => e.stopPropagation()} style={{
         width: 540,
         background: dark
           ? "linear-gradient(155deg, rgba(0,4,18,0.99) 0%, rgba(0,10,28,0.97) 100%)"
@@ -5905,7 +5953,6 @@ function KeyboardCheatsheet({ open, onClose }) {
         borderRadius: 10,
         boxShadow: "0 30px 100px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,138,76,0.06), inset 0 1px 0 rgba(255,255,255,0.07)",
         clipPath: "polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 20px 100%, 0 calc(100% - 20px))",
-        animation: "paletteRise 0.24s cubic-bezier(0.16,1,0.3,1) both",
         overflow: "hidden",
       }}>
         {/* Header */}
@@ -5963,8 +6010,10 @@ function KeyboardCheatsheet({ open, onClose }) {
           <span style={{ fontSize: 7, color: "rgba(255,138,76,0.2)", fontFamily: "'Share Tech Mono', monospace", letterSpacing: "0.12em" }}>PRESS ESC OR CLICK OUTSIDE TO DISMISS</span>
           <span style={{ fontSize: 7, color: "rgba(255,138,76,0.15)", fontFamily: "'Orbitron', monospace" }}>⌘? TOGGLE</span>
         </div>
-      </div>
-    </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
