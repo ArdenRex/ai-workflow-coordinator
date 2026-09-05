@@ -1,5 +1,7 @@
 // src/components/TaskCard.jsx
 import React, { useState } from "react";
+import { motion } from "framer-motion";
+import useTilt3D from "../motion/useTilt3D";
 
 // ── Date formatting (respects user timezone passed as prop) ───────────────────
 function formatDeadline(raw, timezone) {
@@ -51,6 +53,8 @@ function avatarColor(name) {
 export default function TaskCard({ task, onMove, onDelete, timezone, style }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const { ref: tiltRef, style: tiltStyle, glareStyle, onPointerMove, onPointerLeave } =
+    useTilt3D({ max: 6, scale: 1.018 });
 
   const priority    = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
   const transitions = STATUS_TRANSITIONS[task.status] || [];
@@ -73,29 +77,43 @@ export default function TaskCard({ task, onMove, onDelete, timezone, style }) {
   }
 
   return (
-    <div
+    <motion.div
+      layout
+      layoutId={`task-card-${task.id}`}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.94 }}
+      transition={{ layout: { type: "spring", stiffness: 380, damping: 32 }, duration: 0.25 }}
+      ref={tiltRef}
+      onPointerMove={onPointerMove}
+      onPointerLeave={onPointerLeave}
       style={{
         background: "#1c0b09",
         border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: 12,
         padding: "14px 16px",
         display: "flex", flexDirection: "column", gap: 11,
-        transition: "border-color 0.15s, transform 0.15s, box-shadow 0.15s",
+        transition: "border-color 0.15s, box-shadow 0.15s",
         cursor: "default",
         opacity: deleting ? 0.5 : 1,
+        position: "relative",
+        overflow: "hidden",
+        ...tiltStyle,
         ...style,
       }}
       onMouseEnter={e => {
         e.currentTarget.style.borderColor = "rgba(255,255,255,0.16)";
-        e.currentTarget.style.transform   = "translateY(-1px)";
-        e.currentTarget.style.boxShadow   = "0 4px 16px rgba(0,0,0,0.3)";
+        e.currentTarget.style.boxShadow   = "0 10px 28px rgba(0,0,0,0.35)";
       }}
       onMouseLeave={e => {
         e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-        e.currentTarget.style.transform   = "";
         e.currentTarget.style.boxShadow   = "";
+        onPointerLeave();
       }}
     >
+      {/* Cursor-reactive glare sheen — sits on top since it's the only
+          absolutely-positioned descendant among static flex children */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", ...glareStyle }} />
       {/* Top row: priority badge + task ID + delete */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <span style={{
@@ -240,6 +258,6 @@ export default function TaskCard({ task, onMove, onDelete, timezone, style }) {
           ))}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
