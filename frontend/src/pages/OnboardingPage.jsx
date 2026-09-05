@@ -5,9 +5,11 @@
 //   Step 3 → Create or join a workspace (skipped for solo)
 
 import { useState, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import AuthShell from "../components/AuthShell";
 import useTilt3D from "../motion/useTilt3D";
+import { staggerContainer, fadeUpItem } from "../motion/variants";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const STYLES = `
@@ -333,8 +335,11 @@ const STYLES = `
     flex-shrink: 0;
   }
 
-  /* Step slide animation */
-  .ob-step { animation: stepIn 0.35s cubic-bezier(0.16,1,0.3,1) both; }
+  /* Step transitions are now handled by framer-motion (slide + fade,
+     direction-aware for forward/back) so this class no longer needs its
+     own CSS animation — leaving one here too would double up with the
+     motion transform. */
+  .ob-step { }
 
 
   @media (max-width: 768px) {
@@ -350,11 +355,6 @@ const STYLES = `
   }
   @media (max-width: 360px) {
     .ob-roles { grid-template-columns: 1fr; }
-  }
-
-  @keyframes stepIn {
-    from { opacity: 0; transform: translateX(20px); }
-    to   { opacity: 1; transform: translateX(0); }
   }
 `;
 
@@ -408,6 +408,7 @@ export default function OnboardingPage({ onComplete }) {
   const { completeOnboarding, token } = useAuth();
 
   const [step, setStep]                     = useState(0);
+  const [direction, setDirection]           = useState(1); // 1 = forward, -1 = back
   const [selectedRole, setSelectedRole]     = useState(null);
   const [teamName, setTeamName]             = useState("");
   const [createWorkspace, setCreateWorkspace] = useState(true);
@@ -436,6 +437,7 @@ export default function OnboardingPage({ onComplete }) {
         await submitOnboarding();
         return;
       }
+      setDirection(1);
       setStep(1);
       return;
     }
@@ -447,6 +449,7 @@ export default function OnboardingPage({ onComplete }) {
           setError("Please enter a team name.");
           return;
         }
+        setDirection(1);
         setStep(2);
         return;
       }
@@ -500,6 +503,7 @@ export default function OnboardingPage({ onComplete }) {
 
   const handleBack = () => {
     setError(null);
+    setDirection(-1);
     setStep(s => Math.max(0, s - 1));
   };
 
@@ -508,6 +512,16 @@ export default function OnboardingPage({ onComplete }) {
   };
 
   const { ref: tiltRef, style: tiltStyle, glareStyle, onPointerMove, onPointerLeave } = useTilt3D({ max: 3, scale: 1.004 });
+
+  // Direction-aware slide: forward steps enter from the right and exit
+  // to the left; Back does the reverse — so the wizard reads as moving
+  // through a sequence, not just crossfading.
+  const stepVariants = {
+    enter: (dir) => ({ x: dir > 0 ? 36 : -36, opacity: 0 }),
+    center: { x: 0, opacity: 1, transition: { duration: 0.32, ease: [0.16, 1, 0.3, 1] } },
+    exit: (dir) => ({ x: dir > 0 ? -36 : 36, opacity: 0, transition: { duration: 0.18, ease: [0.16, 1, 0.3, 1] } }),
+  };
+  const stepKey = step === 0 ? "role" : step === 1 && isNavigator ? "team" : "workspace";
 
   // ── Current step label ─────────────────────────────────────────────────────
   const stepLabels = isSolo
@@ -566,18 +580,25 @@ export default function OnboardingPage({ onComplete }) {
           {/* Error */}
           {error && <div className="ob-error" role="alert">⚠ {error}</div>}
 
+          <AnimatePresence mode="wait" initial={false} custom={direction}>
           {/* ── Step 0: Role selection ── */}
           {step === 0 && (
-            <div className="ob-step">
+            <motion.div
+              key={stepKey} custom={direction} variants={stepVariants}
+              initial="enter" animate="center" exit="exit"
+              className="ob-step"
+            >
               <div className="ob-title">What's your role?</div>
               <div className="ob-subtitle">
                 This determines what tasks you see on your personal dashboard.
               </div>
 
-              <div className="ob-roles">
+              <motion.div className="ob-roles" variants={staggerContainer} initial="hidden" animate="show">
                 {ROLES.map(role => (
-                  <div
+                  <motion.div
                     key={role.value}
+                    variants={fadeUpItem}
+                    whileTap={{ scale: 0.97 }}
                     className={`ob-role-card ${selectedRole === role.value ? "selected" : ""}`}
                     onClick={() => setSelectedRole(role.value)}
                     role="radio"
@@ -593,12 +614,13 @@ export default function OnboardingPage({ onComplete }) {
                     <span className="ob-role-emoji">{role.emoji}</span>
                     <div className="ob-role-name">{role.name}</div>
                     <div className="ob-role-desc">{role.desc}</div>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
+              </motion.div>
 
               <div className="ob-actions">
-                <button
+                <motion.button
+                  whileTap={{ scale: selectedRole && !loading ? 0.97 : 1 }}
                   className="ob-btn-next"
                   onClick={handleNext}
                   disabled={!selectedRole || loading}
@@ -607,14 +629,18 @@ export default function OnboardingPage({ onComplete }) {
                     ? <><div className="spinner" />Setting up…</>
                     : isSolo ? "Finish Setup →" : "Continue →"
                   }
-                </button>
+                </motion.button>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* ── Step 1 (Navigator): Team name ── */}
           {step === 1 && isNavigator && (
-            <div className="ob-step">
+            <motion.div
+              key={stepKey} custom={direction} variants={stepVariants}
+              initial="enter" animate="center" exit="exit"
+              className="ob-step"
+            >
               <div className="ob-title">Name your team</div>
               <div className="ob-subtitle">
                 Tasks assigned to members of this team will appear on your Navigator dashboard.
@@ -637,17 +663,21 @@ export default function OnboardingPage({ onComplete }) {
               </div>
 
               <div className="ob-actions">
-                <button className="ob-btn-back" onClick={handleBack}>← Back</button>
-                <button className="ob-btn-next" onClick={handleNext}>
+                <motion.button whileTap={{ scale: 0.97 }} className="ob-btn-back" onClick={handleBack}>← Back</motion.button>
+                <motion.button whileTap={{ scale: 0.97 }} className="ob-btn-next" onClick={handleNext}>
                   Continue →
-                </button>
+                </motion.button>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* ── Step 1 (non-Navigator) or Step 2 (Navigator): Workspace ── */}
           {((step === 1 && !isNavigator) || (step === 2 && isNavigator)) && (
-            <div className="ob-step">
+            <motion.div
+              key={stepKey} custom={direction} variants={stepVariants}
+              initial="enter" animate="center" exit="exit"
+              className="ob-step"
+            >
               <div className="ob-title">Set up your workspace</div>
               <div className="ob-subtitle">
                 A workspace groups your team's tasks together. Create a new one or join an existing workspace.
@@ -704,8 +734,9 @@ export default function OnboardingPage({ onComplete }) {
               )}
 
               <div className="ob-actions">
-                <button className="ob-btn-back" onClick={handleBack}>← Back</button>
-                <button
+                <motion.button whileTap={{ scale: 0.97 }} className="ob-btn-back" onClick={handleBack}>← Back</motion.button>
+                <motion.button
+                  whileTap={{ scale: loading ? 1 : 0.97 }}
                   className="ob-btn-next"
                   onClick={handleNext}
                   disabled={loading}
@@ -714,10 +745,11 @@ export default function OnboardingPage({ onComplete }) {
                     ? <><div className="spinner" />Setting up…</>
                     : "Finish Setup →"
                   }
-                </button>
+                </motion.button>
               </div>
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
 
         </div>
       </AuthShell>
