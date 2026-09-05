@@ -15,7 +15,7 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import IgnitionCore from "../three/IgnitionCore";
+import EmberOrb from "./EmberOrb";
 import { fadeUpItem, staggerContainer } from "../motion/variants";
 
 const SHELL_STYLES = `
@@ -145,7 +145,7 @@ export default function AuthShell({ eyebrow, headline, subtext, children }) {
           </motion.div>
 
           <motion.div className="shell-core-wrap" variants={fadeUpItem}>
-            <IgnitionCore size={300} interactive />
+            <EmberOrb size={280} interactive />
           </motion.div>
 
           <motion.div className="shell-copy" variants={fadeUpItem}>
