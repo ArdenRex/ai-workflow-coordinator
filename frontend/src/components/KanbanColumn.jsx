@@ -1,5 +1,6 @@
 // src/components/KanbanColumn.jsx
 import React from "react";
+import { AnimatePresence } from "framer-motion";
 import TaskCard from "./TaskCard";
 
 const COLUMN_CONFIG = {
@@ -53,15 +54,17 @@ export default function KanbanColumn({ status, label, tasks, onMove, onDelete, t
             No tasks
           </p>
         ) : (
-          tasks.map(task => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onMove={onMove}
-              onDelete={onDelete}
-              timezone={timezone}
-            />
-          ))
+          <AnimatePresence mode="popLayout">
+            {tasks.map(task => (
+              <TaskCard
+                key={task.id}
+                task={task}
+                onMove={onMove}
+                onDelete={onDelete}
+                timezone={timezone}
+              />
+            ))}
+          </AnimatePresence>
         )}
       </div>
     </div>
