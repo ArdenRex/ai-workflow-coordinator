@@ -1,6 +1,6 @@
 // src/App.jsx
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform, animate } from "framer-motion";
 import { pageTransition, staggerContainer, fadeUpItem } from "./motion/variants";
 import IgnitionCore from "./three/IgnitionCore";
 import { AuthProvider, useAuth } from "./context/AuthContext";   // ✅ NEW
@@ -1322,9 +1322,13 @@ function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCo
           onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "var(--color-text-tertiary)"; }}
           title={effectiveCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-            <path d={collapsed ? "M3 2l4 3-4 3" : "M7 2L3 5l4 3"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+          <motion.svg
+            width="10" height="10" viewBox="0 0 10 10" fill="none"
+            animate={{ rotate: collapsed ? 180 : 0 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <path d="M7 2L3 5l4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </motion.svg>
         </button>
       </div>
 
@@ -1499,6 +1503,25 @@ const IconDone = () => (
     <path d="M7 10l2.5 2.5L13 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
+
+// Metric values now genuinely count up/down to their new total (not just
+// fade in) whenever they change — driven by a framer-motion motion value
+// rather than a CSS entrance animation, so it retriggers correctly on
+// every update, not just first mount.
+function AnimatedNumber({ value }) {
+  const mv = useMotionValue(0);
+  const rounded = useTransform(mv, v => Math.round(v));
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    const controls = animate(mv, value, { duration: 0.7, ease: [0.16, 1, 0.3, 1] });
+    const unsub = rounded.on("change", v => setDisplay(v));
+    return () => { controls.stop(); unsub(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return <span>{display}</span>;
+}
 
 function Sparkline({ color }) {
   return (
@@ -3953,7 +3976,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
               <div className="icon-bubble" style={{ width: 42, height: 42, marginBottom: 18, color: m.color, background: `${m.color}15`, border: `1px solid ${m.color}25`, boxShadow: `0 0 16px ${m.color}18` }}>{m.icon}</div>
               <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-tertiary)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6, fontFamily: "var(--font-display)" }}>{m.label}</div>
               <div style={{ fontSize: 38, fontWeight: 800, letterSpacing: "-0.04em", color: "var(--color-text-primary)", lineHeight: 1, fontFamily: "var(--font-display)" }}>
-                {isLoadingSource ? <div className="skeleton" style={{ width: 60, height: 38, display: "inline-block" }} /> : <span className="count-up">{m.value}</span>}
+                {isLoadingSource ? <div className="skeleton" style={{ width: 60, height: 38, display: "inline-block" }} /> : <AnimatedNumber value={m.value} />}
               </div>
             </TiltPCard>
           ))}
