@@ -5,46 +5,17 @@
 import { useState, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import PasswordInput from "../components/PasswordInput";
+import AuthShell from "../components/AuthShell";
+import useTilt3D from "../motion/useTilt3D";
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 const STYLES = `
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap');
-
-  .auth-root {
-    min-height: 100vh;
-    background: #120705;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Inter', system-ui, sans-serif;
-    padding: clamp(12px, 3vw, 24px) clamp(12px, 3vw, 24px) 80px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  /* Background glow orbs */
-  .auth-root::before {
-    content: '';
-    position: fixed;
-    top: -200px; left: -200px;
-    width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(255,106,82,0.08) 0%, transparent 70%);
-    pointer-events: none;
-  }
-  .auth-root::after {
-    content: '';
-    position: fixed;
-    bottom: -200px; right: -200px;
-    width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(200,31,48,0.07) 0%, transparent 70%);
-    pointer-events: none;
-  }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 
   .auth-card {
     width: 100%;
     max-width: 440px;
-    background: rgba(255,255,255,0.03);
+    background: rgba(255,255,255,0.035);
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 24px;
     padding: clamp(20px, 5vw, 40px);
@@ -53,7 +24,19 @@ const STYLES = `
     position: relative;
     z-index: 1;
     animation: cardIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
+    overflow: hidden;
   }
+
+  div.auth-card-glare {
+    position: absolute;
+    inset: 0;
+    border-radius: 24px;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 0;
+  }
+
+  .auth-card > * { position: relative; z-index: 1; }
 
   @keyframes cardIn {
     from { opacity: 0; transform: translateY(24px) scale(0.97); }
@@ -78,7 +61,7 @@ const STYLES = `
   }
 
   .auth-logo-text {
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: 'Space Grotesk', sans-serif;
     font-size: 16px; font-weight: 800;
     color: #efe7df;
     letter-spacing: -0.02em;
@@ -91,7 +74,7 @@ const STYLES = `
   }
 
   .auth-title {
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: 'Space Grotesk', sans-serif;
     font-size: 24px; font-weight: 800;
     color: #efe7df;
     letter-spacing: -0.03em;
@@ -361,14 +344,14 @@ const STYLES = `
     right: 0;
     z-index: 10;
     padding: 12px 24px 14px;
-    background: rgba(13, 15, 30, 0.85);
+    background: rgba(10, 7, 6, 0.85);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-top: 1px solid rgba(139, 92, 246, 0.3);
+    border-top: 1px solid rgba(255, 106, 82, 0.22);
     box-shadow:
-      0 -1px 0 rgba(139, 92, 246, 0.15),
-      0 -8px 32px rgba(139, 92, 246, 0.07),
-      inset 0 1px 0 rgba(139, 92, 246, 0.12);
+      0 -1px 0 rgba(255, 106, 82, 0.12),
+      0 -8px 32px rgba(255, 106, 82, 0.06),
+      inset 0 1px 0 rgba(255, 106, 82, 0.08);
   }
 
   .auth-footer-wrapper::before {
@@ -382,10 +365,10 @@ const STYLES = `
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(139, 92, 246, 0.9) 50%,
+      rgba(255, 106, 82, 0.75) 50%,
       transparent 100%
     );
-    box-shadow: 0 0 16px 3px rgba(139, 92, 246, 0.5);
+    box-shadow: 0 0 16px 3px rgba(255, 106, 82, 0.35);
   }
 
   .auth-footer {
@@ -410,16 +393,16 @@ const STYLES = `
 
   .auth-footer a:hover {
     color: #ffb199;
-    border-color: rgba(139, 92, 246, 0.45);
-    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(255, 106, 82, 0.4);
+    background: rgba(255, 106, 82, 0.1);
     box-shadow:
-      0 0 14px rgba(139, 92, 246, 0.25),
-      inset 0 0 10px rgba(139, 92, 246, 0.07);
-    text-shadow: 0 0 10px rgba(196, 181, 253, 0.6);
+      0 0 14px rgba(255, 106, 82, 0.22),
+      inset 0 0 10px rgba(255, 106, 82, 0.07);
+    text-shadow: 0 0 10px rgba(255, 177, 153, 0.5);
   }
 
   .auth-footer-sep {
-    color: rgba(139, 92, 246, 0.45);
+    color: rgba(255, 106, 82, 0.4);
     font-size: 16px;
     line-height: 1;
     user-select: none;
@@ -474,11 +457,31 @@ export default function AuthPage({ onAuthSuccess }) {
   const [error, setError]           = useState(null);
   const [success, setSuccess]       = useState(null);
 
+  const { ref: tiltRef, style: tiltStyle, glareStyle, onPointerMove, onPointerLeave } = useTilt3D({ max: 3, scale: 1.004 });
+
   const switchTab = (t) => {
     setTab(t);
     setError(null);
     setSuccess(null);
   };
+
+  const heroCopy = {
+    login: {
+      eyebrow: "AI WORKFLOW COORDINATOR",
+      headline: "Your Slack threads, already sorted into a plan.",
+      subtext: "Sign in to pick up right where your team left off — every task extracted, assigned, and tracked automatically.",
+    },
+    register: {
+      eyebrow: "AI WORKFLOW COORDINATOR",
+      headline: "Stop hunting for tasks buried in Slack.",
+      subtext: "Create your workspace in under two minutes. No dedicated PM required — the AI reads the channel so you don't have to.",
+    },
+    forgot: {
+      eyebrow: "AI WORKFLOW COORDINATOR",
+      headline: "We'll get you back in.",
+      subtext: "Enter the email on your account and a reset link will land in your inbox shortly.",
+    },
+  }[tab];
 
   const handleSubmit = useCallback(async () => {
     setError(null);
@@ -513,8 +516,15 @@ export default function AuthPage({ onAuthSuccess }) {
   return (
     <>
       <style>{STYLES}</style>
-      <div className="auth-root">
-        <div className="auth-card">
+      <AuthShell eyebrow={heroCopy.eyebrow} headline={heroCopy.headline} subtext={heroCopy.subtext}>
+        <div
+          className="auth-card"
+          ref={tiltRef}
+          style={tiltStyle}
+          onPointerMove={onPointerMove}
+          onPointerLeave={onPointerLeave}
+        >
+          <div className="auth-card-glare" style={glareStyle} />
 
           {/* Logo */}
           <div className="auth-logo">
@@ -668,8 +678,7 @@ export default function AuthPage({ onAuthSuccess }) {
           )}
 
         </div>
-
-      </div>
+      </AuthShell>
 
       {/* Footer links */}
       <div className="auth-footer-wrapper">
