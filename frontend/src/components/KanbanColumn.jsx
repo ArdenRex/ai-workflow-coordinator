@@ -1,7 +1,16 @@
 // src/components/KanbanColumn.jsx
+//
+// Step 2 (dashboard 3D/motion pass): columns now enter as part of the
+// shared stagger sequence (variants={fadeUpItem}, driven by the parent's
+// staggerContainer) instead of popping in statically, and pick up a
+// gentle tilt-lite hover — same useTilt3D hook as TaskCard/TiltPCard but
+// tuned down (lower max angle, no glare) so the *column* reads as a
+// shallow tray sitting behind its cards rather than competing with them.
 import React from "react";
-import { AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import TaskCard from "./TaskCard";
+import useTilt3D from "../motion/useTilt3D";
+import { fadeUpItem } from "../motion/variants";
 
 const COLUMN_CONFIG = {
   to_do:       { accent: "#d99a3f", dotShadow: "0 0 6px rgba(217,154,63,0.6)"  },
@@ -12,9 +21,17 @@ const COLUMN_CONFIG = {
 
 export default function KanbanColumn({ status, label, tasks, onMove, onDelete, timezone }) {
   const config = COLUMN_CONFIG[status] || { accent: "#ff6a52", dotShadow: "none" };
+  const { ref, style: tiltStyle, onPointerMove, onPointerLeave } =
+    useTilt3D({ max: 2.5, scale: 1.006, glare: false });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+    <motion.div
+      variants={fadeUpItem}
+      ref={ref}
+      onPointerMove={onPointerMove}
+      onPointerLeave={onPointerLeave}
+      style={{ display: "flex", flexDirection: "column", minWidth: 0, ...tiltStyle }}
+    >
       {/* Column header */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px 14px" }}>
         <span style={{
@@ -45,6 +62,8 @@ export default function KanbanColumn({ status, label, tasks, onMove, onDelete, t
         padding: tasks.length ? 10 : "32px 10px",
         minHeight: 140,
         borderTop: `2px solid ${config.accent}33`,
+        boxShadow: `0 12px 30px -18px ${config.accent}55`,
+        transition: "box-shadow 0.25s cubic-bezier(0.16,1,0.3,1)",
       }}>
         {tasks.length === 0 ? (
           <p style={{
@@ -67,6 +86,6 @@ export default function KanbanColumn({ status, label, tasks, onMove, onDelete, t
           </AnimatePresence>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
