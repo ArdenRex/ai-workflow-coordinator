@@ -4,6 +4,15 @@
 // no three.js, no Canvas — so what's specified below is exactly what
 // renders, with no lighting-engine step in between to lose fidelity.
 //
+// v4 — added true liquid-metal distortion: an SVG feTurbulence +
+// feDisplacementMap filter (animated via SMIL, no JS ticking needed)
+// physically warps the sphere's gradient over time, the same technique
+// behind "liquid button" / lava-lamp CSS demos. That's the difference
+// between "a gradient with blobs moving across it" and something that
+// actually looks like it's made of a fluid material. The warped layer
+// is rendered oversized and clipped by an unwarped parent, so the
+// displaced edges never show a seam.
+//
 // v3 — "material" pass, aimed at photoreal cues rather than more motion:
 //   - real surface grain via an SVG feTurbulence filter (procedural, not
 //     an image) blended over the sphere, so it reads as a rough/molten
@@ -147,6 +156,15 @@ const ORB_STYLES = `
     mix-blend-mode: overlay;
     pointer-events: none;
   }
+  /* The liquid-warped gradient layer — oversized (inset -16%) so the
+     feDisplacementMap's pixel-shifted edges stay well inside the crisp
+     circular clip of .ember-orb-core, never poking past it. */
+  .ember-orb-liquid {
+    position: absolute; inset: -16%;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 33%, #fff3de 0%, #ffcf8a 11%, #ff9a6a 28%, #ff6a52 48%, #c81f30 72%, #6b0f16 90%, #34060a 100%);
+    pointer-events: none;
+  }
   /* Procedural grain — real material roughness, not a drawn gradient. */
   .ember-orb-grain {
     position: absolute; inset: 0;
@@ -243,6 +261,15 @@ export default function EmberOrb({ size = 300, interactive = false, intensity = 
           <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="2" stitchTiles="stitch" result="noise" />
           <feColorMatrix in="noise" type="matrix" values="0 0 0 0 1  0 0 0 0 0.75  0 0 0 0 0.55  0 0 0 0.5 0" />
         </filter>
+        {/* Liquid-metal warp: procedural turbulence continuously reshapes
+            the gradient beneath it via displacement, rather than the
+            gradient itself moving. */}
+        <filter id={`emberLiquid-${filterId}`} x="-20%" y="-20%" width="140%" height="140%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves="2" seed="7" result="turb">
+            <animate attributeName="baseFrequency" values="0.012 0.02;0.018 0.012;0.012 0.02" dur="16s" repeatCount="indefinite" />
+          </feTurbulence>
+          <feDisplacementMap in="SourceGraphic" in2="turb" scale="14" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
       </svg>
 
       <div
@@ -295,13 +322,14 @@ export default function EmberOrb({ size = 300, interactive = false, intensity = 
         </div>
 
         <div className="ember-orb-core" style={{ width: "72%", height: "72%" }}>
+          <div className="ember-orb-liquid" style={{ filter: `url(#emberLiquid-${filterId})` }} />
           <div
             className="ember-orb-lava"
-            style={{ background: "radial-gradient(circle, rgba(255,207,138,0.55) 0%, transparent 70%)", animation: "emberChurn1 11s ease-in-out infinite" }}
+            style={{ background: "radial-gradient(circle, rgba(255,207,138,0.4) 0%, transparent 70%)", animation: "emberChurn1 11s ease-in-out infinite" }}
           />
           <div
             className="ember-orb-lava"
-            style={{ background: "radial-gradient(circle, rgba(200,31,48,0.5) 0%, transparent 65%)", backgroundSize: "55% 55%", animation: "emberChurn2 8s ease-in-out infinite" }}
+            style={{ background: "radial-gradient(circle, rgba(200,31,48,0.35) 0%, transparent 65%)", backgroundSize: "55% 55%", animation: "emberChurn2 8s ease-in-out infinite" }}
           />
           <div className="ember-orb-grain" style={{ filter: `url(#emberGrain-${filterId})` }} />
           <div className="ember-orb-ao" />
