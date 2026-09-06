@@ -249,6 +249,12 @@ const GLOBAL_STYLES = `
     padding: 10px clamp(12px, 2.5vw, 28px); display: flex; align-items: center; gap: 10; flex-wrap: wrap;
   }
 
+  /* -- Ownership page — detail panel drops below the list instead of
+     squeezing into a fixed 360px column on narrow screens ---- */
+  @media (max-width: 860px) {
+    .ownership-split-grid { grid-template-columns: 1fr !important; }
+  }
+
   /* -- Dashboard Kanban board — responsive ---- */
   /* Desktop/tablet: horizontal scroll if columns don't fit (unchanged).
      Phones: stack columns vertically instead, so nothing needs a
@@ -1665,7 +1671,7 @@ function OwnershipGraph() {
       </div>
 
       {/* Main grid: nodes list + detail panel */}
-      <div style={{ display: "grid", gridTemplateColumns: selectedNode ? "1fr 360px" : "1fr", gap: 20, alignItems: "start" }}>
+      <div className="ownership-split-grid" style={{ display: "grid", gridTemplateColumns: selectedNode ? "1fr 360px" : "1fr", gap: 20, alignItems: "start" }}>
 
         {/* Ownership nodes grid */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
@@ -1978,7 +1984,7 @@ function TasksPage() {
         )}
 
         {/* Summary cards */}
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(4, minmax(130px,1fr))", gap:14, marginBottom:24 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(130px,1fr))", gap:14, marginBottom:24 }}>
           {[
             { label:"Total Tasks", value:counts.all, color:"#ff6a52" },
             { label:"To Do", value:counts.to_do, color:"#ff8a4c" },
@@ -2093,7 +2099,7 @@ function TasksPage() {
                 <label style={labelStyle}>Assignee</label>
                 <input value={form.assignee} onChange={e => setForm(f => ({...f, assignee: e.target.value}))} placeholder="username or name" className="field-input" style={{ height: 42 }} />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px,1fr))", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px,1fr))", gap: 14 }}>
                 <div>
                   <label style={labelStyle}>Priority</label>
                   <select value={form.priority} onChange={e => setForm(f => ({...f, priority: e.target.value}))} className="field-input" style={{ height: 42, cursor: "pointer" }}>
@@ -2234,7 +2240,7 @@ function ReportsPage() {
         ) : (
           <>
             {/* KPI row */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px,1fr))", gap: 14 }}>
               {[
                 { label: "Total Tasks", value: tasks.length, sub: `${stats.inRange} in last ${range}d`, color: "#ff6a52" },
                 { label: "Completed", value: stats.byStatus.completed, sub: `${stats.completionRate}% completion rate`, color: "#3fae7d" },
@@ -2252,7 +2258,7 @@ function ReportsPage() {
             </div>
 
             {/* Charts row */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(280px,1fr))", gap: 18 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px,1fr))", gap: 18 }}>
 
               {/* Status breakdown */}
               <Card>
@@ -2520,7 +2526,7 @@ function CompliancePage() {
           <>
             {/* Score cards */}
             <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(130px,1fr))", gap: 12, minWidth: 700 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px,1fr))", gap: 12 }}>
               {[
                 { label: "Overdue",          value: compliance.overdue.length,          color: compliance.overdue.length ? "#ff4d5e" : "#3fae7d",  icon: "⏰" },
                 { label: "Unassigned",       value: compliance.unassigned.length,       color: compliance.unassigned.length ? "#d99a3f" : "#3fae7d", icon: "👤" },
@@ -3317,7 +3323,7 @@ function SettingsPage() {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px,1fr))", gap: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px,1fr))", gap: 14 }}>
                   <div>
                     <label style={labelStyle}>Full Name</label>
                     <input value={profile.name} onChange={e => setProfile(p => ({...p, name: e.target.value}))} placeholder="Your full name" style={inputStyle} />
@@ -4362,7 +4368,7 @@ function IntegrationsPage() {
             </div>
             {statusDot(status?.notion_configured)}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px,1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 12 }}>
             {field("Integration Token", notion.notion_token, v => setNotion(p => ({ ...p, notion_token: v })), "secret_...", "password")}
             {field("Database ID", notion.notion_database_id, v => setNotion(p => ({ ...p, notion_database_id: v })), "xxxxxxxx-xxxx-...")}
           </div>
@@ -4387,7 +4393,7 @@ function IntegrationsPage() {
             </div>
             {statusDot(status?.jira_configured)}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px,1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 12 }}>
             {field("Base URL", jira.jira_base_url, v => setJira(p => ({ ...p, jira_base_url: v })), "https://yourorg.atlassian.net")}
             {field("Project Key", jira.jira_project_key, v => setJira(p => ({ ...p, jira_project_key: v })), "PROJ")}
             {field("Email", jira.jira_email, v => setJira(p => ({ ...p, jira_email: v })), "you@company.com")}
@@ -4414,7 +4420,7 @@ function IntegrationsPage() {
             </div>
             {statusDot(status?.trello_configured)}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px,1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))", gap: 12 }}>
             {field("API Key", trello.trello_api_key, v => setTrello(p => ({ ...p, trello_api_key: v })), "From trello.com/app-key", "password")}
             {field("Token", trello.trello_token, v => setTrello(p => ({ ...p, trello_token: v })), "OAuth token", "password")}
             {field("List ID", trello.trello_list_id, v => setTrello(p => ({ ...p, trello_list_id: v })), "Source list ID")}
@@ -4594,7 +4600,7 @@ function LocalePage() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px,1fr))", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))", gap: 16 }}>
             {/* Language */}
             <div>
               <label style={labelStyle}>Language</label>
@@ -4666,7 +4672,7 @@ function LocalePage() {
             }}>Architect only</span>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(180px,1fr))", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))", gap: 16 }}>
             <div>
               <label style={labelStyle}>Default Language</label>
               <div style={{ position: "relative" }}>
@@ -4836,7 +4842,7 @@ function TeamsPage() {
           {isArchitect && <button onClick={() => setShowForm(f => !f)} style={{ height: 34, padding: "0 16px", borderRadius: 8, border: "1px solid rgba(255,106,82,0.3)", background: "rgba(255,106,82,0.08)", color: "#ff6a52", fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{showForm ? "Cancel" : "+ Add Channel"}</button>}
         </div>
         {showForm && isArchitect && <div style={{ padding: 18, borderRadius: 12, background: "rgba(255,106,82,0.05)", border: "1px solid rgba(255,106,82,0.15)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px,1fr))", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px,1fr))", gap: 12 }}>
             {[["channel_name","Channel Name","#general"],["channel_id","Channel ID","19:abc@thread.tacv2"],["service_url","Service URL","https://smba.trafficmanager.net/…"],["conversation_id","Conversation ID","19:abc@thread.tacv2"]].map(([k, label, ph]) => (
               <div key={k}><label style={lbl}>{label}</label><input value={chForm[k]} onChange={e => setChForm(f => ({ ...f, [k]: e.target.value }))} placeholder={ph} style={inp} /></div>
             ))}
