@@ -249,6 +249,18 @@ const GLOBAL_STYLES = `
     padding: 10px clamp(12px, 2.5vw, 28px); display: flex; align-items: center; gap: 10; flex-wrap: wrap;
   }
 
+  /* -- Dashboard Kanban board — responsive ---- */
+  /* Desktop/tablet: horizontal scroll if columns don't fit (unchanged).
+     Phones: stack columns vertically instead, so nothing needs a
+     sideways scroll + pinch-zoom just to read a card. */
+  @media (max-width: 700px) {
+    .dash-kanban-scroll { overflow-x: visible !important; }
+    .dash-kanban-grid {
+      grid-template-columns: 1fr !important;
+      min-width: 0 !important;
+    }
+  }
+
   /* -- Section card --------------------- */
   .section-card {
     background: rgba(255,255,255,0.03);
@@ -3913,7 +3925,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         <div className="fade-up" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
           <div>
             <h1 style={{
-              fontSize: 28, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.1,
+              fontSize: "clamp(21px, 6vw, 28px)", fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.1,
               fontFamily: "var(--font-display)",
               background: "linear-gradient(135deg, #efe7df 0%, #ffb199 50%, #ffb199 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text",
@@ -3966,7 +3978,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
         )}
 
         {/* Metrics */}
-        <div className="fade-up delay-1 stagger" style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(160px,1fr))", gap: 16 }}>
+        <div className="fade-up delay-1 stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px,1fr))", gap: 16 }}>
           {METRICS.map((m, i) => (
             <TiltPCard key={m.label} tiltMax={4} style={{
               backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
@@ -4092,7 +4104,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
               <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading tasks…</span>
             </motion.div>
           ) : (
-            <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <div className="dash-kanban-scroll" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
               {/* Crossfade the whole board when switching Team/Individual —
                   keyed on activeTab so AnimatePresence treats it as a fresh
                   mount and plays the stagger-in again, instead of the old
@@ -4104,6 +4116,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
                   initial="hidden"
                   animate="show"
                   exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                  className="dash-kanban-grid"
                   style={{
                     display: "grid",
                     gridTemplateColumns: `repeat(${COLUMNS.length}, minmax(220px, 1fr))`,
