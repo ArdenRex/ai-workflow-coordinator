@@ -1279,7 +1279,11 @@ function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCo
   const sidebarW = effectiveCollapsed ? 64 : 228;
 
   return (
-    <aside style={{
+    <motion.aside
+      initial={{ x: -18, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      style={{
       position: "fixed", left: 0, top: 0, bottom: 0,
       width: sidebarW,
       background: "var(--bg-sidebar)",
@@ -1333,7 +1337,10 @@ function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCo
       </div>
 
       {/* Nav groups */}
-      <nav style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: effectiveCollapsed ? "10px 8px" : "10px 10px", display: "flex", flexDirection: "column", gap: 0 }}>
+      <motion.nav
+        variants={staggerContainer} initial="hidden" animate="show"
+        style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: effectiveCollapsed ? "10px 8px" : "10px 10px", display: "flex", flexDirection: "column", gap: 0 }}
+      >
         {NAV_GROUPS.map(group => (
           <div key={group.label} style={{ marginBottom: 4 }}>
             {!effectiveCollapsed && (
@@ -1358,7 +1365,8 @@ function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCo
                 item.idx === 5 ? "linear-gradient(135deg,#c81f30,#ff6a52)" :  // Ownership — violet
                 "var(--grad-danger)";
               return (
-                <div key={item.label}
+                <motion.div key={item.label}
+                  variants={fadeUpItem}
                   role="button" tabIndex={0} title={collapsed ? item.label : undefined}
                   aria-current={isActive ? "page" : undefined}
                   onClick={() => onNavChange(item.idx)}
@@ -1430,12 +1438,12 @@ function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCo
                       {badgeValue > 99 ? "99+" : badgeValue}
                     </div>
                   )}
-                </div>
+                </motion.div>
               );
             })}
           </div>
         ))}
-      </nav>
+      </motion.nav>
 
       {/* User footer */}
       <div style={{ padding: collapsed ? "12px 8px" : "12px 10px", borderTop: "1px solid var(--border-glass)", flexShrink: 0 }}>
@@ -1480,7 +1488,7 @@ function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCo
           )}
         </div>
       </div>
-    </aside>
+    </motion.aside>
   );
 }
 
@@ -5722,7 +5730,12 @@ function AuthenticatedApp() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(c => !c)}
       />
-      <div style={{ paddingLeft: winWidth < 900 ? 64 : (sidebarCollapsed ? 64 : 228), display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1, transition: "padding-left 0.25s cubic-bezier(0.4,0,0.2,1)", minWidth: 0, overflowX: "auto" }}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        style={{ paddingLeft: winWidth < 900 ? 64 : (sidebarCollapsed ? 64 : 228), display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1, transition: "padding-left 0.25s cubic-bezier(0.4,0,0.2,1)", minWidth: 0, overflowX: "auto" }}
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={activeNav}
@@ -5762,7 +5775,7 @@ function AuthenticatedApp() {
             )}
           </motion.div>
         </AnimatePresence>
-      </div>
+      </motion.div>
     </div>
   );
 }
