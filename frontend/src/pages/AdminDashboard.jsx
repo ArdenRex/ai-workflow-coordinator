@@ -9,6 +9,17 @@ const API = process.env.REACT_APP_API_URL || "";
 const ThemeCtx = React.createContext({ dark: true });
 function useTheme() { return React.useContext(ThemeCtx); }
 
+// -- Responsive window width hook (mirrors the one in App.jsx) ----------------
+function useWindowWidth() {
+  const [w, setW] = React.useState(window.innerWidth);
+  React.useEffect(() => {
+    const handler = () => setW(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return w;
+}
+
 // Light-mode CSS variable overrides injected as a class on <html>
 const LIGHT_OVERRIDES = `
   .arcane-light {
@@ -171,7 +182,7 @@ function ExportModal({ open, onClose, m }) {
   };
 
   const panelStyle = {
-    width: 520, borderRadius: 10,
+    width: 520, maxWidth: "92vw", borderRadius: 10,
     background: dark
       ? "linear-gradient(160deg, rgba(0,5,20,0.99) 0%, rgba(0,12,32,0.97) 60%, rgba(0,5,18,0.99) 100%)"
       : "linear-gradient(160deg, rgba(225,240,255,0.99) 0%, rgba(205,228,252,0.97) 100%)",
@@ -1879,7 +1890,7 @@ function DeleteChoiceModal({ name, onDashboardOnly, onDataAndDashboard, onCancel
         onClick={e => e.stopPropagation()} style={{
         background: dark ? "linear-gradient(135deg,rgba(8,18,32,0.98) 0%,rgba(4,12,24,0.99) 100%)" : "rgba(225,238,255,0.98)",
         border: "1px solid rgba(255,77,94,0.4)",
-        borderRadius: 10, padding: "30px 32px", minWidth: 340, maxWidth: 420,
+        borderRadius: 10, padding: "30px 32px", width: "92vw", maxWidth: 420,
         boxShadow: "0 0 60px rgba(255,77,94,0.18), 0 20px 60px rgba(0,0,0,0.6)",
         fontFamily: "'Share Tech Mono', monospace",
       }}>
@@ -1956,6 +1967,8 @@ function CardStatusPanel() {
   const { data, loading } = useAdminFetch("/admin/users?limit=200");
   const { dark } = useTheme();
   const [activeList, setActiveList] = useState("card"); // "card" | "no_card"
+  const winW = useWindowWidth();
+  const isPhone = winW < 640;
 
   const cyan   = dark ? "255,138,76"   : "179,113,31";
   const cyanHex = dark ? "#ff8a4c"   : "#b3711f";
@@ -2067,8 +2080,8 @@ function CardStatusPanel() {
           <div style={{ padding: 24, textAlign: "center", fontSize: 9, color: textDim, fontFamily: "'Share Tech Mono', monospace" }}>NO USERS</div>
         ) : shown.map((u, i) => (
           <div key={u.id} style={{
-            display: "grid", gridTemplateColumns: "36px 1fr 160px 90px",
-            alignItems: "center", padding: "9px 22px", gap: 12,
+            display: "grid", gridTemplateColumns: isPhone ? "28px 1fr" : "36px 1fr 160px 90px",
+            alignItems: "center", padding: "9px 22px", gap: isPhone ? "4px 10px" : 12,
             borderBottom: `1px solid rgba(${cyan},0.05)`,
             background: i % 2 === 0 ? "transparent" : (dark ? "rgba(255,138,76,0.01)" : "rgba(179,113,31,0.02)"),
           }}>
@@ -2079,13 +2092,15 @@ function CardStatusPanel() {
               <div style={{ fontSize: 10, color: textPrimary, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.name || "—"}</div>
               <div style={{ fontSize: 8, color: textDim, fontFamily: "'Share Tech Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{u.email}</div>
             </div>
-            {/* Subscription status */}
+            {/* Subscription status + card indicator — own full-width row on
+                phone instead of squeezing into two more fixed columns */}
             <span style={{
+              gridColumn: isPhone ? "2 / 3" : undefined,
               fontSize: 7, letterSpacing: "0.14em", fontFamily: "'Share Tech Mono', monospace",
               color: u.subscription_status === "active" ? "#3fae7d" : u.subscription_status === "trialing" ? "#d99a3f" : u.subscription_status === "cancelled" ? "#ff4d5e" : textDim,
             }}>{(u.subscription_status || "—").toUpperCase()}</span>
             {/* Card indicator */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ gridColumn: isPhone ? "2 / 3" : undefined, display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{
                 width: 6, height: 6, borderRadius: "50%",
                 background: u.ls_customer_id ? "#3fae7d" : "#ff4d5e",
@@ -3232,7 +3247,7 @@ function FreelancerPanel({ showToast }) {
   return (
     <div>
       {/* ── Stat strip ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(140px,1fr))", gap: 12, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px,1fr))", gap: 12, marginBottom: 18 }}>
         {[
           { label: "Total Freelancers", val: stats.total,     color: purple, icon: "◈" },
           { label: "Active",            val: stats.active,    color: green,  icon: "✦" },
@@ -3466,7 +3481,7 @@ function FreelancerPanel({ showToast }) {
                     </div>
                   </div>
                   {/* Detail grid */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 14 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px,1fr))", gap: 14 }}>
                     {[
                       { label: "Referral Code", val: f.referral_code },
                       { label: "Cancelled",     val: f.cancelled ?? 0 },
@@ -4186,7 +4201,7 @@ function useRevenueColor() {
 }
 
 // ── LIVE BROADCAST TICKER BAR — scrolling telemetry at bottom of screen ──────
-function LiveTickerBar({ m }) {
+function LiveTickerBar({ m, sidebarOffset = 240 }) {
   const items = m ? [
     `⬡ TOTAL USERS: ${m.users?.total ?? "—"}`,
     `◎ MRR: $${m.revenue?.mrr ?? "—"}`,
@@ -4206,7 +4221,8 @@ function LiveTickerBar({ m }) {
 
   return (
     <div style={{
-      position: "fixed", bottom: 0, left: 240, right: 0, height: 28, zIndex: 20,
+      position: "fixed", bottom: 0, left: sidebarOffset, right: 0, height: 28, zIndex: 20,
+      transition: "left 0.4s cubic-bezier(0.16,1,0.3,1)",
       background: "linear-gradient(180deg, rgba(0,4,16,0.97) 0%, rgba(0,2,10,0.99) 100%)",
       borderTop: "1px solid rgba(255,138,76,0.12)",
       overflow: "hidden",
@@ -4595,7 +4611,7 @@ function LoginScreen({ onLogin }) {
       {/* Login panel */}
       <div style={{
         position: "relative", zIndex: 10,
-        width: 420,
+        width: 420, maxWidth: "92vw",
         animation: "holoRise 0.8s cubic-bezier(0.16,1,0.3,1) both",
       }}>
         {/* Outer glow frame */}
@@ -5249,6 +5265,14 @@ function WorkspaceHealthMap({ workspaces }) {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
   const { dark } = useTheme();
+  const winW = useWindowWidth();
+
+  // Column count and canvas height both scale with the actual rendered
+  // width instead of a hardcoded 6, so nodes don't overlap into an
+  // unreadable cluster on narrow phones.
+  const approxCols = winW < 340 ? 3 : winW < 460 ? 4 : winW < 600 ? 5 : 6;
+  const rowCount = Math.max(1, Math.ceil(Math.min(workspaces?.length || 0, 18) / approxCols));
+  const canvasHeight = Math.max(260, 50 + rowCount * 90 + 40);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -5271,8 +5295,9 @@ function WorkspaceHealthMap({ workspaces }) {
       const r = 14 + (health / 100) * 18;
       const color = !ws.is_active ? "#ff4d5e" : health > 70 ? "#3fae7d" : health > 35 ? "#d99a3f" : "#c9702e";
       const rgb = !ws.is_active ? "255,77,94" : health > 70 ? "63,174,125" : health > 35 ? "217,154,63" : "201,112,46";
-      // Arrange in a loose scattered layout
-      const cols = 6;
+      // Arrange in a loose scattered layout — column count scales with
+      // canvas width so nodes keep breathing room on narrow screens
+      const cols = W < 340 ? 3 : W < 460 ? 4 : W < 600 ? 5 : 6;
       const row = Math.floor(i / cols), col = i % cols;
       const jitterX = ((ws.id || i) * 37) % 40 - 20;
       const jitterY = ((ws.id || i) * 53) % 30 - 15;
@@ -5375,7 +5400,7 @@ function WorkspaceHealthMap({ workspaces }) {
     }
     draw();
     return () => cancelAnimationFrame(animRef.current);
-  }, [workspaces, dark]);
+  }, [workspaces, dark, winW]);
 
   // Legend
   const legend = [
@@ -5403,7 +5428,7 @@ function WorkspaceHealthMap({ workspaces }) {
       <div style={{ position: "relative", borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,138,76,0.1)" }}>
         <canvas
           ref={canvasRef}
-          style={{ display: "block", width: "100%", height: 260 }}
+          style={{ display: "block", width: "100%", height: canvasHeight }}
         />
       </div>
     </div>
@@ -6675,6 +6700,8 @@ function GeoIntelligenceMap({ m }) {
   const [selected, setSelected] = useState(null);
   const [animFrame, setAnimFrame] = useState(0);
   const totalUsers = m?.users?.total || 120;
+  const winW = useWindowWidth();
+  const isPhone = winW < 640;
 
   // Deterministically seed users per region from total
   const regions = useMemo(() => {
@@ -6717,7 +6744,7 @@ function GeoIntelligenceMap({ m }) {
       </div>
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#ff8a4c", boxShadow: "0 0 10px #ff8a4c", animation: "pulse-glow 1.2s infinite" }} />
           <span style={{ fontSize: 8, color: "rgba(255,138,76,0.7)", letterSpacing: "0.22em", fontFamily: "'Share Tech Mono', monospace" }}>GEO-INTELLIGENCE MAP</span>
@@ -6738,8 +6765,9 @@ function GeoIntelligenceMap({ m }) {
         </div>
       </div>
 
-      {/* Map + sidebar layout */}
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+      {/* Map + sidebar layout — stacks vertically on phone instead of
+          squeezing the SVG map against a fixed 160px sidebar */}
+      <div style={{ display: "flex", flexDirection: isPhone ? "column" : "row", gap: 16, alignItems: isPhone ? "stretch" : "flex-start" }}>
         {/* SVG World Map */}
         <div style={{ flex: 1, position: "relative" }}>
           <svg viewBox="0 0 400 180" style={{ width: "100%", height: "auto", display: "block" }}>
@@ -6852,7 +6880,7 @@ function GeoIntelligenceMap({ m }) {
         </div>
 
         {/* Region density bars */}
-        <div style={{ width: 160, flexShrink: 0 }}>
+        <div style={{ width: isPhone ? "100%" : 160, flexShrink: 0 }}>
           <div style={{ fontSize: 7, color: "rgba(255,138,76,0.35)", letterSpacing: "0.18em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 10 }}>DENSITY RANKING</div>
           {[...regions].sort((a, b) => b.users - a.users).map((r, i) => {
             const isAct = selected === r.id || hovered === r.id;
@@ -7062,8 +7090,11 @@ function TaskPipelineKanban() {
         </div>
       )}
 
-      {/* Kanban columns */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 10 }}>
+      {/* Kanban columns — horizontally scrollable on narrow screens instead of
+          squishing, since shrinking columns would break the drag-and-drop
+          column semantics */}
+      <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(130px,1fr))", gap: 10, minWidth: 560 }}>
         {colOrder.map(colId => {
           const col = KANBAN_COLS.find(c => c.id === colId);
           const tasks = (cols[colId] || []).filter(t => !filterPri || t.priority === filterPri);
@@ -7157,6 +7188,7 @@ function TaskPipelineKanban() {
             </div>
           );
         })}
+      </div>
       </div>
 
       {/* Footer stats */}
@@ -7308,7 +7340,7 @@ function AlertRulesEngine({ m }) {
     return (
       <div style={{ background: dark ? "rgba(255,138,76,0.03)" : "rgba(0,100,200,0.05)", border: `1px solid rgba(255,138,76,0.18)`, borderRadius: 5, padding: "16px 18px", marginBottom: 14 }}>
         {/* Rule name */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px,1fr))", gap: 10, marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 7, color: "rgba(255,138,76,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>RULE NAME</div>
             <input value={r.name} onChange={e => setR(p => ({ ...p, name: e.target.value }))} placeholder="Alert name…" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
@@ -7326,7 +7358,7 @@ function AlertRulesEngine({ m }) {
             </select>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(120px,1fr))", gap: 10, marginBottom: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px,1fr))", gap: 10, marginBottom: 14 }}>
           <div>
             <div style={{ fontSize: 7, color: "rgba(255,138,76,0.4)", letterSpacing: "0.15em", fontFamily: "'Share Tech Mono', monospace", marginBottom: 5 }}>THRESHOLD {metricDef?.unit || ""}</div>
             <input value={r.threshold} onChange={e => setR(p => ({ ...p, threshold: e.target.value }))} placeholder="Value…" style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }} />
@@ -8113,6 +8145,13 @@ export default function AdminDashboard() {
   const toggleDark = useCallback(() => { setDark(d => !d); setDarkToggleCount(c => c + 1); }, []);
   const [drawerUser, setDrawerUser] = useState(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const winW = useWindowWidth();
+  const isPhone = winW < 640;
+  // On phone the sidebar is a full off-canvas drawer, not a permanent
+  // icon rail, so the desktop collapse toggle is ignored there — it
+  // always renders its "expanded" content when open.
+  const effectiveCollapsed = isPhone ? false : sidebarCollapsed;
   const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
   const { notifs, markRead, markAllRead, unreadCount } = useNotifications();
   const { displayTab, transitionStyle } = useTabTransition(tab);
@@ -8871,11 +8910,42 @@ export default function AdminDashboard() {
       <HoloGrid />
 
       <div className="dashboard-root">
+        {/* Mobile nav backdrop — tapping it closes the drawer */}
+        {isPhone && mobileNavOpen && (
+          <div
+            onClick={() => setMobileNavOpen(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 54, backdropFilter: "blur(2px)" }}
+          />
+        )}
+
+        {/* Hamburger toggle — only rendered on phone widths; the sidebar
+            becomes a full off-canvas drawer instead of a permanent icon
+            rail there, so this is how it's reached. */}
+        {isPhone && (
+          <button
+            onClick={() => setMobileNavOpen(o => !o)}
+            aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+            style={{
+              position: "fixed", top: 10, left: 10, zIndex: 60,
+              width: 38, height: 38, borderRadius: 10,
+              background: "rgba(0,6,20,0.9)", border: "1px solid rgba(255,138,76,0.3)",
+              backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#f5f0eb", cursor: "pointer", fontSize: 16,
+            }}
+          >
+            {mobileNavOpen ? "✕" : "☰"}
+          </button>
+        )}
+
         {/* ── SIDEBAR ── */}
         <aside className="sidebar" style={{
-          width: sidebarCollapsed ? 64 : 240,
-          transition: "width 0.4s cubic-bezier(0.16,1,0.3,1)",
+          width: isPhone ? 240 : (effectiveCollapsed ? 64 : 240),
+          transform: isPhone ? `translateX(${mobileNavOpen ? 0 : -100}%)` : "none",
+          transition: isPhone ? "transform 0.3s cubic-bezier(0.16,1,0.3,1)" : "width 0.4s cubic-bezier(0.16,1,0.3,1)",
           overflow: "hidden",
+          zIndex: isPhone ? 56 : 10,
+          boxShadow: isPhone && mobileNavOpen ? "8px 0 60px rgba(0,0,0,0.7)" : undefined,
           ...(isRev ? {
             borderRight: `1px solid rgba(${rc.rgb},0.3)`,
             boxShadow: `6px 0 80px rgba(${rc.rgb},0.1), 4px 0 0 rgba(${rc.rgb},0.03)`,
@@ -8885,32 +8955,32 @@ export default function AdminDashboard() {
           <div className="sidebar-scan" />
           <div className="sidebar-orb" style={isRev ? { background: `radial-gradient(circle, rgba(${rc.rgb},0.05) 0%, transparent 70%)` } : {}} />
           {/* Logo block */}
-          <div style={{ padding: sidebarCollapsed ? "20px 8px 18px" : "28px 20px 22px", borderBottom: "1px solid rgba(255,138,76,0.08)", position: "relative", overflow: "hidden", transition: "padding 0.4s" }}>
+          <div style={{ padding: effectiveCollapsed ? "20px 8px 18px" : "28px 20px 22px", borderBottom: "1px solid rgba(255,138,76,0.08)", position: "relative", overflow: "hidden", transition: "padding 0.4s" }}>
             {/* Logo area ambient glow */}
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, background: "radial-gradient(ellipse at 50% 0%, rgba(255,138,76,0.1) 0%, transparent 70%)", pointerEvents: "none" }} />
             {/* Decorative grid lines */}
-            {!sidebarCollapsed && <div style={{ position: "absolute", top: 0, right: 20, bottom: 0, width: 1, background: "linear-gradient(180deg, transparent, rgba(255,138,76,0.08), transparent)", pointerEvents: "none" }} />}
-            <div style={{ display: "flex", alignItems: "center", gap: sidebarCollapsed ? 0 : 14, marginBottom: sidebarCollapsed ? 0 : 18, justifyContent: sidebarCollapsed ? "center" : "flex-start" }}>
+            {!effectiveCollapsed && <div style={{ position: "absolute", top: 0, right: 20, bottom: 0, width: 1, background: "linear-gradient(180deg, transparent, rgba(255,138,76,0.08), transparent)", pointerEvents: "none" }} />}
+            <div style={{ display: "flex", alignItems: "center", gap: effectiveCollapsed ? 0 : 14, marginBottom: effectiveCollapsed ? 0 : 18, justifyContent: effectiveCollapsed ? "center" : "flex-start" }}>
               <div style={{ position: "relative", flexShrink: 0 }}>
                 <div style={{
-                  width: sidebarCollapsed ? 38 : 48, height: sidebarCollapsed ? 38 : 48,
+                  width: effectiveCollapsed ? 38 : 48, height: effectiveCollapsed ? 38 : 48,
                   border: "1px solid rgba(255,138,76,0.55)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: sidebarCollapsed ? 16 : 20, color: "var(--cyan)",
+                  fontSize: effectiveCollapsed ? 16 : 20, color: "var(--cyan)",
                   background: "radial-gradient(circle, rgba(255,138,76,0.18) 0%, rgba(255,138,76,0.05) 100%)",
                   clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
                   animation: "pulse-glow 3s ease-in-out infinite",
                   boxShadow: "0 0 30px rgba(255,138,76,0.3), 0 0 60px rgba(255,138,76,0.1), inset 0 0 15px rgba(255,138,76,0.1)",
                   transition: "width 0.4s, height 0.4s, font-size 0.4s",
                   cursor: "pointer",
-                }} onClick={() => setSidebarCollapsed(c => !c)}>Ω</div>
+                }} onClick={() => isPhone ? setMobileNavOpen(false) : setSidebarCollapsed(c => !c)}>Ω</div>
                 {/* Orbiting dot */}
                 <div style={{ position: "absolute", inset: -4, animation: "rotateSlow 4s linear infinite", pointerEvents: "none" }}>
                   <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#3fae7d", boxShadow: "0 0 8px #3fae7d", position: "absolute", top: 2, left: "50%", transform: "translateX(-50%)" }} />
                 </div>
               </div>
-              {!sidebarCollapsed && (
-                <div style={{ overflow: "hidden", transition: "opacity 0.3s", opacity: sidebarCollapsed ? 0 : 1 }}>
+              {!effectiveCollapsed && (
+                <div style={{ overflow: "hidden", transition: "opacity 0.3s", opacity: effectiveCollapsed ? 0 : 1 }}>
                   <div style={{ fontFamily: "'Orbitron', monospace", fontSize: 14, fontWeight: 800, color: "#efe7df", letterSpacing: "0.06em", animation: "glitchShift 8s infinite", textShadow: "0 0 24px rgba(255,138,76,0.5), 0 0 50px rgba(255,138,76,0.15)", whiteSpace: "nowrap" }}>ArcaneOS</div>
                   <div style={{ fontSize: 7, color: "rgba(255,138,76,0.5)", letterSpacing: "0.28em", textTransform: "uppercase", marginTop: 3, fontFamily: "'Share Tech Mono', monospace", whiteSpace: "nowrap" }}>Admin Console v2.0</div>
                 </div>
@@ -8918,7 +8988,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Boot progress — hidden in mini mode */}
-            {!sidebarCollapsed && (
+            {!effectiveCollapsed && (
               <div style={{ marginTop: 4 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
                   <span style={{ fontSize: 7, color: "rgba(255,138,76,0.35)", letterSpacing: "0.15em" }}>SYS INTEGRITY</span>
@@ -8930,7 +9000,7 @@ export default function AdminDashboard() {
               </div>
             )}
             {/* Mini mode: just progress dot */}
-            {sidebarCollapsed && (
+            {effectiveCollapsed && (
               <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#3fae7d", boxShadow: "0 0 10px #3fae7d", animation: "pulse-glow 1.5s infinite" }} />
               </div>
@@ -8938,7 +9008,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Clock */}
-          {!sidebarCollapsed ? (
+          {!effectiveCollapsed ? (
           <div style={{
             margin: "14px 16px",
             background: "linear-gradient(145deg, rgba(255,138,76,0.06) 0%, rgba(0,6,20,0.85) 100%)",
@@ -8976,7 +9046,7 @@ export default function AdminDashboard() {
 
           {/* Nav */}
           <div style={{ flex: 1, padding: "10px 0" }}>
-            {!sidebarCollapsed && <div style={{
+            {!effectiveCollapsed && <div style={{
               fontSize: 7, color: "rgba(255,138,76,0.22)", letterSpacing: "0.28em",
               textTransform: "uppercase", padding: "0 20px 10px",
               fontFamily: "'Share Tech Mono', monospace",
@@ -8986,7 +9056,7 @@ export default function AdminDashboard() {
               Navigation
               <div style={{ flex: 1, height: 1, background: "rgba(255,138,76,0.08)" }} />
             </div>}
-            {sidebarCollapsed ? (
+            {effectiveCollapsed ? (
               /* Mini-mode: icon-only tabs */
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "4px 0" }}>
                 {TABS.map(t => {
@@ -9025,15 +9095,15 @@ export default function AdminDashboard() {
               </div>
             ) : (
               TABS.map(t => (
-                <NavTab key={t.id} label={t.label} active={tab === t.id} onClick={() => setTab(t.id)} count={t.count} icon={t.icon} activeColor={t.id === "revenue" && displayTab === "revenue" ? rc.hex : undefined} />
+                <NavTab key={t.id} label={t.label} active={tab === t.id} onClick={() => { setTab(t.id); if (isPhone) setMobileNavOpen(false); }} count={t.count} icon={t.icon} activeColor={t.id === "revenue" && displayTab === "revenue" ? rc.hex : undefined} />
               ))
             )}
           </div>
 
           {/* System status */}
-          <div style={{ padding: sidebarCollapsed ? "10px 8px 16px" : "14px 18px 22px", borderTop: "1px solid rgba(255,138,76,0.07)", position: "relative" }}>
+          <div style={{ padding: effectiveCollapsed ? "10px 8px 16px" : "14px 18px 22px", borderTop: "1px solid rgba(255,138,76,0.07)", position: "relative" }}>
             {/* Section label */}
-            {!sidebarCollapsed && <div style={{
+            {!effectiveCollapsed && <div style={{
               fontSize: 7, color: "rgba(255,138,76,0.22)", letterSpacing: "0.28em",
               textTransform: "uppercase", marginBottom: 12,
               display: "flex", alignItems: "center", gap: 6,
@@ -9043,7 +9113,7 @@ export default function AdminDashboard() {
               Systems
               <div style={{ flex: 1, height: 1, background: "rgba(255,138,76,0.08)" }} />
             </div>}
-            {!sidebarCollapsed ? [["API Gateway", "#3fae7d", "NOMINAL"], ["Database", "#3fae7d", "ONLINE"], ["Auth Layer", "#d99a3f", "STANDBY"]].map(([name, col, status]) => (
+            {!effectiveCollapsed ? [["API Gateway", "#3fae7d", "NOMINAL"], ["Database", "#3fae7d", "ONLINE"], ["Auth Layer", "#d99a3f", "STANDBY"]].map(([name, col, status]) => (
               <div key={name} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, padding: "5px 8px", background: "rgba(0,0,0,0.15)", borderRadius: 3, border: "1px solid rgba(255,138,76,0.05)", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 2, background: col, borderRadius: "3px 0 0 3px", boxShadow: `0 0 6px ${col}`, opacity: 0.6 }} />
                 <span style={{ fontSize: 9, color: "rgba(255,138,76,0.45)", fontFamily: "'Share Tech Mono', monospace", paddingLeft: 6 }}>{name}</span>
@@ -9127,7 +9197,7 @@ export default function AdminDashboard() {
         </aside>
 
         {/* ── MAIN ── */}
-        <main className="main-content" style={{ marginLeft: sidebarCollapsed ? 64 : 240, transition: "margin-left 0.4s cubic-bezier(0.16,1,0.3,1)" }}>
+        <main className="main-content" style={{ marginLeft: isPhone ? 0 : (sidebarCollapsed ? 64 : 240), paddingTop: isPhone ? 52 : undefined, transition: "margin-left 0.4s cubic-bezier(0.16,1,0.3,1)" }}>
           {/* Topbar */}
           <div className="topbar" style={isRev ? {
             borderBottom: `1px solid rgba(${rc.rgb},0.18)`,
@@ -9246,7 +9316,8 @@ export default function AdminDashboard() {
               >
                 <span style={{ fontSize: 12, color: cheatsheetOpen ? "rgba(217,74,122,0.9)" : "rgba(255,138,76,0.55)", fontFamily: "'Orbitron', monospace", fontWeight: 700, transition: "color 0.25s" }}>?</span>
               </button>
-              {/* Sidebar collapse toggle */}
+              {/* Sidebar collapse toggle — desktop/tablet only; the drawer pattern replaces it on phone */}
+              {!isPhone && (
               <button onClick={() => setSidebarCollapsed(c => !c)}
                 title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                 style={{
@@ -9264,6 +9335,7 @@ export default function AdminDashboard() {
               >
                 <span style={{ fontSize: 11, color: "rgba(255,138,76,0.6)", transform: sidebarCollapsed ? "scaleX(-1)" : "scaleX(1)", display: "inline-block", transition: "transform 0.35s cubic-bezier(0.16,1,0.3,1)" }}>⊟</span>
               </button>
+              )}
               {/* User avatar hex */}
               <div style={{
                 width: 40, height: 40, position: "relative",
@@ -9312,7 +9384,7 @@ export default function AdminDashboard() {
                   </div>
 
                   {/* ── METRIC CARDS — 4 columns with embedded mini data viz ── */}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 22 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr 1fr" : "repeat(4, 1fr)", gap: 14, marginBottom: 22 }}>
                     <HoloCard
                       label="Total Users" value={m.users.total} icon="⬡" color="#ff8a4c"
                       sub={`${m.users.paid} paid · ${m.users.trialing} trialing`}
@@ -9343,7 +9415,7 @@ export default function AdminDashboard() {
                   <DataVizOverlayStrip m={m} />
 
                   {/* Main panels row */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1.6fr 1fr 280px", gap: 14, marginBottom: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1.6fr 1fr 280px", gap: 14, marginBottom: 16 }}>
 
                     {/* Signup trend — tells story of growth */}
                     <HoloPanel title="Signup Velocity — Live Feed" accent="#ff8a4c">
@@ -9443,7 +9515,7 @@ export default function AdminDashboard() {
                   </div>
 
                   {/* ── ACTIVITY FEED + TELEMETRY ROW ── */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 14, marginBottom: 22, marginTop: 4 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isPhone ? "1fr" : "1fr 1.5fr", gap: 14, marginBottom: 22, marginTop: 4 }}>
                     <div>
                       <div className="section-heading" style={{ marginBottom: 14 }}>Recent Signups</div>
                       <RecentSignupsFeed m={m} />
@@ -9843,7 +9915,7 @@ export default function AdminDashboard() {
         </main>
       </div>
       {/* ── LIVE BROADCAST TICKER ── */}
-      <LiveTickerBar m={m} />
+      <LiveTickerBar m={m} sidebarOffset={isPhone ? 0 : (sidebarCollapsed ? 64 : 240)} />
     </div>
     </ThemeCtx.Provider>
   );
