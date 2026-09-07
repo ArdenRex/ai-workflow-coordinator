@@ -248,6 +248,12 @@ const GLOBAL_STYLES = `
     box-shadow: 0 1px 0 rgba(255,90,54,0.07), 0 4px 20px rgba(0,0,0,0.25);
     padding: 10px clamp(12px, 2.5vw, 28px); display: flex; align-items: center; gap: 10; flex-wrap: wrap;
   }
+  /* Reserve room for the fixed hamburger button on phone widths, so page
+     titles/content never sit underneath it. */
+  @media (max-width: 640px) {
+    .page-header { padding-left: 56px; }
+    .mobile-header-pad { padding-left: 56px !important; }
+  }
 
   /* -- Ownership page — detail panel drops below the list instead of
      squeezing into a fixed 360px column on narrow screens ---- */
@@ -1281,7 +1287,7 @@ const NAV_ICONS = {
   ),
 };
 
-function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCollapse }) {
+function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCollapse, mobileOpen, onCloseMobile }) {
   const { user, logout } = useAuth();
 
   const initials = user?.name
@@ -1292,22 +1298,26 @@ function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCo
   const roleColor = { architect: "#d99a3f", navigator: "#ff6a52", operator: "#3fae7d", solo: "#c81f30" }[user?.role] || "#8a8078";
 
   const winW = useWindowWidth();
-  // Auto-collapse sidebar on narrow screens
-  const effectiveCollapsed = collapsed || winW < 900;
-  const sidebarW = effectiveCollapsed ? 64 : 228;
+  const isPhone = winW < 640;
+  // Auto-collapse sidebar on narrow (tablet) screens. On phones the sidebar
+  // isn't a permanent icon-rail at all — it's a full-width off-canvas
+  // drawer, toggled open/closed, so it never eats into the small viewport.
+  const effectiveCollapsed = !isPhone && (collapsed || winW < 900);
+  const sidebarW = isPhone ? 240 : (effectiveCollapsed ? 64 : 228);
 
   return (
     <motion.aside
       initial={{ x: -18, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      animate={isPhone ? { x: mobileOpen ? 0 : -260, opacity: 1 } : { x: 0, opacity: 1 }}
+      transition={{ duration: isPhone ? 0.28 : 0.45, ease: [0.16, 1, 0.3, 1] }}
       style={{
       position: "fixed", left: 0, top: 0, bottom: 0,
       width: sidebarW,
       background: "var(--bg-sidebar)",
       borderRight: "1px solid var(--border-glass)",
-      display: "flex", flexDirection: "column", zIndex: 50,
+      display: "flex", flexDirection: "column", zIndex: 55,
       overflow: "hidden", transition: "width 0.25s cubic-bezier(0.4,0,0.2,1)",
+      boxShadow: isPhone && mobileOpen ? "0 0 40px rgba(0,0,0,0.5)" : "none",
     }}>
       {/* Subtle ambient gradient */}
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(160deg, rgba(255,106,82,0.04) 0%, transparent 40%, rgba(200,31,48,0.03) 100%)", pointerEvents: "none" }} />
@@ -1333,8 +1343,8 @@ function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCo
           </div>
         )}
 
-        {/* Collapse toggle */}
-        <button onClick={onToggleCollapse} style={{
+        {/* Collapse toggle (desktop/tablet) or Close button (phone drawer) */}
+        <button onClick={isPhone ? onCloseMobile : onToggleCollapse} style={{
           width: 22, height: 22, borderRadius: 6, border: "1px solid var(--border-glass)",
           background: "rgba(255,255,255,0.04)", cursor: "pointer", color: "var(--color-text-tertiary)",
           display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
@@ -1342,15 +1352,21 @@ function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCo
         }}
           onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.09)"; e.currentTarget.style.color = "var(--color-text-primary)"; }}
           onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "var(--color-text-tertiary)"; }}
-          title={effectiveCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={isPhone ? "Close menu" : (effectiveCollapsed ? "Expand sidebar" : "Collapse sidebar")}
         >
-          <motion.svg
-            width="10" height="10" viewBox="0 0 10 10" fill="none"
-            animate={{ rotate: collapsed ? 180 : 0 }}
-            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          >
-            <path d="M7 2L3 5l4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </motion.svg>
+          {isPhone ? (
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+              <path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          ) : (
+            <motion.svg
+              width="10" height="10" viewBox="0 0 10 10" fill="none"
+              animate={{ rotate: collapsed ? 180 : 0 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <path d="M7 2L3 5l4 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </motion.svg>
+          )}
         </button>
       </div>
 
@@ -1387,8 +1403,8 @@ function Sidebar({ activeNav, onNavChange, navBadges = {}, collapsed, onToggleCo
                   variants={fadeUpItem}
                   role="button" tabIndex={0} title={collapsed ? item.label : undefined}
                   aria-current={isActive ? "page" : undefined}
-                  onClick={() => onNavChange(item.idx)}
-                  onKeyDown={e => e.key === "Enter" && onNavChange(item.idx)}
+                  onClick={() => { onNavChange(item.idx); if (isPhone) onCloseMobile?.(); }}
+                  onKeyDown={e => { if (e.key === "Enter") { onNavChange(item.idx); if (isPhone) onCloseMobile?.(); } }}
                   style={{
                     display: "flex", alignItems: "center", gap: effectiveCollapsed ? 0 : 10,
                     padding: collapsed ? "9px" : "8px 10px",
@@ -1616,7 +1632,7 @@ function OwnershipGraph() {
     <main className="page-enter" style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24 }}>
 
       {/* Header */}
-      <header style={{
+      <header className="mobile-header-pad" style={{
         position: "sticky", top: 0, zIndex: 40, minHeight: 56,
         background: "rgba(13,15,30,0.88)", backdropFilter: "blur(16px)",
         borderBottom: "1px solid var(--border-glass)",
@@ -1939,7 +1955,7 @@ function TasksPage() {
   return (
     <>
       {/* Topbar */}
-      <header style={{ position:"sticky", top:0, zIndex:40, minHeight:56, background:"rgba(13,15,30,0.88)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:"1px solid var(--border-glass)", padding:"10px clamp(12px,2.5vw,28px)", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+      <header style={{ position:"sticky", top:0, zIndex:40, minHeight:56, background:"rgba(13,15,30,0.88)", backdropFilter:"blur(16px)", WebkitBackdropFilter:"blur(16px)", borderBottom:"1px solid var(--border-glass)", padding:"10px clamp(12px,2.5vw,28px)", display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }} className="mobile-header-pad">
         <div>
           <div style={{ fontSize:15, fontWeight:700, color:"var(--color-text-primary)", letterSpacing:"-0.02em" }}>Tasks</div>
           <div style={{ fontSize:11, color:"var(--color-text-tertiary)" }}>{counts.all} total · {counts.in_progress} in progress</div>
@@ -4939,7 +4955,7 @@ function ApiPage() {
 
   return (
     <main style={{ flex: 1, padding: "clamp(14px, 2.5vw, 28px) clamp(12px, 2.5vw, 28px) 40px", display: "flex", flexDirection: "column", gap: 24, maxWidth: 860 }}>
-      <div>
+      <div className="mobile-header-pad">
         <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: "-0.02em", color: "var(--color-text-primary)", marginBottom: 6 }}>Public API</h1>
         <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
           Connect Notion, Jira, Trello, Zapier, or any tool to your workspace using API keys. All endpoints use <code style={{ background: "rgba(255,255,255,0.08)", padding: "1px 6px", borderRadius: 4, fontSize: 12 }}>X-API-Key</code> header authentication.
@@ -5467,7 +5483,9 @@ function AuthenticatedApp() {
   const { user, isOnboarded, token } = useAuth();
   const [activeNav, setActiveNav]     = useState(0);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const winWidth = useWindowWidth();
+  const isPhone = winWidth < 640;
   const [showOnboarding, setShowOnboarding] = useState(false);
   // Local override: set true once user finishes onboarding so we don't loop
   // back even if AuthContext hasn't re-fetched isOnboarded from the server yet.
@@ -5742,18 +5760,49 @@ function AuthenticatedApp() {
       {/* Ambient top glow */}
       <div style={{ position: "fixed", top: -200, left: "30%", width: 600, height: 400, background: "radial-gradient(ellipse, rgba(255,106,82,0.06) 0%, transparent 70%)", pointerEvents: "none", zIndex: 0 }} />
 
+      {/* Mobile nav backdrop — tapping it closes the drawer */}
+      {isPhone && mobileNavOpen && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          onClick={() => setMobileNavOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 54, backdropFilter: "blur(2px)" }}
+        />
+      )}
+
+      {/* Hamburger toggle — only rendered on phone widths; the sidebar
+          itself becomes a full off-canvas drawer instead of a permanent
+          icon rail there, so this is how it's reached. */}
+      {isPhone && (
+        <button
+          onClick={() => setMobileNavOpen(o => !o)}
+          aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
+          style={{
+            position: "fixed", top: 10, left: 10, zIndex: 60,
+            width: 38, height: 38, borderRadius: 10,
+            background: "rgba(20,15,14,0.85)", border: "1px solid rgba(255,255,255,0.12)",
+            backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: "#f5f0eb", cursor: "pointer", fontSize: 16,
+          }}
+        >
+          {mobileNavOpen ? "✕" : "☰"}
+        </button>
+      )}
+
       <Sidebar
         activeNav={activeNav}
         onNavChange={setActiveNav}
         navBadges={navBadges}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(c => !c)}
+        mobileOpen={mobileNavOpen}
+        onCloseMobile={() => setMobileNavOpen(false)}
       />
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-        style={{ paddingLeft: winWidth < 900 ? 64 : (sidebarCollapsed ? 64 : 228), display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1, transition: "padding-left 0.25s cubic-bezier(0.4,0,0.2,1)", minWidth: 0, overflowX: "auto" }}
+        style={{ paddingLeft: isPhone ? 0 : (winWidth < 900 ? 64 : (sidebarCollapsed ? 64 : 228)), display: "flex", flexDirection: "column", minHeight: "100vh", position: "relative", zIndex: 1, transition: "padding-left 0.25s cubic-bezier(0.4,0,0.2,1)", minWidth: 0, overflowX: "auto" }}
       >
         <AnimatePresence mode="wait">
           <motion.div
