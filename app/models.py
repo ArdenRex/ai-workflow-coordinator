@@ -180,6 +180,20 @@ class User(Base):
     slack_user_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True)
     slack_team_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
 
+    # ── Gmail Connect (per-user OAuth) ───────────────────────────────────────
+    # Unlike Slack (one bot install per workspace, tokens not yet persisted —
+    # see routers/slack.py), Gmail is connected per-user: each person OAuths
+    # their own inbox, so the tokens live on the User row they belong to.
+    gmail_connected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    gmail_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    gmail_access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    gmail_refresh_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    gmail_token_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Last time we successfully polled this user's inbox — new messages are
+    # queried as "received after this timestamp" rather than tracking Gmail's
+    # historyId, which expires and would need a separate re-sync path.
+    gmail_last_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # Segment 12 — per-user locale preferences
     language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, default="en")
     timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default="UTC")
@@ -251,6 +265,11 @@ class Task(Base):
     source_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     slack_channel_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     slack_message_ts: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # Gmail message id this task was created from — lets the poller skip a
+    # message it's already turned into a task (the poller re-queries a small
+    # overlapping time window each run, same MVP tradeoff as Slack's ts field
+    # above rather than a full idempotency table).
+    gmail_message_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
 
     # ── Segment 8: public share token ────────────────────────────────────────
     share_token: Mapped[Optional[str]] = mapped_column(
