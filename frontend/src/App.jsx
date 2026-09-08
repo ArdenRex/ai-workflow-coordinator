@@ -4108,7 +4108,10 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
             </span>
           </div>
 
-          {/* Kanban board */}
+          {/* Kanban board — skipped entirely when there are no tasks at all,
+              so we don't stack an empty 4-column board (each column saying
+              "No tasks") on top of the illustrated empty state below it;
+              that redundant block was extra height with nothing to show. */}
           {isLoadingSource && sourceTasks.length === 0 ? (
             <motion.div
               role="status" aria-label="Loading tasks"
@@ -4125,7 +4128,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
               </div>
               <span style={{ fontSize: 13, color: "var(--color-text-tertiary)" }}>Loading tasks…</span>
             </motion.div>
-          ) : (
+          ) : sourceTasks.length === 0 ? null : (
             <div className="dash-kanban-scroll" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
               {/* Crossfade the whole board when switching Team/Individual —
                   keyed on activeTab so AnimatePresence treats it as a fresh
