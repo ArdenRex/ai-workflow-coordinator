@@ -2,7 +2,7 @@
 // Login + Register page — matches the existing dark dashboard aesthetic.
 // Uses useAuth() hook for all auth actions.
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import PasswordInput from "../components/PasswordInput";
 import AuthShell from "../components/AuthShell";
@@ -18,13 +18,15 @@ const STYLES = `
     background: rgba(255,255,255,0.035);
     border: 1px solid rgba(255,255,255,0.09);
     border-radius: 24px;
-    padding: clamp(20px, 5vw, 40px);
+    padding: clamp(18px, 3.5vh, 40px) clamp(20px, 5vw, 40px);
     backdrop-filter: blur(20px);
     box-shadow: 0 24px 64px rgba(0,0,0,0.4);
     position: relative;
     z-index: 1;
     animation: cardIn 0.5s cubic-bezier(0.16,1,0.3,1) both;
     overflow: hidden;
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
   }
 
   div.auth-card-glare {
@@ -47,7 +49,7 @@ const STYLES = `
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 32px;
+    margin-bottom: clamp(14px, 3vh, 32px);
   }
 
   .auth-logo-icon {
@@ -88,7 +90,7 @@ const STYLES = `
   .auth-subtitle {
     font-size: 13px;
     color: #9a908a;
-    margin-bottom: 28px;
+    margin-bottom: clamp(14px, 3vh, 28px);
     line-height: 1.5;
   }
 
@@ -99,7 +101,7 @@ const STYLES = `
     border: 1px solid rgba(255,255,255,0.07);
     border-radius: 12px;
     padding: 4px;
-    margin-bottom: 28px;
+    margin-bottom: clamp(14px, 3vh, 28px);
     gap: 4px;
   }
 
@@ -132,7 +134,7 @@ const STYLES = `
 
   /* Form fields */
   .auth-field {
-    margin-bottom: 16px;
+    margin-bottom: clamp(10px, 2vh, 16px);
   }
 
   .auth-label {
@@ -146,7 +148,7 @@ const STYLES = `
 
   .auth-input {
     width: 100%;
-    height: 44px;
+    height: clamp(38px, 6vh, 44px);
     padding: 0 14px;
     background: rgba(255,255,255,0.05);
     border: 1px solid rgba(255,255,255,0.09);
@@ -172,7 +174,7 @@ const STYLES = `
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 24px;
+    margin-bottom: clamp(14px, 3vh, 24px);
     cursor: pointer;
     user-select: none;
   }
@@ -459,6 +461,18 @@ export default function AuthPage({ onAuthSuccess }) {
 
   const { ref: tiltRef, style: tiltStyle, glareStyle, onPointerMove, onPointerLeave } = useTilt3D({ max: 3, scale: 1.004 });
 
+  // Measure the fixed footer bar so the shell can reserve exactly that
+  // much space — otherwise on shorter viewports it overlaps the bottom
+  // of the card/hero instead of sitting cleanly below them.
+  const footerRef = useRef(null);
+  const [footerH, setFooterH] = useState(0);
+  useEffect(() => {
+    const measure = () => setFooterH(footerRef.current?.offsetHeight || 0);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
   const switchTab = (t) => {
     setTab(t);
     setError(null);
@@ -516,11 +530,11 @@ export default function AuthPage({ onAuthSuccess }) {
   return (
     <>
       <style>{STYLES}</style>
-      <AuthShell eyebrow={heroCopy.eyebrow} headline={heroCopy.headline} subtext={heroCopy.subtext}>
+      <AuthShell eyebrow={heroCopy.eyebrow} headline={heroCopy.headline} subtext={heroCopy.subtext} bottomInset={footerH + 8}>
         <div
           className="auth-card"
           ref={tiltRef}
-          style={tiltStyle}
+          style={{ ...tiltStyle, maxHeight: `calc(100dvh - 32px - ${footerH}px)` }}
           onPointerMove={onPointerMove}
           onPointerLeave={onPointerLeave}
         >
@@ -681,7 +695,7 @@ export default function AuthPage({ onAuthSuccess }) {
       </AuthShell>
 
       {/* Footer links */}
-      <div className="auth-footer-wrapper">
+      <div className="auth-footer-wrapper" ref={footerRef}>
         <div className="auth-footer">
           <a href="/terms">Terms of Service</a>
           <span className="auth-footer-sep">•</span>
