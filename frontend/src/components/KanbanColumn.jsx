@@ -53,7 +53,9 @@ export default function KanbanColumn({ status, label, tasks, onMove, onDelete, t
         </span>
       </div>
 
-      {/* Cards container */}
+      {/* Cards container — capped and internally scrollable so a column
+          with many tasks doesn't keep growing the whole page; the board
+          should fit the viewport regardless of task count. */}
       <div style={{
         display: "flex", flexDirection: "column", gap: 10,
         background: "rgba(255,255,255,0.025)",
@@ -61,6 +63,8 @@ export default function KanbanColumn({ status, label, tasks, onMove, onDelete, t
         borderRadius: 16,
         padding: tasks.length ? 10 : "32px 10px",
         minHeight: 140,
+        maxHeight: "clamp(160px, calc(100vh - 460px), 640px)",
+        overflowY: tasks.length ? "auto" : "visible",
         borderTop: `2px solid ${config.accent}33`,
         boxShadow: `0 12px 30px -18px ${config.accent}55`,
         transition: "box-shadow 0.25s cubic-bezier(0.16,1,0.3,1)",
