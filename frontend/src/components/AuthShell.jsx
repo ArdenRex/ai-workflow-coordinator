@@ -20,7 +20,9 @@ import { fadeUpItem, staggerContainer } from "../motion/variants";
 
 const SHELL_STYLES = `
   .shell-root {
-    min-height: 100vh;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
     display: flex;
     background: #0a0706;
     font-family: 'Inter', system-ui, sans-serif;
@@ -33,8 +35,9 @@ const SHELL_STYLES = `
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 48px 56px;
-    overflow: hidden;
+    padding: clamp(24px, 4vh, 48px) clamp(28px, 4vw, 56px);
+    overflow-y: auto;
+    overflow-x: hidden;
     background:
       radial-gradient(circle at 30% 20%, rgba(255,106,82,0.10) 0%, transparent 55%),
       radial-gradient(circle at 70% 85%, rgba(200,31,48,0.09) 0%, transparent 60%),
@@ -81,7 +84,8 @@ const SHELL_STYLES = `
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 12px 0;
+    margin: clamp(4px, 2vh, 12px) 0;
+    transition: transform 0.2s;
   }
 
   .shell-copy { position: relative; z-index: 1; }
@@ -95,17 +99,18 @@ const SHELL_STYLES = `
 
   .shell-headline {
     font-family: 'Space Grotesk', sans-serif;
-    font-size: 27px; font-weight: 600;
+    font-size: clamp(19px, 2.6vh, 27px);
+    font-weight: 600;
     line-height: 1.28;
     letter-spacing: -0.01em;
     color: #f5f0eb;
     max-width: 420px;
-    margin-bottom: 14px;
+    margin-bottom: clamp(8px, 1.5vh, 14px);
   }
 
   .shell-subtext {
     font-size: 13.5px;
-    line-height: 1.6;
+    line-height: 1.5;
     color: #9a908a;
     max-width: 380px;
   }
@@ -115,17 +120,28 @@ const SHELL_STYLES = `
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 40px 24px 96px;
+    padding: clamp(16px, 4vh, 40px) 24px;
     position: relative;
+    overflow-y: auto;
   }
 
   @media (max-width: 980px) {
     .shell-hero { display: none; }
-    .shell-right { padding: 32px 16px 90px; }
+    .shell-right { padding: clamp(16px, 4vh, 32px) 16px; }
+  }
+
+  /* Short-but-wide viewports (typical laptops): the hero's decorative
+     orb is the single biggest fixed-height item, so it's the first
+     thing scaled back — the brand mark and copy stay put. */
+  @media (max-height: 760px) {
+    .shell-core-wrap { transform: scale(0.72); margin: -8px 0; }
+  }
+  @media (max-height: 620px) {
+    .shell-core-wrap { display: none; }
   }
 `;
 
-export default function AuthShell({ eyebrow, headline, subtext, children }) {
+export default function AuthShell({ eyebrow, headline, subtext, children, bottomInset = 0 }) {
   return (
     <>
       <style>{SHELL_STYLES}</style>
@@ -135,6 +151,7 @@ export default function AuthShell({ eyebrow, headline, subtext, children }) {
           initial="hidden"
           animate="show"
           variants={staggerContainer}
+          style={{ paddingBottom: `calc(clamp(24px, 4vh, 48px) + ${bottomInset}px)` }}
         >
           <motion.div className="shell-brand" variants={fadeUpItem}>
             <div className="shell-brand-icon">AI</div>
@@ -155,7 +172,7 @@ export default function AuthShell({ eyebrow, headline, subtext, children }) {
           </motion.div>
         </motion.div>
 
-        <div className="shell-right">{children}</div>
+        <div className="shell-right" style={{ paddingBottom: `calc(clamp(16px, 4vh, 40px) + ${bottomInset}px)` }}>{children}</div>
       </div>
     </>
   );
