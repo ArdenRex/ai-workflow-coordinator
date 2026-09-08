@@ -3741,9 +3741,9 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
   const [myLoading, setMyLoading]     = useState(true);
   const [myError, setMyError]         = useState(null);
 
-  const fetchMyTasks = useCallback(async () => {
+  const fetchMyTasks = useCallback(async (silent = false) => {
     if (!token) return;
-    setMyLoading(true);
+    if (!silent) setMyLoading(true);
     setMyError(null);
     try {
       const res = await fetch(`${BASE_URL}/tasks/my?limit=200`, {
@@ -3753,13 +3753,21 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
       const data = await res.json();
       setMyTasks(data.tasks || []);
     } catch (e) {
-      setMyError(e.message);
+      if (!silent) setMyError(e.message);
     } finally {
-      setMyLoading(false);
+      if (!silent) setMyLoading(false);
     }
   }, [token]);
 
-  useEffect(() => { fetchMyTasks(); }, [fetchMyTasks]);
+  useEffect(() => {
+    fetchMyTasks();
+    // Silent background poll — mirrors the 15s poll useTasks() already does
+    // for the Team list, so tasks created via Slack or email (which land
+    // straight in the DB, with no push notification to the frontend) show
+    // up here too without the user having to hit Refresh.
+    const id = setInterval(() => fetchMyTasks(true), 15_000);
+    return () => clearInterval(id);
+  }, [fetchMyTasks]);
 
   // -- Role-aware labels -----------------------------------------------------
   const roleGreeting = isArchitect
