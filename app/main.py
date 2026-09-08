@@ -18,6 +18,8 @@ Environment variables required:
     FRONTEND_URL           https://your-vercel-url.vercel.app
     ALLOWED_ORIGINS        (optional, comma-separated for CORS)
     SLACK_CHANNEL_ID       (optional, restrict bot to one channel)
+    GOOGLE_CLIENT_ID       (optional — enables the "Connect Gmail" feature)
+    GOOGLE_CLIENT_SECRET   (optional — enables the "Connect Gmail" feature)
 
 Note on the try/except around the imports below: app.database (imported
 transitively by nearly every router) builds a pydantic Settings object at
@@ -32,6 +34,7 @@ short of reading logs. We now catch that here so the process always boots
 and instead returns a clear diagnostic over HTTP.
 """
 
+import asyncio
 import logging
 import os
 import sys
@@ -74,6 +77,7 @@ try:
     from app.routers import admin as admin_router
     from app.routers import referral as referral_router
     from app.routers import email_router
+    from app.routers import gmail_router
     from app.routers.tasks import share_router
 except Exception as exc:  # pydantic ValidationError, or any other import-time failure
     _startup_error = f"{type(exc).__name__}: {exc}"
@@ -163,8 +167,36 @@ async def lifespan(app: FastAPI):
         else:
             logger.critical("Database migration failed: %s", exc, exc_info=True)
 
+    # ── Gmail Connect background poller ──────────────────────────────────────
+    # Simple asyncio loop rather than pulling in APScheduler for one job —
+    # checks every connected user's inbox on a fixed interval (see
+    # app.gmail_bot.poll_all_connected_users). Runs even if no one has
+    # connected Gmail yet (the query just comes back empty in that case).
+    gmail_poll_task = None
+    try:
+        from app.config import get_settings as _get_settings
+        from app.gmail_bot import poll_all_connected_users
+
+        _settings = _get_settings()
+        _interval = max(30, _settings.gmail_poll_interval_seconds)
+
+        async def _gmail_poll_loop():
+            while True:
+                await asyncio.sleep(_interval)
+                try:
+                    await poll_all_connected_users()
+                except Exception as exc:
+                    logger.error("Gmail poll cycle raised: %s", exc, exc_info=True)
+
+        gmail_poll_task = asyncio.create_task(_gmail_poll_loop())
+        logger.info("Gmail Connect background poller started (every %ds).", _interval)
+    except Exception as exc:
+        logger.error("Failed to start Gmail poller — Gmail Connect will be inactive: %s", exc, exc_info=True)
+
     yield
 
+    if gmail_poll_task:
+        gmail_poll_task.cancel()
     logger.info("Shutting down.")
 
 
@@ -240,6 +272,7 @@ else:
     app.include_router(admin_router.router)                 # /admin/*
     app.include_router(referral_router.router)              # /referral/*
     app.include_router(email_router.router)                 # /email/inbound
+    app.include_router(gmail_router.router)                 # /auth/gmail/*
 
     # ── Global exception handler ────────────────────────────────────────────
     @app.exception_handler(Exception)
