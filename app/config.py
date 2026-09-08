@@ -109,6 +109,25 @@ class Settings(BaseSettings):
                      "If left blank, the webhook accepts requests without a token check (fine for local testing only).",
     )
 
+    # ── Gmail Connect (per-user OAuth, Gmail API) ────────────────────────────
+    # Distinct from GMAIL_USER/GMAIL_APP_PASSWORD above — those send outbound
+    # notification emails via SMTP. These are for the "Connect Gmail" button:
+    # a per-user OAuth app that reads a connected user's own inbox via the
+    # Gmail API and turns matching messages into tasks automatically.
+    google_client_id: str = Field(
+        default="",
+        description="OAuth 2.0 Client ID from Google Cloud Console (Connect Gmail feature). "
+                     "Leave blank to keep the feature disabled.",
+    )
+    google_client_secret: SecretStr = Field(
+        default=SecretStr(""),
+        description="OAuth 2.0 Client Secret from Google Cloud Console (Connect Gmail feature).",
+    )
+    gmail_poll_interval_seconds: int = Field(
+        default=120,
+        description="How often the background job checks each connected user's Gmail inbox for new mail.",
+    )
+
     # ── Validators ────────────────────────────────────────────────────────────
     @field_validator("database_url", mode="before")
     @classmethod
