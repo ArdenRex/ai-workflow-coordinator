@@ -9,7 +9,7 @@ per-user rather than per-workspace, so tokens are saved on the User row
 Setup (Google Cloud Console):
   1. Create/select a project → enable the "Gmail API".
   2. OAuth consent screen → External → add scope
-     https://www.googleapis.com/auth/gmail.readonly → add yourself as a
+     https://www.googleapis.com/auth/gmail.modify → add yourself as a
      test user (or publish the app once you're past testing).
   3. Credentials → Create OAuth client ID → Web application → add this
      exact redirect URI:
@@ -53,7 +53,17 @@ BACKEND_URL  = os.getenv("BACKEND_URL", "").rstrip("/")
 FRONTEND_URL = os.getenv("FRONTEND_URL", "").rstrip("/")
 REDIRECT_URI = f"{BACKEND_URL}/auth/gmail/callback"
 
-GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+# Scope choice matters a lot for cost, not just permissions:
+#   - gmail.readonly is classified by Google as a RESTRICTED scope. Going
+#     from Testing to full Production with a restricted scope requires an
+#     annual third-party security audit (CASA) — commonly $500+/year.
+#   - gmail.modify is classified as SENSITIVE instead. Sensitive scopes still
+#     need Google's standard (free) verification, but skip the paid CASA
+#     audit entirely. It technically also grants send/label/trash
+#     permissions, but this codebase never calls those endpoints — only
+#     messages.list / messages.get (see app/gmail_bot.py) — so functionally
+#     this behaves as read-only while staying in the free verification tier.
+GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 
 
 def _cleanup_expired_states() -> None:
