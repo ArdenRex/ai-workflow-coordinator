@@ -6,7 +6,9 @@ email_bot.py.
 
 Flow:
   1. A user clicks "Connect Gmail" in the dashboard → routers/gmail_router.py
-     sends them through Google's OAuth consent screen (readonly Gmail scope).
+     sends them through Google's OAuth consent screen (gmail.modify scope —
+     see routers/gmail_router.py for why that scope, not gmail.readonly,
+     is used). This code only ever reads messages regardless of scope.
   2. Google redirects back with a code; the callback exchanges it for an
      access_token + refresh_token, stored on that User row.
   3. A background job (started in main.py's lifespan) calls
