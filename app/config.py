@@ -124,8 +124,10 @@ class Settings(BaseSettings):
         description="OAuth 2.0 Client Secret from Google Cloud Console (Connect Gmail feature).",
     )
     gmail_poll_interval_seconds: int = Field(
-        default=120,
-        description="How often the background job checks each connected user's Gmail inbox for new mail.",
+        default=15,
+        description="How often the background job checks each connected user's Gmail inbox for new mail. "
+                     "Kept low (default 15s) since polling the free Gmail API costs nothing — the floor is "
+                     "just to avoid hammering Google's rate limits, not billing.",
     )
 
     # ── Validators ────────────────────────────────────────────────────────────
