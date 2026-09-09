@@ -178,7 +178,7 @@ async def lifespan(app: FastAPI):
         from app.gmail_bot import poll_all_connected_users
 
         _settings = _get_settings()
-        _interval = max(30, _settings.gmail_poll_interval_seconds)
+        _interval = max(10, _settings.gmail_poll_interval_seconds)
 
         async def _gmail_poll_loop():
             while True:
