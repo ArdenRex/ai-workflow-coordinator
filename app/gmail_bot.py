@@ -168,41 +168,56 @@ async def _fetch_message(client: httpx.AsyncClient, access_token: str, message_i
 
 # ── Core polling logic ───────────────────────────────────────────────────────
 
-async def poll_gmail_for_user(db, user: User) -> int:
+async def poll_gmail_for_user(db, user: User) -> dict:
     """
     Check one connected user's inbox for new mail since their last check and
-    create a Task for each one the AI extractor detects a task in. Returns
-    the number of tasks created.
+    create a Task for each one the AI extractor detects a task in. Returns a
+    small stats dict (not just a count) so a caller — like the diagnostic
+    /internal/gmail-poll endpoint — can show exactly what happened rather
+    than a bare "ok" that hides a silent skip.
     """
-    if not user.gmail_connected or not user.workspace_id:
-        return 0
+    stats = {"user_id": user.id, "email": user.gmail_email, "messages_found": 0,
+              "created": 0, "skipped_existing": 0, "skipped_low_confidence": 0,
+              "skipped_no_task": 0, "error": None}
+
+    if not user.gmail_connected:
+        stats["error"] = "not connected"
+        return stats
+    if not user.workspace_id:
+        stats["error"] = "user has no workspace_id — cannot attach tasks anywhere"
+        return stats
 
     access_token = await _get_valid_access_token(db, user)
     if not access_token:
-        return 0
+        stats["error"] = "could not obtain a valid access token (refresh_token may have been revoked — try reconnecting)"
+        return stats
 
     since = (user.gmail_last_checked_at or datetime.now(timezone.utc) - timedelta(hours=1))
     since = since - timedelta(seconds=OVERLAP_SECONDS)
     poll_started_at = datetime.now(timezone.utc)
 
-    created_count = 0
     async with httpx.AsyncClient(timeout=20.0) as client:
         try:
             message_ids = await _list_recent_message_ids(client, access_token, since)
         except Exception as exc:
             logger.error("Gmail poll failed listing messages for user_id=%s: %s", user.id, exc, exc_info=True)
-            return 0
+            stats["error"] = f"listing messages failed: {exc}"
+            return stats
+
+        stats["messages_found"] = len(message_ids)
 
         for message_id in message_ids:
             # Skip messages we've already turned into a task
             existing = db.query(Task.id).filter(Task.gmail_message_id == message_id).first()
             if existing:
+                stats["skipped_existing"] += 1
                 continue
 
             try:
                 msg = await _fetch_message(client, access_token, message_id)
             except Exception as exc:
                 logger.error("Gmail poll failed fetching message %s: %s", message_id, exc, exc_info=True)
+                stats["error"] = f"fetching message {message_id} failed: {exc}"
                 continue
             if not msg:
                 continue
@@ -218,12 +233,15 @@ async def poll_gmail_for_user(db, user: User) -> int:
                 extracted = await extract_task_from_message(combined)
             except Exception as exc:
                 logger.error("AI extraction failed for Gmail message %s: %s", message_id, exc, exc_info=True)
+                stats["error"] = f"AI extraction failed: {exc}"
                 continue
 
             if not extracted or not extracted.task or not extracted.task.strip():
+                stats["skipped_no_task"] += 1
                 continue
             confidence = getattr(extracted, "confidence", 1.0) or 1.0
             if confidence < 0.6:
+                stats["skipped_low_confidence"] += 1
                 continue
 
             import secrets as _secrets
@@ -243,7 +261,7 @@ async def poll_gmail_for_user(db, user: User) -> int:
             db.add(new_task)
             db.commit()
             db.refresh(new_task)
-            created_count += 1
+            stats["created"] += 1
 
             logger.info(
                 "Created task id=%s from Gmail | user_id=%s title=%r workspace_id=%s",
@@ -253,23 +271,33 @@ async def poll_gmail_for_user(db, user: User) -> int:
     user.gmail_last_checked_at = poll_started_at
     db.add(user)
     db.commit()
-    return created_count
+    return stats
 
 
-async def poll_all_connected_users() -> None:
-    """Entry point called on a fixed interval by the scheduler in main.py."""
+async def poll_all_connected_users() -> dict:
+    """Entry point called on a fixed interval by the scheduler in main.py,
+    and by the /internal/gmail-poll HTTP trigger for serverless hosting.
+    Always returns a summary dict — callers that don't care can ignore it."""
     db = SessionLocal()
     try:
         users = db.query(User).filter(User.gmail_connected.is_(True)).all()
         if not users:
-            return
-        total = 0
+            return {"connected_users": 0, "results": []}
+
+        results = []
+        total_created = 0
         for user in users:
             try:
-                total += await poll_gmail_for_user(db, user)
+                stats = await poll_gmail_for_user(db, user)
             except Exception as exc:
                 logger.error("Gmail poll failed for user_id=%s: %s", user.id, exc, exc_info=True)
-        if total:
-            logger.info("Gmail poll cycle complete — %d task(s) created across %d user(s)", total, len(users))
+                stats = {"user_id": user.id, "email": user.gmail_email, "error": str(exc)}
+            results.append(stats)
+            total_created += stats.get("created", 0)
+
+        if total_created:
+            logger.info("Gmail poll cycle complete — %d task(s) created across %d user(s)", total_created, len(users))
+
+        return {"connected_users": len(users), "total_created": total_created, "results": results}
     finally:
         db.close()
