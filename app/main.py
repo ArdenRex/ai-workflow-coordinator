@@ -170,8 +170,19 @@ async def lifespan(app: FastAPI):
     # ── Gmail Connect background poller ──────────────────────────────────────
     # Simple asyncio loop rather than pulling in APScheduler for one job —
     # checks every connected user's inbox on a fixed interval (see
-    # app.gmail_bot.poll_all_connected_users). Runs even if no one has
-    # connected Gmail yet (the query just comes back empty in that case).
+    # app.gmail_bot.poll_all_connected_users).
+    #
+    # IMPORTANT: this only does anything on a persistent server process
+    # (Railway, a VM, a long-running container). On serverless hosting
+    # (Vercel and similar), each request runs in its own short-lived
+    # function invocation — there's no continuously-running process for
+    # this loop to live in, so it silently never fires between requests.
+    # It's harmless to leave running (it just won't do anything there) —
+    # but if your backend is on Vercel, use the
+    # POST /internal/gmail-poll?secret=... endpoint in gmail_router.py
+    # instead, triggered by a free external scheduler (cron-job.org etc.)
+    # on a schedule, since that's a normal request/response and works fine
+    # as a serverless function invocation.
     gmail_poll_task = None
     try:
         from app.config import get_settings as _get_settings
