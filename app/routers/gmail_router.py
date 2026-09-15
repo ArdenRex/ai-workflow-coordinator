@@ -203,9 +203,13 @@ async def gmail_disconnect(db: Session = Depends(get_db), current_user: User = D
 # which works fine as a serverless function invocation. Point a free external
 # scheduler (cron-job.org, EasyCron, etc.) at it every 1–5 minutes, e.g.:
 #   POST https://<your-backend>/internal/gmail-poll?secret=<GMAIL_POLL_SECRET>
+# Accepts both GET and POST — free schedulers (cron-job.org and similar)
+# default to GET and don't always make the method easy to change, so this
+# doesn't force the point. It only ever triggers a read of the caller's own
+# Gmail inboxes, nothing destructive, so accepting GET here is fine.
 # Safe to call concurrently/redundantly — each connected user's poll is
 # independent and idempotent (see gmail_bot.py's message-id dedup).
-@router.post("/internal/gmail-poll", summary="Run one Gmail poll cycle (for external schedulers)", include_in_schema=True)
+@router.api_route("/internal/gmail-poll", methods=["GET", "POST"], summary="Run one Gmail poll cycle (for external schedulers)", include_in_schema=True)
 async def gmail_poll_trigger(secret: str = ""):
     settings = get_settings()
     if not settings.gmail_poll_secret:
