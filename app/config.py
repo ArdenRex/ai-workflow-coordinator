@@ -127,7 +127,17 @@ class Settings(BaseSettings):
         default=15,
         description="How often the background job checks each connected user's Gmail inbox for new mail. "
                      "Kept low (default 15s) since polling the free Gmail API costs nothing — the floor is "
-                     "just to avoid hammering Google's rate limits, not billing.",
+                     "just to avoid hammering Google's rate limits, not billing. Only used by the in-process "
+                     "asyncio loop in main.py, which needs a persistent server (Railway, etc.) to run at all — "
+                     "see gmail_poll_secret below for the serverless-friendly alternative.",
+    )
+    gmail_poll_secret: str = Field(
+        default="",
+        description="Shared secret for POST /internal/gmail-poll?secret=... — a plain HTTP endpoint that runs "
+                     "one Gmail poll cycle and returns. For serverless backends (Vercel, etc.) where there's no "
+                     "persistent process for a background loop to live in, hit this endpoint on a schedule from "
+                     "a free external cron service (e.g. cron-job.org) instead. Leave blank to disable the "
+                     "endpoint entirely.",
     )
 
     # ── Validators ────────────────────────────────────────────────────────────
