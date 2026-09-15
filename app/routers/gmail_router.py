@@ -193,3 +193,26 @@ async def gmail_disconnect(db: Session = Depends(get_db), current_user: User = D
     db.commit()
     logger.info("Gmail disconnected for user_id=%s", current_user.id)
     return {"status": "disconnected"}
+
+
+# ── Serverless-friendly polling trigger ────────────────────────────────────────
+# main.py's background asyncio loop only works on a persistent server process
+# (Railway, a VM, etc.) — on serverless hosting (Vercel and similar), there's
+# no long-lived process for that loop to run in between requests. This is a
+# plain HTTP endpoint instead: it runs exactly one poll cycle and returns,
+# which works fine as a serverless function invocation. Point a free external
+# scheduler (cron-job.org, EasyCron, etc.) at it every 1–5 minutes, e.g.:
+#   POST https://<your-backend>/internal/gmail-poll?secret=<GMAIL_POLL_SECRET>
+# Safe to call concurrently/redundantly — each connected user's poll is
+# independent and idempotent (see gmail_bot.py's message-id dedup).
+@router.post("/internal/gmail-poll", summary="Run one Gmail poll cycle (for external schedulers)", include_in_schema=True)
+async def gmail_poll_trigger(secret: str = ""):
+    settings = get_settings()
+    if not settings.gmail_poll_secret:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not enabled.")
+    if secret != settings.gmail_poll_secret:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid secret.")
+
+    from app.gmail_bot import poll_all_connected_users
+    await poll_all_connected_users()
+    return {"status": "ok"}
