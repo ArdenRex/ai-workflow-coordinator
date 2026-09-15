@@ -112,7 +112,7 @@ Message: "whenever you get a chance, update the docs"
 Output: {"task": "Update the documentation", "assignee": null, "deadline": null, "priority": "low", "urgency": "none", "confidence": 0.85}
 """
 
-_MODEL = "llama-3.3-70b-versatile"
+_MODEL = "openai/gpt-oss-120b"  # llama-3.3-70b-versatile was deprecated by Groq on 2026-08-16
 _MAX_MESSAGE_CHARS = 4_000
 
 VALID_URGENCIES: set[str] = {"none", "low", "medium", "high", "critical"}
