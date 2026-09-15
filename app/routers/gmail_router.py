@@ -218,5 +218,5 @@ async def gmail_poll_trigger(secret: str = ""):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid secret.")
 
     from app.gmail_bot import poll_all_connected_users
-    await poll_all_connected_users()
-    return {"status": "ok"}
+    summary = await poll_all_connected_users()
+    return {"status": "ok", **summary}
