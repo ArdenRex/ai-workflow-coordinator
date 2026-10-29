@@ -685,6 +685,7 @@ async def slack_callback(
             email=slack_email or f"{slack_user_id}@slack.local",
             slack_user_id=slack_user_id,
             slack_team_id=slack_team_id,
+            trial_ends_at=datetime.now(timezone.utc) + timedelta(days=TRIAL_DAYS),
         )
         is_new_user = True
         logger.info("New user via Slack: id=%d slack_id=%s", user.id, slack_user_id)
@@ -794,6 +795,7 @@ def claim_task(
 )
 def billing_status(
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> dict:
     """
     Returns the user's subscription status and trial info.
@@ -802,6 +804,14 @@ def billing_status(
     now = datetime.now(timezone.utc)
 
     card_on_file = bool(getattr(current_user, "ls_customer_id", None))
+
+    # Trialing but no end date (e.g. accounts created via Slack sign-in before
+    # this was fixed) — start the 7-day clock now instead of granting
+    # unlimited free access.
+    if current_user.subscription_status == "trialing" and not current_user.trial_ends_at:
+        current_user.trial_ends_at = now + timedelta(days=TRIAL_DAYS)
+        db.commit()
+        db.refresh(current_user)
 
     # Exempt users (admin/owner) — never show billing wall
     if current_user.subscription_status == "exempt":
@@ -832,6 +842,9 @@ def billing_status(
     return {
         "status":    current_user.subscription_status,
         "show_wall": True,
+        # An expired trial keeps status "trialing" in the DB, so the frontend
+        # needs this flag to tell it apart from a brand-new trial user.
+        "trial_expired": current_user.subscription_status == "trialing",
         "card_on_file": card_on_file,
         "trial_ends_at": current_user.trial_ends_at.isoformat() if current_user.trial_ends_at else None,
-    }
+    }ss
