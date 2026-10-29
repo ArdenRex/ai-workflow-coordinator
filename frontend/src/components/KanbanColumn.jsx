@@ -19,6 +19,27 @@ const COLUMN_CONFIG = {
   cancelled:   { accent: "#9a908a", dotShadow: "0 0 6px rgba(107,114,128,0.6)" },
 };
 
+// Visible, chunkier scrollbar for the cards container. The thumb picks up the
+// column's accent colour (set inline as --col-accent).
+const SCROLLBAR_CSS = `
+  .kanban-col-scroll::-webkit-scrollbar { width: 12px; }
+  .kanban-col-scroll::-webkit-scrollbar-track {
+    background: rgba(255,255,255,0.06);
+    border-radius: 999px;
+    margin: 6px 0;
+  }
+  .kanban-col-scroll::-webkit-scrollbar-thumb {
+    background: var(--col-accent);
+    border-radius: 999px;
+    border: 3px solid rgba(20,8,6,0.9);
+    min-height: 48px;
+  }
+  .kanban-col-scroll::-webkit-scrollbar-thumb:hover { filter: brightness(1.2); }
+  @supports not selector(::-webkit-scrollbar) {
+    .kanban-col-scroll { scrollbar-width: auto; scrollbar-color: var(--col-accent) rgba(255,255,255,0.06); }
+  }
+`;
+
 export default function KanbanColumn({ status, label, tasks, onMove, onDelete, timezone }) {
   const config = COLUMN_CONFIG[status] || { accent: "#ff6a52", dotShadow: "none" };
   const { ref, style: tiltStyle, onPointerMove, onPointerLeave } =
@@ -32,6 +53,8 @@ export default function KanbanColumn({ status, label, tasks, onMove, onDelete, t
       onPointerLeave={onPointerLeave}
       style={{ display: "flex", flexDirection: "column", minWidth: 0, ...tiltStyle }}
     >
+      <style>{SCROLLBAR_CSS}</style>
+
       {/* Column header */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 4px 14px" }}>
         <span style={{
@@ -56,14 +79,15 @@ export default function KanbanColumn({ status, label, tasks, onMove, onDelete, t
       {/* Cards container — capped and internally scrollable so a column
           with many tasks doesn't keep growing the whole page; the board
           should fit the viewport regardless of task count. */}
-      <div style={{
+      <div className="kanban-col-scroll" style={{
+        "--col-accent": config.accent,
         display: "flex", flexDirection: "column", gap: 10,
         background: "rgba(255,255,255,0.025)",
         border: "1px solid rgba(255,255,255,0.07)",
         borderRadius: 16,
         padding: tasks.length ? 10 : "32px 10px",
         minHeight: 140,
-        maxHeight: "clamp(160px, calc(100vh - 460px), 640px)",
+        maxHeight: "clamp(360px, calc(100vh - 260px), 900px)",
         overflowY: tasks.length ? "auto" : "visible",
         borderTop: `2px solid ${config.accent}33`,
         boxShadow: `0 12px 30px -18px ${config.accent}55`,
