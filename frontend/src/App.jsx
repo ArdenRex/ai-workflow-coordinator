@@ -5621,7 +5621,7 @@ function AuthenticatedApp() {
 
   // Show billing wall for: expired/cancelled/past_due — still full screen
   // For new trialing users — show dashboard first then popup
-  const isNewTrialUser = billing?.show_wall && !billing?.card_on_file && billing?.status === "trialing";
+  const isNewTrialUser = billing?.show_wall && !billing?.card_on_file && billing?.status === "trialing" && !billing?.trial_expired;
   const isHardWall = billing?.show_wall && !isNewTrialUser;
 
   if (isHardWall) {
