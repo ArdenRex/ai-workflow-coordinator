@@ -98,6 +98,11 @@ export default function TaskCard({ task, onMove, onDelete, timezone, style }) {
         opacity: deleting ? 0.5 : 1,
         position: "relative",
         overflow: "hidden",
+        // Never let the column's flex container squash the card: with
+        // overflow:hidden its min-height resolves to 0, so once a column
+        // is taller than its max-height the cards shrink instead of the
+        // column scrolling.
+        flexShrink: 0,
         ...tiltStyle,
         ...style,
       }}
