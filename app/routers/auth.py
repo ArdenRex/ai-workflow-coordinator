@@ -847,4 +847,4 @@ def billing_status(
         "trial_expired": current_user.subscription_status == "trialing",
         "card_on_file": card_on_file,
         "trial_ends_at": current_user.trial_ends_at.isoformat() if current_user.trial_ends_at else None,
-    }ss
+    }
