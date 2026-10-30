@@ -17,6 +17,7 @@ import TiltPCard from "./components/TiltPCard";
 import AddTaskModal from "./components/AddTaskModal";
 import AddToSlackButton from "./components/AddToSlackButton";
 import ConnectGmailButton from "./components/ConnectGmailButton";
+import ConnectWhatsAppButton from "./components/ConnectWhatsAppButton";
 import EmailTaskInbox from "./components/EmailTaskInbox";
 
 // -- API base URL — env var with hardcoded fallback ---------------------------
@@ -3971,6 +3972,7 @@ function Dashboard({ tasks, total, loading, error, submitting, moveTask, removeT
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <AddToSlackButton />
             <ConnectGmailButton />
+            <ConnectWhatsAppButton />
             <EmailTaskInbox />
             <div style={{
               padding: "6px 14px", borderRadius: 999,
