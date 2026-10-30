@@ -78,6 +78,7 @@ try:
     from app.routers import referral as referral_router
     from app.routers import email_router
     from app.routers import gmail_router
+    from app.routers import whatsapp_router
     from app.routers.tasks import share_router
 except Exception as exc:  # pydantic ValidationError, or any other import-time failure
     _startup_error = f"{type(exc).__name__}: {exc}"
@@ -284,6 +285,7 @@ else:
     app.include_router(referral_router.router)              # /referral/*
     app.include_router(email_router.router)                 # /email/inbound
     app.include_router(gmail_router.router)                 # /auth/gmail/*
+    app.include_router(whatsapp_router.router)              # /webhooks/whatsapp
 
     # ── Global exception handler ────────────────────────────────────────────
     @app.exception_handler(Exception)
