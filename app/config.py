@@ -140,6 +140,43 @@ class Settings(BaseSettings):
                      "endpoint entirely.",
     )
 
+    # ── WhatsApp Business (Cloud API webhook) ─────────────────────────────────
+    # Both come from your Meta developer app (developers.facebook.com).
+    whatsapp_verify_token: str = Field(
+        default="",
+        description="Any random string you choose; paste the same value into Meta's webhook setup "
+                     "(Callback URL = https://<backend>/webhooks/whatsapp). Used for Meta's one-time "
+                     "GET verification handshake. Leave blank to disable the WhatsApp webhook.",
+    )
+    whatsapp_app_secret: SecretStr = Field(
+        default=SecretStr(""),
+        description="Your Meta app's App Secret. Every incoming webhook POST is signed with it "
+                     "(X-Hub-Signature-256) and rejected if the signature doesn't match. "
+                     "Leave blank to disable the WhatsApp webhook.",
+    )
+
+    whatsapp_app_id: str = Field(
+        default="",
+        description="Your Meta app's App ID (public). Used by the 'Connect WhatsApp' button to start "
+                     "Meta Embedded Signup and for the server-side code exchange. Leave blank to hide the button.",
+    )
+    whatsapp_config_id: str = Field(
+        default="",
+        description="Embedded Signup Configuration ID — created in Meta: your app → Facebook Login for "
+                     "Business → Configurations (type: WhatsApp Embedded Signup). Leave blank to hide the button.",
+    )
+    whatsapp_graph_version: str = Field(
+        default="v23.0",
+        description="Meta Graph API version used for server-side calls, e.g. 'v23.0'. Bump it when Meta "
+                     "retires the version you're on (they support each for about two years).",
+    )
+    whatsapp_registration_pin: str = Field(
+        default="",
+        description="6-digit PIN used to register NEW numbers on the Cloud API (two-step verification PIN). "
+                     "Not needed for numbers connected from an existing WhatsApp Business app (coexistence). "
+                     "Keep it safe — Meta asks for it if the number is ever moved.",
+    )
+
     # ── Validators ────────────────────────────────────────────────────────────
     @field_validator("database_url", mode="before")
     @classmethod
