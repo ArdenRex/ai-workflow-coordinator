@@ -194,6 +194,16 @@ class User(Base):
     # historyId, which expires and would need a separate re-sync path.
     gmail_last_checked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # ── WhatsApp Business Connect ────────────────────────────────────────────
+    # WhatsApp pushes messages to a webhook (no polling), tagged with the
+    # business phone_number_id they were sent to — that id is how an incoming
+    # webhook is routed back to the right user. See app/whatsapp_bot.py.
+    whatsapp_connected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, server_default="false")
+    whatsapp_phone_number_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, unique=True)
+    whatsapp_waba_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    whatsapp_display_number: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    whatsapp_access_token: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     # Segment 12 — per-user locale preferences
     language: Mapped[Optional[str]] = mapped_column(String(10), nullable=True, default="en")
     timezone: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, default="UTC")
@@ -270,6 +280,9 @@ class Task(Base):
     # overlapping time window each run, same MVP tradeoff as Slack's ts field
     # above rather than a full idempotency table).
     gmail_message_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    # WhatsApp message id (wamid...) this task was created from — dedupes
+    # webhook re-deliveries, same idea as gmail_message_id above.
+    whatsapp_message_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
 
     # ── Segment 8: public share token ────────────────────────────────────────
     share_token: Mapped[Optional[str]] = mapped_column(
