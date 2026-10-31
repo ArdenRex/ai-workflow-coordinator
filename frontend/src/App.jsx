@@ -5491,7 +5491,9 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
               : isNewUser ? "Continue to Secure Checkout →" : isPastDue ? "Update Payment Method →" : "Subscribe Now →"
             }
           </button>
-          <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--color-text-tertiary)" }}>🔒 Secured by Polar · No charge for 7 days</div>
+          <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--color-text-tertiary)" }}>
+            {isNewUser ? "🔒 Secured by Polar · No charge for 7 days" : "🔒 Secured by Polar · Cancel anytime"}
+          </div>
         </div>
       </div>
     </div>
@@ -5748,17 +5750,21 @@ function AuthenticatedApp() {
               inlineMode={true}
             />
 
-            {/* Skip */}
+            {/* Use the app free for 7 days — no card needed */}
             <button
               onClick={() => setShowBillingPopup(false)}
               style={{
-                marginTop: 14, background: "none", border: "none",
-                color: "var(--color-text-tertiary)", fontSize: 12,
-                cursor: "pointer", textDecoration: "underline",
+                marginTop: 12, width: "100%", height: 46, borderRadius: 14,
+                background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.18)",
+                color: "#efe7df", fontSize: 14, fontWeight: 600,
+                cursor: "pointer", fontFamily: "var(--font-sans)",
               }}
             >
-              Remind me later — continue exploring
+              Continue without a card — {billing?.days_left !== undefined ? `${billing.days_left + 1} day${billing.days_left + 1 === 1 ? "" : "s"}` : "7 days"} free
             </button>
+            <div style={{ marginTop: 8, fontSize: 11, color: "var(--color-text-tertiary)" }}>
+              No card needed. Access stops after your 7-day trial unless you subscribe.
+            </div>
           </div>
         </div>
       )}
