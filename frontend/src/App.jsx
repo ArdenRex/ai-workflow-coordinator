@@ -5574,6 +5574,20 @@ function AuthenticatedApp() {
     }
   }, [billing]);
 
+  // Trial reminder: a small side card, shown at most once per day (dismissible)
+  const [showTrialNote, setShowTrialNote] = useState(false);
+  useEffect(() => {
+    if (billing?.status !== "trialing" || billing?.days_left === undefined) return;
+    const today = new Date().toDateString();
+    let last = null;
+    try { last = localStorage.getItem("aw_trial_note_day"); } catch (_) {}
+    if (last !== today) setShowTrialNote(true);
+  }, [billing]);
+  const dismissTrialNote = () => {
+    setShowTrialNote(false);
+    try { localStorage.setItem("aw_trial_note_day", new Date().toDateString()); } catch (_) {}
+  };
+
   // ✅ Role-based task filters passed to useTasks
   const taskFilters = useMemo(() => {
     if (!user) return {};
@@ -5769,21 +5783,31 @@ function AuthenticatedApp() {
         </div>
       )}
 
-      {/* Trial countdown banner */}
-      {billing?.status === "trialing" && billing?.days_left !== undefined && (
+      {/* Trial reminder — small side card, once a day */}
+      {showTrialNote && billing?.status === "trialing" && billing?.days_left !== undefined && (
         <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, zIndex: 9000,
-          background: billing.days_left === 0 ? "linear-gradient(90deg,#e5283a,#b3182a)" : "linear-gradient(90deg,#d99a3f,#b3711f)",
-          padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, flexWrap: "wrap",
-          fontSize: 13, fontWeight: 600, color: "#f5f0eb",
+          position: "fixed", right: 20, bottom: 84, zIndex: 9000, width: 270,
+          padding: "14px 16px", borderRadius: 14,
+          background: "linear-gradient(160deg,#2a1a0c 0%,#1a1008 100%)",
+          border: "1px solid rgba(217,154,63,0.5)",
+          boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+          fontFamily: "var(--font-sans)", color: "#f5f0eb",
         }}>
-          <span>⏰ {billing.days_left === 0 ? "Your free trial expires today!" : `Your free trial ends in ${billing.days_left} day${billing.days_left === 1 ? "" : "s"}!`}</span>
+          <button onClick={dismissTrialNote} aria-label="Dismiss" style={{
+            position: "absolute", top: 6, right: 8, background: "none", border: "none",
+            color: "#d9cfc6", fontSize: 16, cursor: "pointer", lineHeight: 1,
+          }}>×</button>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, paddingRight: 14 }}>
+            ⏰ {billing.days_left === 0 ? "Your free trial ends today" : `Free trial ends in ${billing.days_left} day${billing.days_left === 1 ? "" : "s"}`}
+          </div>
           <button onClick={async () => {
-            const res = await fetch(`${BASE_URL}/billing/checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
-            const d = await res.json();
-            window.location.href = d.checkout_url;
-          }} style={{ padding: "5px 14px", background: "rgba(255,255,255,0.2)", border: "1px solid rgba(255,255,255,0.4)", borderRadius: 8, color: "#f5f0eb", cursor: "pointer", fontWeight: 700, fontSize: 12 }}>
-            Subscribe Now →
+            try {
+              const res = await fetch(`${BASE_URL}/billing/checkout`, { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+              const d = await res.json();
+              if (d.checkout_url) window.location.href = d.checkout_url;
+            } catch (_) {}
+          }} style={{ width: "100%", padding: "8px 14px", background: "linear-gradient(135deg,#ff6a52,#c81f30)", border: "none", borderRadius: 9, color: "#f5f0eb", cursor: "pointer", fontWeight: 700, fontSize: 13 }}>
+            Pay Now →
           </button>
         </div>
       )}
