@@ -49,6 +49,9 @@ export default function ConnectWhatsAppButton() {
   const [config, setConfig]       = useState(null);    // null until loaded; {enabled,...}
   const [connected, setConnected] = useState(false);
   const [number, setNumber]       = useState(null);
+  const [configLoaded, setConfigLoaded] = useState(false);
+  const [configError, setConfigError]   = useState(false);
+  const [showSetup, setShowSetup]       = useState(false);
   const [busy, setBusy]           = useState(false);
   const [message, setMessage]     = useState(null);    // {kind: "ok"|"error", text}
   const [disconnecting, setDisconnecting] = useState(false);
@@ -67,13 +70,16 @@ export default function ConnectWhatsAppButton() {
         ]);
         if (cancelled) return;
         if (cfgRes.ok) setConfig(await cfgRes.json());
+        else setConfigError(true);
         if (stRes.ok) {
           const st = await stRes.json();
           setConnected(!!st.connected);
           setNumber(st.display_number || null);
         }
       } catch {
-        // Leave config null -> button stays hidden
+        if (!cancelled) setConfigError(true);
+      } finally {
+        if (!cancelled) setConfigLoaded(true);
       }
     })();
     return () => { cancelled = true; };
@@ -192,8 +198,53 @@ export default function ConnectWhatsAppButton() {
     }
   };
 
-  // Not configured on the server (or still loading) -> show nothing
-  if (!config?.enabled) return null;
+  // Still loading -> show nothing yet
+  if (!configLoaded) return null;
+
+  // Not configured on the server (or the config request failed): still show the
+  // button, so people can see the feature exists, and explain what's missing.
+  if (!config?.enabled) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8, maxWidth: 300 }}>
+        <button
+          onClick={() => setShowSetup(s => !s)}
+          style={{
+            display: "flex", alignItems: "center", gap: 10,
+            padding: "10px 20px", borderRadius: 8, border: "none",
+            background: "#25D366", color: "#0b1f14",
+            fontSize: 14, fontWeight: 600, cursor: "pointer", opacity: 0.85,
+            boxShadow: "0 2px 12px rgba(37,211,102,0.25)",
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2z"/>
+          </svg>
+          Connect WhatsApp
+        </button>
+        {showSetup && (
+          <div style={{
+            padding: "10px 14px", borderRadius: 8, fontSize: 11, lineHeight: 1.6,
+            color: "var(--color-text-secondary)",
+            background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.15)",
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>WhatsApp — Not Configured</div>
+            {configError
+              ? "Couldn't reach the server to check WhatsApp. Please log in again and retry."
+              : "Set these on the backend, then redeploy:"}
+            {!configError && (
+              <ul style={{ margin: "4px 0 0", paddingLeft: 16 }}>
+                <li><code>WHATSAPP_APP_ID</code></li>
+                <li><code>WHATSAPP_APP_SECRET</code></li>
+                <li><code>WHATSAPP_CONFIG_ID</code> (Embedded Signup)</li>
+                <li><code>WHATSAPP_VERIFY_TOKEN</code></li>
+                <li><code>WHATSAPP_REGISTRATION_PIN</code></li>
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
