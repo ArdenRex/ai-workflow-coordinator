@@ -169,23 +169,43 @@ def _run_async(coro):
         return future.result(timeout=30)
 
 
-def _get_workspace_id(db, sender_slack_id: str) -> int | None:
+def _only_workspace_id(db) -> int | None:
+    """The workspace id if the whole system has exactly one workspace, else None."""
+    from app.models import Workspace
+
+    rows = db.query(Workspace.id).limit(2).all()
+    return rows[0][0] if len(rows) == 1 else None
+
+
+def _get_workspace_id(db, sender_slack_id: str, slack_team_id: str | None = None) -> int | None:
     """
-    Resolve workspace_id for the message sender.
-    Falls back to the first workspace in the DB if sender isn't linked.
-    This ensures ALL Slack-created tasks are visible on the dashboard.
+    Resolve workspace_id for the message sender. In order:
+      1. the sender is linked to an account            -> that account's workspace
+      2. their Slack team belongs to ONE workspace      -> that workspace
+      3. the system has exactly one workspace at all    -> it (single-company installs)
+      4. otherwise                                      -> None (no task is created)
+
+    This used to fall back to "the first workspace in the DB", which with more than
+    one customer could file an unlinked Slack user's task on a stranger's board.
     """
     from app import crud as _crud
-    from app.models import Workspace
+    from app.models import User
 
     if sender_slack_id:
         sender_user = _crud.get_user_by_slack_id(db, sender_slack_id)
         if sender_user and sender_user.workspace_id:
             return sender_user.workspace_id
 
-    # Fallback: assign to the first available workspace
-    first_workspace = db.query(Workspace).first()
-    return first_workspace.id if first_workspace else None
+    if slack_team_id:
+        team_workspaces = {
+            wid for (wid,) in db.query(User.workspace_id)
+            .filter(User.slack_team_id == slack_team_id, User.workspace_id.isnot(None))
+            .distinct().all()
+        }
+        if len(team_workspaces) == 1:
+            return team_workspaces.pop()
+
+    return _only_workspace_id(db)
 
 
 def _get_sender_info(db, sender_slack_id: str) -> tuple[str | None, str | None]:
@@ -424,7 +444,17 @@ def _process_message(event, client, require_mention: bool = False):
             logger.info("Duplicate event ts=%s — skipping", message_ts)
             return
 
-        workspace_id = _get_workspace_id(db, sender_id)
+        workspace_id = _get_workspace_id(db, sender_id, event.get("team"))
+        if workspace_id is None:
+            # Can't tell whose workspace this is -> never guess (that could expose
+            # one customer's task to another). Tell them how to link, if they asked.
+            logger.warning("Slack message from unlinked user %s (team=%s): no workspace, task not created",
+                           sender_id, event.get("team"))
+            if require_mention:
+                _post(client, channel_id, thread_ts,
+                      "⚠️ I couldn't tell which workspace your Slack account belongs to. "
+                      "Please log in to the web app with Slack so I can link you, then try again.")
+            return
         invite_code  = _get_workspace_invite_code(db, workspace_id)
 
         from app import crud as _crud

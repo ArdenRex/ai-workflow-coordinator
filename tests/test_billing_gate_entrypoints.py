@@ -272,6 +272,83 @@ def test_slack_blocked_user_is_ignored_silently_for_auto_detected_messages(env, 
     assert env.tasks(w) == [] and posts == []
 
 
+# ═════════════════════════ Slack: which workspace does a task go to? ═════════════════════════
+def slack_from(env, monkeypatch, slack_user, team, require_mention=True):
+    """Run one Slack message from `slack_user` (maybe unlinked) in Slack team `team`; return the notices posted."""
+    from app import slack_bot
+    posts = []
+
+    async def fake_extract(text):
+        return types.SimpleNamespace(task="Send the invoice", assignee=None, deadline=None, priority=None, confidence=0.95)
+
+    monkeypatch.setattr(slack_bot, "extract_task_from_message", fake_extract)
+    monkeypatch.setattr(slack_bot, "_post", lambda client, ch, ts, text: posts.append(text))
+    event = {"channel": "C1", "ts": f"{uuid.uuid4().int % 10**10}.0002", "user": slack_user, "team": team,
+             "text": "Ali please send the invoice by Friday"}
+    slack_bot._process_message(event, MagicMock(), require_mention=require_mention)
+    return posts
+
+
+def two_customers(env):
+    tag = uuid.uuid4().hex[:6].upper()
+    a, wa = env.team("active", slack_user_id=f"UA{tag}", slack_team_id=f"TA{tag}")
+    b, wb = env.team("active", slack_user_id=f"UB{tag}", slack_team_id=f"TB{tag}")
+    return tag, wa, wb
+
+
+def test_unlinked_slack_user_goes_to_their_own_teams_workspace_not_a_strangers(env, monkeypatch):
+    tag, wa, wb = two_customers(env)
+    slack_from(env, monkeypatch, f"UNEWB{tag}", f"TB{tag}")           # not linked, but in customer B's Slack team
+    assert len(env.tasks(wb)) == 1 and env.tasks(wa) == []
+    slack_from(env, monkeypatch, f"UNEWA{tag}", f"TA{tag}")
+    assert len(env.tasks(wa)) == 1 and len(env.tasks(wb)) == 1
+
+
+def test_unlinked_slack_user_from_an_unknown_team_creates_nothing_anywhere(env, monkeypatch):
+    tag, wa, wb = two_customers(env)
+    posts = slack_from(env, monkeypatch, f"USTRANGER{tag}", f"TOTHER{tag}", require_mention=True)
+    assert env.tasks(wa) == [] and env.tasks(wb) == []
+    assert any("log in to the web app with Slack" in p for p in posts)          # told how to link
+    quiet = slack_from(env, monkeypatch, f"USTRANGER{tag}", f"TOTHER{tag}", require_mention=False)
+    assert quiet == [] and env.tasks(wa) == [] and env.tasks(wb) == []          # auto-detected: silent
+
+
+def test_message_without_any_team_info_creates_nothing_when_several_workspaces_exist(env, monkeypatch):
+    tag, wa, wb = two_customers(env)
+    slack_from(env, monkeypatch, f"USTRANGER{tag}", None)
+    assert env.tasks(wa) == [] and env.tasks(wb) == []
+
+
+def test_slack_team_spread_over_two_workspaces_is_ambiguous_so_nothing_is_created(env, monkeypatch):
+    tag = uuid.uuid4().hex[:6].upper()
+    env.team("active", slack_user_id=f"U1{tag}", slack_team_id=f"TS{tag}")
+    _, w2 = env.team("active", slack_user_id=f"U2{tag}", slack_team_id=f"TS{tag}")
+    slack_from(env, monkeypatch, f"UNEW{tag}", f"TS{tag}")
+    assert env.tasks(w2) == []
+
+
+def test_linked_sender_always_uses_their_own_workspace_whatever_the_team(env, monkeypatch):
+    tag, wa, wb = two_customers(env)
+    slack_from(env, monkeypatch, f"UA{tag}", f"TB{tag}")                # A's user, message arrives tagged with B's team
+    assert len(env.tasks(wa)) == 1 and env.tasks(wb) == []
+
+
+def test_single_company_install_keeps_working_without_team_info(env, monkeypatch):
+    """Exactly one workspace in the whole system -> unlinked senders still land on it (as before)."""
+    from app import slack_bot
+    tag = uuid.uuid4().hex[:6].upper()
+    _, w = env.team("active", slack_user_id=f"UONLY{tag}")
+    monkeypatch.setattr(slack_bot, "_only_workspace_id", lambda db: w.id)      # emulate a one-workspace database
+    slack_from(env, monkeypatch, f"UNEW{tag}", None)
+    assert len(env.tasks(w)) == 1
+
+
+def test_only_workspace_id_helper_needs_exactly_one(env):
+    from app import slack_bot
+    assert env.ws() is not None and env.ws() is not None                       # at least two workspaces exist now
+    assert slack_bot._only_workspace_id(env.s) is None
+
+
 # ═════════════════════════ Microsoft Teams ═════════════════════════
 def teams_run(env, monkeypatch, w, tenant):
     from app.routers import teams
