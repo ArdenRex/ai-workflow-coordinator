@@ -232,3 +232,25 @@ def test_allowed_users_are_not_blocked_on_write_routes_either(client, make_user)
     _, h = make_user("active", None)
     assert client.delete("/tasks/999999999", headers=h).status_code == 404       # reached the route, not the gate
     assert client.patch("/tasks/999999999/status", headers=h, json={"status": "completed"}).status_code in (404, 422)
+
+
+# ── integrations used to answer 422 for everyone (a *args/**kwargs login wrapper) ──
+def test_integrations_status_works_for_a_logged_in_user(client, make_user):
+    _, h = make_user("active", None)
+    r = client.get("/integrations/status", headers=h)
+    assert r.status_code == 200, r.text
+
+
+def test_integrations_import_routes_validate_the_body_not_phantom_query_params(client, make_user):
+    _, h = make_user("active", None)
+    for path in ("/integrations/trello/import", "/integrations/notion/import", "/integrations/jira/import"):
+        r = client.post(path, headers=h, json={})
+        locs = [tuple(e["loc"]) for e in r.json().get("detail", [])] if r.status_code == 422 else []
+        assert ("query", "args") not in locs and ("query", "kwargs") not in locs, (path, r.text)
+        assert r.status_code != 401
+
+
+def test_integrations_still_require_login_and_respect_the_billing_block(client, make_user):
+    assert client.get("/integrations/status").status_code == 401
+    _, h = make_user("trialing", PAST)
+    assert client.get("/integrations/status", headers=h).status_code == 402

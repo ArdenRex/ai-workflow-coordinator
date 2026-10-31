@@ -206,7 +206,12 @@ def tasks_of(env):
         s.close()
 
 
+async def no_sleep(_delay):
+    pass
+
+
 def process(env, p, **kw):
+    kw.setdefault("sleep", no_sleep)
     kw.setdefault("classify", task_gate("send"))
     kw.setdefault("extract", fake_extract(assignee="Ali"))
     return run(bot.handle_webhook_payload(p, session_factory=env.factory, **kw))
@@ -318,3 +323,75 @@ def test_classify_raises_on_unparseable_output(monkeypatch, reply):
     monkeypatch.setattr(ax, "_get_client", lambda: _fake_groq(reply))
     with pytest.raises(Exception):
         run(bot.classify_task_intent("Ali send the report"))
+
+
+# ── retrying transient AI failures ───────────────────────────────────────────
+def _retry_run(db_env, classify=None, extract=None, text="Ali send the report now"):
+    sleeps = []
+
+    async def fake_sleep(d):
+        sleeps.append(d)
+
+    stats = run(bot.handle_webhook_payload(
+        payload(text, phone_id=db_env.phone_id), session_factory=db_env.factory,
+        classify=classify or task_gate("send"), extract=extract or fake_extract(assignee="Ali"), sleep=fake_sleep))
+    return stats, sleeps
+
+
+def test_a_failing_gate_call_is_retried_and_then_succeeds(db_env):
+    n = {"calls": 0}
+
+    async def flaky(text):
+        n["calls"] += 1
+        if n["calls"] < 3:
+            raise RuntimeError("429 rate limited")
+        return True
+
+    stats, sleeps = _retry_run(db_env, classify=flaky)
+    assert stats["created"] == 1 and stats["retries"] == 2 and stats["errors"] == 0
+    assert sleeps == [2.0, 8.0] and n["calls"] == 3 and len(tasks_of(db_env)) == 1
+
+
+def test_a_failing_extractor_call_is_retried_too(db_env):
+    n = {"calls": 0}
+
+    async def flaky_extract(text):
+        n["calls"] += 1
+        if n["calls"] == 1:
+            raise TimeoutError("slow")
+        return await fake_extract(assignee="Ali")(text)
+
+    stats, sleeps = _retry_run(db_env, extract=flaky_extract)
+    assert stats["created"] == 1 and stats["retries"] == 1 and sleeps == [2.0]
+
+
+def test_gives_up_after_three_attempts_and_a_later_redelivery_can_still_work(db_env):
+    n = {"calls": 0}
+
+    async def always_down(text):
+        n["calls"] += 1
+        raise RuntimeError("groq down")
+
+    mid = "wamid.retry" + uuid.uuid4().hex
+    p = payload("Ali send the report", phone_id=db_env.phone_id, mids=[mid])
+
+    async def fake_sleep(d):
+        pass
+
+    s1 = run(bot.handle_webhook_payload(p, session_factory=db_env.factory, classify=always_down,
+                                        extract=fake_extract(), sleep=fake_sleep))
+    assert n["calls"] == 3 and s1["errors"] == 1 and s1["created"] == 0 and tasks_of(db_env) == []
+    s2 = run(bot.handle_webhook_payload(p, session_factory=db_env.factory, classify=task_gate("send"),
+                                        extract=fake_extract(), sleep=fake_sleep))
+    assert s2["created"] == 1
+
+
+def test_a_clean_no_is_not_retried_and_nothing_sleeps(db_env):
+    n = {"calls": 0}
+
+    async def says_no(text):
+        n["calls"] += 1
+        return False
+
+    stats, sleeps = _retry_run(db_env, classify=says_no, text="how was the weekend with everyone")
+    assert n["calls"] == 1 and sleeps == [] and stats["retries"] == 0 and stats["skipped_not_task"] == 1

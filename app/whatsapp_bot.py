@@ -31,6 +31,7 @@ the WhatsApp message id (Task.whatsapp_message_id) and are skipped on repeat;
 a small in-memory cache also avoids re-classifying dropped messages.
 """
 
+import asyncio
 import json
 import logging
 import re
@@ -44,6 +45,11 @@ from app.models import Priority, Task, TaskStatus, User
 logger = logging.getLogger(__name__)
 
 MIN_CONFIDENCE = 0.6          # same threshold gmail_bot uses
+# If the AI call fails (rate limit, timeout, brief outage) try again after these
+# pauses — 3 attempts in all. WhatsApp has already been told "received", so
+# without this a message hit by a hiccup would be lost for good. (A server
+# restart in the middle of a retry still loses that one message.)
+RETRY_DELAYS = (2.0, 8.0)
 MAX_GATE_CHARS = 1500         # WhatsApp messages can be long; the gate only needs the start
 
 # ── Layer 1: deterministic prefilter ─────────────────────────────────────────
@@ -173,6 +179,20 @@ def iter_text_messages(payload: dict) -> Iterator[dict]:
 
 # ── Core processing ──────────────────────────────────────────────────────────
 
+async def _with_retry(fn: Callable[[str], Awaitable[Any]], text: str,
+                      sleep: Callable[[float], Awaitable[None]], stats: dict) -> Any:
+    """Call fn(text); on an exception wait and retry per RETRY_DELAYS, then re-raise."""
+    for delay in (*RETRY_DELAYS, None):
+        try:
+            return await fn(text)
+        except Exception as exc:
+            if delay is None:
+                raise
+            stats["retries"] += 1
+            logger.warning("WhatsApp AI call failed (%s) — retrying in %.0fs", type(exc).__name__, delay)
+            await sleep(delay)
+
+
 # Recently seen message ids (task or not) so webhook re-deliveries don't cost
 # another AI call. Per-process only — the DB check below is the real guarantee
 # for messages that became tasks.
@@ -196,6 +216,7 @@ async def handle_webhook_payload(
     session_factory: Optional[Callable[[], Any]] = None,
     classify: Callable[[str], Awaitable[bool]] = classify_task_intent,
     extract: Optional[Callable[[str], Awaitable[Any]]] = None,
+    sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
 ) -> dict:
     """
     Process one Meta webhook payload. Never raises — the webhook has already
@@ -214,7 +235,7 @@ async def handle_webhook_payload(
     stats = {"messages": 0, "created": 0, "skipped_duplicate": 0,
              "skipped_prefilter": 0, "skipped_not_task": 0,
              "skipped_low_confidence": 0, "skipped_no_user": 0,
-             "skipped_billing": 0, "errors": 0}
+             "skipped_billing": 0, "retries": 0, "errors": 0}
 
     db = session_factory()
     try:
@@ -251,11 +272,11 @@ async def handle_webhook_payload(
                     continue
 
                 # Fail closed: any AI error → no task, never a guess.
-                if not await classify(msg["text"]):
+                if not await _with_retry(classify, msg["text"], sleep, stats):
                     stats["skipped_not_task"] += 1
                     continue
 
-                extracted = await extract(msg["text"])
+                extracted = await _with_retry(extract, msg["text"], sleep, stats)
                 confidence = getattr(extracted, "confidence", 1.0) or 1.0
                 if not extracted or not extracted.task or not extracted.task.strip():
                     stats["skipped_not_task"] += 1

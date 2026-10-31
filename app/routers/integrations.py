@@ -23,11 +23,12 @@ from app import crud
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/integrations", tags=["Integrations"])
 
-# ── CIRCULAR IMPORT WRAPPER ───────────────────────────────────────────────────
-def get_current_user_wrapper(*args, **kwargs):
-    """Dynamically imports auth to break dependency loop at startup."""
-    from app.routers.auth import get_current_user
-    return get_current_user(*args, **kwargs)
+# ── LOGIN DEPENDENCY ──────────────────────────────────────────────────────────
+# This used to be a `def get_current_user_wrapper(*args, **kwargs)` that imported auth
+# lazily. FastAPI treats *args/**kwargs as REQUIRED query parameters, so every route
+# below answered 422 ("args", "kwargs" missing) for everyone. app.auth has no import
+# cycle with this module, so the real dependency can be used directly.
+from app.auth import get_current_user as get_current_user_wrapper
 
 # ── Helper functions for logic ────────────────────────────────────────────────
 
