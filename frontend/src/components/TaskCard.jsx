@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import useTilt3D from "../motion/useTilt3D";
+import SourceBadge from "./SourceBadge";
 
 // ── Date formatting (respects user timezone passed as prop) ───────────────────
 function formatDeadline(raw, timezone) {
@@ -121,16 +122,20 @@ export default function TaskCard({ task, onMove, onDelete, timezone, style }) {
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", ...glareStyle }} />
       {/* Top row: priority badge + task ID + delete */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <span style={{
-          display: "inline-flex", alignItems: "center", gap: 5,
-          fontSize: 11, fontWeight: 600, letterSpacing: "0.02em",
-          padding: "3px 9px", borderRadius: 999,
-          background: priority.bg, color: priority.color,
-          border: `1px solid ${priority.border}`,
-        }}>
-          <span style={{ width: 5, height: 5, borderRadius: "50%", background: priority.dot, flexShrink: 0, boxShadow: `0 0 4px ${priority.dot}` }} />
-          {priority.label}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
+          <span style={{
+            display: "inline-flex", alignItems: "center", gap: 5,
+            fontSize: 11, fontWeight: 600, letterSpacing: "0.02em",
+            padding: "3px 9px", borderRadius: 999,
+            background: priority.bg, color: priority.color,
+            border: `1px solid ${priority.border}`,
+          }}>
+            <span style={{ width: 5, height: 5, borderRadius: "50%", background: priority.dot, flexShrink: 0, boxShadow: `0 0 4px ${priority.dot}` }} />
+            {priority.label}
+          </span>
+          {/* Where the task came from (Slack / Gmail / WhatsApp); nothing if unknown */}
+          <SourceBadge source={task.source} />
+        </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{

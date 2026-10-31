@@ -18,6 +18,7 @@ import AddTaskModal from "./components/AddTaskModal";
 import AddToSlackButton from "./components/AddToSlackButton";
 import ConnectGmailButton from "./components/ConnectGmailButton";
 import ConnectWhatsAppButton from "./components/ConnectWhatsAppButton";
+import SourceBadge from "./components/SourceBadge";
 import EmailTaskInbox from "./components/EmailTaskInbox";
 
 // -- API base URL — env var with hardcoded fallback ---------------------------
@@ -1815,6 +1816,7 @@ function OwnershipGraph() {
                       <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: `${PRIORITY_COLOR[task.priority] || "#9a908a"}18`, color: PRIORITY_COLOR[task.priority] || "#9a908a", border: `1px solid ${PRIORITY_COLOR[task.priority] || "#9a908a"}30` }}>
                         {task.priority}
                       </span>
+                      <SourceBadge source={task.source} compact />
                       {task.deadline && (
                         <span style={{ fontSize: 10, padding: "1px 7px", borderRadius: 999, background: "rgba(255,255,255,0.05)", color: "var(--color-text-tertiary)", border: "1px solid var(--border-glass)" }}>
                           📅 {formatDeadline(task.deadline, user?.timezone)}
@@ -2049,7 +2051,10 @@ function TasksPage() {
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                 >
                   {/* Title */}
-                  <div style={{ fontSize:13, color:"var(--color-text-primary)", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", paddingRight:12 }} title={title}>{title}</div>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:0, paddingRight:12 }}>
+                    <span style={{ fontSize:13, color:"var(--color-text-primary)", fontWeight:500, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", minWidth:0 }} title={title}>{title}</span>
+                    <span style={{ flexShrink:0, display:"inline-flex" }}><SourceBadge source={t.source} compact /></span>
+                  </div>
 
                   {/* Assignee */}
                   <div style={{ fontSize:12, color:"var(--color-text-secondary)", display:"flex", alignItems:"center", gap:6 }}>
@@ -5509,6 +5514,14 @@ function AuthenticatedApp() {
   const [billing, setBilling]         = useState(null);   // null=loading, object=loaded
   const [billingChecked, setBillingChecked] = useState(false);
   const [showBillingPopup, setShowBillingPopup] = useState(false);
+  const [billingNonce, setBillingNonce] = useState(0);   // bump to force a billing re-check
+
+  // The server answers 402 once the trial ends (even mid-session): re-check billing so the wall shows up.
+  useEffect(() => {
+    const onBillingRequired = () => setBillingNonce(n => n + 1);
+    window.addEventListener("billing-required", onBillingRequired);
+    return () => window.removeEventListener("billing-required", onBillingRequired);
+  }, []);
 
   // -- Check billing status on mount ------------------------------------------
   useEffect(() => {
@@ -5549,7 +5562,7 @@ function AuthenticatedApp() {
     };
 
     checkBilling();
-  }, [token, user]);
+  }, [token, user, billingNonce]);
 
   // Show billing popup for new trial users after 3 seconds on dashboard
   useEffect(() => {

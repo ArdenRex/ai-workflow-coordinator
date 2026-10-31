@@ -94,6 +94,15 @@ def _ping_overdue_tasks() -> dict:
             .all()
         )
 
+        # Trial ended / not subscribed -> no reminders for tasks owned by that user.
+        from app.billing_access import is_user_id_blocked
+        _blocked: dict = {}
+        def _owner_blocked(owner_id) -> bool:
+            if owner_id not in _blocked:
+                _blocked[owner_id] = is_user_id_blocked(db, owner_id)
+            return _blocked[owner_id]
+        drifting_tasks = [t for t in drifting_tasks if not _owner_blocked(t.owner_id)]
+
         logger.info("Ping job: found %d candidate drifting tasks", len(drifting_tasks))
 
         for task in drifting_tasks:
@@ -194,7 +203,11 @@ def _daily_rollup() -> dict:
 
         logger.info("Daily rollup: %d users have tasks due today", len(users_with_tasks))
 
+        from app.billing_access import is_user_blocked   # trial ended / not subscribed -> no digest
+
         for user in users_with_tasks:
+            if is_user_blocked(db, user):
+                continue
             tasks = crud.get_tasks_due_today_for_user(db, user.id)
             if not tasks:
                 continue
@@ -236,7 +249,10 @@ def _daily_rollup() -> dict:
             if not overdue_tasks:
                 continue
 
-            managers: list[User] = crud.get_managers_for_workspace(db, ws_id)
+            managers: list[User] = [
+                m for m in crud.get_managers_for_workspace(db, ws_id)
+                if not is_user_blocked(db, m)
+            ]
             if not managers:
                 continue
 

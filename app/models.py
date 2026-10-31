@@ -336,6 +336,23 @@ class Task(Base):
             f"priority={self.priority} status={self.status}>"
         )
 
+    @property
+    def source(self) -> Optional[str]:
+        """
+        Where this task came from: "whatsapp", "gmail", "slack" or None.
+        Derived from the per-source message ids, so there is no extra column
+        and tasks created before this existed get it too. Tasks from other
+        paths (manual, forwarded email, Teams, public API) have none -> None.
+        Exposed as TaskResponse.source; the frontend shows it as a badge.
+        """
+        if self.whatsapp_message_id:
+            return "whatsapp"
+        if self.gmail_message_id:
+            return "gmail"
+        if self.slack_message_ts or self.slack_channel_id:
+            return "slack"
+        return None
+
 
 # ── OnboardingProgress (Segment 7) ────────────────────────────────────────────
 

@@ -213,7 +213,8 @@ async def handle_webhook_payload(
 
     stats = {"messages": 0, "created": 0, "skipped_duplicate": 0,
              "skipped_prefilter": 0, "skipped_not_task": 0,
-             "skipped_low_confidence": 0, "skipped_no_user": 0, "errors": 0}
+             "skipped_low_confidence": 0, "skipped_no_user": 0,
+             "skipped_billing": 0, "errors": 0}
 
     db = session_factory()
     try:
@@ -241,6 +242,12 @@ async def handle_webhook_payload(
                     stats["skipped_no_user"] += 1
                     logger.warning("WhatsApp %s: no connected user/workspace for phone_number_id=%s",
                                    mid, msg["phone_number_id"])
+                    continue
+
+                # Trial ended / not subscribed -> no task (and no AI call spent on it).
+                from app.billing_access import is_user_blocked
+                if is_user_blocked(db, user):
+                    stats["skipped_billing"] += 1
                     continue
 
                 # Fail closed: any AI error → no task, never a guess.

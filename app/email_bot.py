@@ -86,6 +86,12 @@ async def process_inbound_email(raw_from: str, subject: str, body_text: str) -> 
             )
             return None
 
+        # Trial ended / not subscribed -> don't create tasks (and don't spend an AI call).
+        from app.billing_access import is_user_blocked
+        if is_user_blocked(db, sender_user):
+            logger.info("Inbound email from %s — subscription required, skipping", sender_address)
+            return None
+
         # ── AI extraction (same call Slack uses) ────────────────────────────
         try:
             extracted = await extract_task_from_message(combined)

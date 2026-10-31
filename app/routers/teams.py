@@ -146,6 +146,12 @@ async def _handle_message(activity: dict):
         workspace_id = ws_settings.workspace_id if ws_settings else None
         owner_id = crud.resolve_task_owner_id(db, workspace_id=workspace_id)
 
+        # Trial ended / not subscribed -> don't create the task.
+        from app.billing_access import is_user_id_blocked, PAYMENT_REQUIRED_MESSAGE
+        if is_user_id_blocked(db, owner_id):
+            await _reply(activity, f"⚠️ {PAYMENT_REQUIRED_MESSAGE}")
+            return
+
         new_task = Task(
             title            = title,
             task_description = title,

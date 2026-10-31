@@ -46,6 +46,16 @@ services:
         sync: false
       - key: NOTIFY_EMAIL
         sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: WHATSAPP_APP_SECRET
+        sync: false
+      - key: WHATSAPP_APP_ID
+        sync: false
+      - key: WHATSAPP_CONFIG_ID
+        sync: false
+      - key: WHATSAPP_REGISTRATION_PIN
+        sync: false
 
 databases:
   - name: ai-workflow-db

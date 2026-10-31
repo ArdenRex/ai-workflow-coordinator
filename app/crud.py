@@ -16,6 +16,7 @@ from passlib.context import CryptContext
 
 from app.models import Priority, Task, TaskStatus, User, UserRole, Workspace, WorkspaceSettings
 from app.schemas import ExtractedTask, TaskStatusUpdate
+from app.deadlines import resolve_deadline_date
 
 logger = logging.getLogger(__name__)
 
@@ -562,36 +563,42 @@ def get_drifting_tasks(
 
 # ─── Segment 4: Daily Rollup Queries ─────────────────────────────────────────
 
+def _deadline_date_of(task: Task) -> Optional[date]:
+    """Task.deadline is free text ("today", "Friday", "2026-11-05") — see app/deadlines.py."""
+    return resolve_deadline_date(task.deadline, task.created_at)
+
+
 def get_tasks_due_today_for_user(db: Session, owner_id: int) -> list[Task]:
+    # The deadline is text, so it is interpreted in Python rather than compared in SQL.
     today: date = datetime.now(timezone.utc).date()
     stmt = (
         select(Task)
         .where(
             Task.owner_id == owner_id,
             Task.status.in_([TaskStatus.to_do, TaskStatus.in_progress]),
-            func.cast(Task.deadline, func.Date()) == today,
+            Task.deadline.isnot(None),
         )
         .order_by(Task.priority.desc(), Task.created_at.asc())
     )
-    return list(db.scalars(stmt).all())
+    return [t for t in db.scalars(stmt).all() if _deadline_date_of(t) == today]
 
 
 def get_all_active_users_with_tasks_due_today(db: Session) -> list[User]:
     today: date = datetime.now(timezone.utc).date()
-    subq = (
-        select(Task.owner_id)
-        .where(
+    open_tasks = db.scalars(
+        select(Task).where(
             Task.owner_id.isnot(None),
             Task.status.in_([TaskStatus.to_do, TaskStatus.in_progress]),
-            func.cast(Task.deadline, func.Date()) == today,
+            Task.deadline.isnot(None),
         )
-        .distinct()
-        .subquery()
-    )
+    ).all()
+    owner_ids = {t.owner_id for t in open_tasks if _deadline_date_of(t) == today}
+    if not owner_ids:
+        return []
     stmt = (
         select(User)
         .where(
-            User.id.in_(select(subq)),
+            User.id.in_(owner_ids),
             User.slack_user_id.isnot(None),
             User.is_active == True,
         )
@@ -610,12 +617,12 @@ def get_overdue_high_priority_tasks_for_workspace(
             Task.workspace_id == workspace_id,
             Task.priority.in_([Priority.high, Priority.critical]),
             Task.status.in_([TaskStatus.to_do, TaskStatus.in_progress]),
-            Task.deadline < today,
             Task.deadline.isnot(None),
         )
-        .order_by(Task.deadline.asc(), Task.priority.desc())
     )
-    return list(db.scalars(stmt).all())
+    overdue = [(d, t) for t in db.scalars(stmt).all() if (d := _deadline_date_of(t)) is not None and d < today]
+    overdue.sort(key=lambda pair: (pair[0], 0 if pair[1].priority == Priority.critical else 1))   # oldest first, critical first
+    return [t for _, t in overdue]
 
 
 def get_all_workspace_ids(db: Session) -> list[int]:
@@ -628,7 +635,7 @@ def get_managers_for_workspace(db: Session, workspace_id: int) -> list[User]:
         select(User)
         .where(
             User.workspace_id == workspace_id,
-            User.role.in_([UserRole.architect, UserRole.manager]),
+            User.role == UserRole.architect,   # "Manager" in the UI (there is no UserRole.manager)
             User.slack_user_id.isnot(None),
             User.is_active == True,
         )
@@ -689,6 +696,7 @@ def get_ownership_graph(
             "title":    task.title or task.task_description,
             "status":   status_val,
             "priority": priority_val,
+            "source":   task.source,   # "slack" | "gmail" | "whatsapp" | None — for the source badge
             "deadline": task.deadline.isoformat() if task.deadline and hasattr(task.deadline, "isoformat") else (str(task.deadline) if task.deadline else None),
             "created_at": task.created_at.isoformat() if task.created_at and hasattr(task.created_at, "isoformat") else (str(task.created_at) if task.created_at else None),
         })

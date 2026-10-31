@@ -27,6 +27,12 @@ async function request(path, options = {}) {
     throw new Error(`Network error reaching ${url}: ${networkErr.message}`);
   }
 
+  if (res.status === 402) {
+    // Trial ended / subscription needed (server-side billing gate). Let the app
+    // re-check billing so it can show the billing screen right away.
+    try { window.dispatchEvent(new Event("billing-required")); } catch (_) {}
+  }
+
   if (!res.ok) {
     let detail = `HTTP ${res.status}`;
     try {

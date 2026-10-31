@@ -187,6 +187,16 @@ async def poll_gmail_for_user(db, user: User) -> dict:
         stats["error"] = "user has no workspace_id — cannot attach tasks anywhere"
         return stats
 
+    # Trial ended / not subscribed -> don't create tasks. Move "last checked" forward
+    # so that, if they subscribe later, we start from then instead of importing
+    # everything that arrived while they were locked out.
+    from app.billing_access import is_user_blocked
+    if is_user_blocked(db, user):
+        user.gmail_last_checked_at = datetime.now(timezone.utc)
+        db.commit()
+        stats["skipped_billing"] = True
+        return stats
+
     access_token = await _get_valid_access_token(db, user)
     if not access_token:
         stats["error"] = "could not obtain a valid access token (refresh_token may have been revoked — try reconnecting)"

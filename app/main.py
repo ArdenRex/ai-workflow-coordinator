@@ -41,7 +41,7 @@ import sys
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -79,6 +79,7 @@ try:
     from app.routers import email_router
     from app.routers import gmail_router
     from app.routers import whatsapp_router
+    from app.billing_access import billing_gate
     from app.routers.tasks import share_router
 except Exception as exc:  # pydantic ValidationError, or any other import-time failure
     _startup_error = f"{type(exc).__name__}: {exc}"
@@ -266,6 +267,12 @@ if _startup_error:
         )
 
 else:
+    # ── Billing gate: after the trial, logged-in users get 402 unless they have
+    # paid / been exempted by an admin. Registered BEFORE the routers so it is
+    # applied to every route below (and to any router added in the future).
+    # See app/billing_access.py.
+    app.router.dependencies.append(Depends(billing_gate))
+
     # ── Normal routes (all imports succeeded) ────────────────────────────────
     app.include_router(auth_router.router)                  # /auth/*
     app.include_router(messages.router)

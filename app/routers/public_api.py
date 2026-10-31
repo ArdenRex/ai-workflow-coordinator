@@ -64,6 +64,15 @@ def require_api_key(
     api_key = crud.get_api_key_by_value(db, x_api_key.strip())
     if not api_key or not api_key.is_active:
         raise HTTPException(status_code=401, detail="Invalid or revoked API key.")
+
+    # Billing: a key works only while its workspace owner (or, failing that, the
+    # person who created the key) is subscribed / in trial / exempted by an admin.
+    from app.billing_access import is_user_id_blocked, PAYMENT_REQUIRED_MESSAGE
+    from app.models import Workspace
+    _ws = db.get(Workspace, api_key.workspace_id)
+    if is_user_id_blocked(db, (_ws.owner_id if _ws and _ws.owner_id else api_key.created_by)):
+        raise HTTPException(status_code=402, detail=PAYMENT_REQUIRED_MESSAGE)
+
     crud.touch_api_key(db, api_key.id)
     return api_key
 

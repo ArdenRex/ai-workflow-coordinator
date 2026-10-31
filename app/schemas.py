@@ -5,7 +5,7 @@ Pydantic v2 request/response schemas.
 """
 
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
@@ -125,6 +125,9 @@ class TaskResponse(BaseModel):
     status: TaskStatus
     slack_channel_id: Optional[str] = None
     slack_message_ts: Optional[str] = None
+    # Where the task came from, for the badge on the board. Derived from the
+    # message ids above (Task.source in models.py); None = manual / other.
+    source: Optional[Literal["slack", "gmail", "whatsapp"]] = None
     owner_id: Optional[int] = None
     workspace_id: Optional[int] = None
     # Segment 3 — ping tracking

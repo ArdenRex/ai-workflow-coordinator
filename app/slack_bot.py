@@ -430,6 +430,15 @@ def _process_message(event, client, require_mention: bool = False):
         from app import crud as _crud
         owner_id = _crud.resolve_task_owner_id(db, workspace_id=workspace_id, slack_user_id=sender_id)
 
+        # Trial ended / not subscribed -> don't create the task. Say so only when the
+        # bot was explicitly addressed (@mention); stay silent for auto-detected messages.
+        from app.billing_access import is_user_id_blocked, PAYMENT_REQUIRED_MESSAGE
+        if is_user_id_blocked(db, owner_id):
+            logger.info("Slack task not created: owner user_id=%s needs a subscription", owner_id)
+            if require_mention:
+                _post(client, channel_id, thread_ts, f"⚠️ {PAYMENT_REQUIRED_MESSAGE}")
+            return
+
         new_task = Task(
             title            = extracted.task,
             task_description = extracted.task,
