@@ -960,34 +960,34 @@ function TourOverlay({ onComplete, onSkip }) {
         display: "flex", alignItems: "center", gap: 14,
       }}>
         <div style={{
-          fontSize: 11, color: "var(--color-text-muted)",
+          fontSize: 12, color: "#d9cfc6",
           display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-mono)",
         }}>
-          <kbd style={{ padding:"2px 7px",borderRadius:5,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",fontSize:10 }}>Space</kbd>
+          <kbd style={{ padding:"3px 8px",borderRadius:5,background:"rgba(255,255,255,0.14)",border:"1px solid rgba(255,255,255,0.35)",color:"#f5f0eb",fontSize:11 }}>Space</kbd>
           <span>to advance</span>
         </div>
         <button
           onClick={skipIntro}
           style={{
-            height: 30, padding: "0 14px", borderRadius: 8,
-            border: "1px solid rgba(255,255,255,0.12)",
-            background: "rgba(255,255,255,0.04)",
-            color: "var(--color-text-muted)",
-            fontFamily: "var(--font-sans)", fontSize: 12, fontWeight: 500,
+            height: 36, padding: "0 16px", borderRadius: 9,
+            border: "1px solid rgba(255,255,255,0.45)",
+            background: "rgba(255,255,255,0.14)",
+            color: "#f5f0eb",
+            fontFamily: "var(--font-sans)", fontSize: 13, fontWeight: 600,
             cursor: "pointer", transition: "all 0.14s",
             display: "flex", alignItems: "center", gap: 5,
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.09)"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "var(--color-text-muted)"; }}
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.24)"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.14)"; }}
         >
-          <span style={{ fontSize: 13 }}>⏭</span> Skip Intro
+          <span style={{ fontSize: 14 }}>⏭</span> Skip Intro
         </button>
       </div>
 
       {/* -- Step counter (top left) -- */}
       <div style={{
         position: "absolute", top: 20, left: 24,
-        fontSize: 11, color: "var(--color-text-muted)", fontFamily: "var(--font-mono)",
+        fontSize: 13, fontWeight: 600, color: "#f5f0eb", fontFamily: "var(--font-mono)",
         display: "flex", alignItems: "center", gap: 8,
       }}>
         <div style={{ width: 8, height: 8, borderRadius: "50%", background: current.color, boxShadow: `0 0 10px ${current.color}` }} />
@@ -1126,22 +1126,22 @@ function TourOverlay({ onComplete, onSkip }) {
           {!isFirst && !isLast && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
               <button onClick={() => setStep(s => s - 1)} style={{
-                height: 34, padding: "0 14px", borderRadius: 9,
-                border: "1px solid var(--border-glass)", background: "rgba(255,255,255,0.03)",
-                color: "var(--color-text-tertiary)", fontFamily: "var(--font-sans)",
-                fontSize: 12, fontWeight: 500, cursor: "pointer", transition: "all 0.12s",
+                height: 38, padding: "0 18px", borderRadius: 9,
+                border: "1px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.12)",
+                color: "#f5f0eb", fontFamily: "var(--font-sans)",
+                fontSize: 13, fontWeight: 600, cursor: "pointer", transition: "all 0.12s",
               }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "var(--color-text-secondary)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.03)"; e.currentTarget.style.color = "var(--color-text-tertiary)"; }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.22)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.12)"; }}
               >← Back</button>
-              <div style={{ fontSize: 11, color: "var(--color-text-muted)", display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ fontSize: 12 }}>🔒</span>
+              <div style={{ fontSize: 12, color: "#d9cfc6", display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 13 }}>🔒</span>
                 <span>Complete the tour to unlock the dashboard</span>
               </div>
             </div>
           )}
           {isFirst && !typing && (
-            <div style={{ marginTop: 10, textAlign: "center", fontSize: 11, color: "var(--color-text-muted)" }}>
+            <div style={{ marginTop: 10, textAlign: "center", fontSize: 12, color: "#d9cfc6" }}>
               ✦ Takes ~2 minutes &nbsp;·&nbsp; Earn 100 XP &nbsp;·&nbsp; Learn every feature
             </div>
           )}
