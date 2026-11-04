@@ -16,6 +16,8 @@ Who is allowed (mirrors what the frontend already does):
   - subscription_status "freelancer"                     -> always
   - subscription_status "active"  (paid)                 -> yes
   - subscription_status "trialing" and trial not ended   -> yes
+  - subscription_status "trialing" with a Polar subscription (they subscribed;
+    Polar is still running its own trial period)          -> yes
 Everyone else is blocked: an ended trial, "cancelled", "past_due", or any
 unknown status (fail closed).
 
@@ -92,6 +94,11 @@ def is_billing_blocked(user: User, now: Optional[datetime] = None) -> bool:
         return False
     st = user.subscription_status
     if st in ALWAYS_ALLOWED_STATUSES:
+        return False
+    # Subscribed through Polar but Polar still reports a trial ("trialing"): our webhook never
+    # moves trial_ends_at, so the original 7-day date must not lock out someone who has just
+    # subscribed. Polar then moves them to active / cancelled / past_due, which this rule follows.
+    if st == "trialing" and getattr(user, "ls_subscription_id", None):
         return False
     if st == "trialing" and user.trial_ends_at:
         return _aware(user.trial_ends_at) <= (now or datetime.now(timezone.utc))

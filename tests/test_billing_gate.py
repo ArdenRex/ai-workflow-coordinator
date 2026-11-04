@@ -22,8 +22,9 @@ FUTURE = NOW + timedelta(days=3)
 
 
 class U:  # minimal stand-in for the pure-rule tests
-    def __init__(self, status, ends=None, email="someone@example.com"):
+    def __init__(self, status, ends=None, email="someone@example.com", sub=None):
         self.subscription_status, self.trial_ends_at, self.email = status, ends, email
+        self.ls_subscription_id = sub
 
 
 # ── pure rules ───────────────────────────────────────────────────────────────
@@ -41,6 +42,10 @@ class U:  # minimal stand-in for the pure-rule tests
     (U("weird-new-status"), True), (U(None), True), (U(""), True),
     (U("trialing", PAST, email="boss@example.com"), False),       # admin email never blocked
     (U("cancelled", None, email="BOSS@Example.com"), False),      # ...case-insensitively
+    (U("trialing", PAST, sub="sub_1"), False),                    # subscribed via Polar, still in Polar's trial
+    (U("trialing", None, sub="sub_1"), False),
+    (U("cancelled", PAST, sub="sub_1"), True),                    # a subscription id does not save a cancelled user
+    (U("past_due", FUTURE, sub="sub_1"), True),
 ])
 def test_rules(user, blocked):
     assert is_billing_blocked(user) is blocked
@@ -82,11 +87,12 @@ def make_user():
     s = SessionLocal()
     created = []
 
-    def make(status, ends=None, email=None, active=True):
+    def make(status, ends=None, email=None, active=True, sub=None, customer=None):
         tag = uuid.uuid4().hex[:8]
         ws = Workspace(name=f"ws-{tag}"); s.add(ws); s.commit(); s.refresh(ws)
         u = User(email=email or f"u-{tag}@example.com", name="T", workspace_id=ws.id, role=UserRole.architect,
-                 subscription_status=status, trial_ends_at=ends, is_active=active)
+                 subscription_status=status, trial_ends_at=ends, is_active=active,
+                 ls_subscription_id=sub, ls_customer_id=customer)
         s.add(u); s.commit(); s.refresh(u)
         created.append((u.id, ws.id))
         return u.id, {"Authorization": f"Bearer {create_access_token(u.id)[0]}"}
@@ -254,3 +260,39 @@ def test_integrations_still_require_login_and_respect_the_billing_block(client, 
     assert client.get("/integrations/status").status_code == 401
     _, h = make_user("trialing", PAST)
     assert client.get("/integrations/status", headers=h).status_code == 402
+
+
+# ── subscribing while Polar runs its own trial period ───────────────────────
+def _polar_event(uid, kind, status):
+    return {"type": kind, "data": {"id": f"sub_{uid}", "customer_id": f"cus_{uid}", "status": status,
+                                   "metadata": {"user_id": str(uid)}}}
+
+
+def test_subscriber_in_polars_own_trial_is_not_locked_out_and_sees_no_wall(client, make_user):
+    _, h = make_user("trialing", PAST, sub="sub_abc", customer="cus_abc")
+    assert client.get("/tasks/", headers=h).status_code == 200
+    bs = client.get("/auth/billing-status", headers=h).json()
+    assert bs["status"] == "trialing" and bs["show_wall"] is False and not bs.get("trial_expired")
+
+
+def test_full_flow_expired_user_subscribes_through_polar_then_cancels(client, make_user):
+    """Real webhook route. (Test settings have no webhook secret, so the signature check is skipped here.)"""
+    uid, h = make_user("trialing", PAST)
+    assert client.get("/tasks/", headers=h).status_code == 402
+    r = client.post("/billing/webhook", json=_polar_event(uid, "subscription.created", "trialing"))
+    assert r.status_code == 200, r.text
+    assert client.get("/tasks/", headers=h).status_code == 200                    # subscribed -> in
+    assert client.get("/auth/billing-status", headers=h).json()["show_wall"] is False
+    client.post("/billing/webhook", json=_polar_event(uid, "subscription.active", "active"))
+    assert client.get("/tasks/", headers=h).status_code == 200                    # first charge went through
+    client.post("/billing/webhook", json=_polar_event(uid, "subscription.canceled", "canceled"))
+    assert client.get("/tasks/", headers=h).status_code == 402                    # cancelled -> blocked again
+
+
+def test_card_added_during_the_trial_keeps_access_past_day_7(client, make_user):
+    uid, h = make_user("trialing", FUTURE)
+    client.post("/billing/webhook", json=_polar_event(uid, "subscription.created", "trialing"))
+    from app.database import SessionLocal
+    from app.models import User
+    s = SessionLocal(); s.get(User, uid).trial_ends_at = NOW - timedelta(hours=1); s.commit(); s.close()   # day 8
+    assert client.get("/tasks/", headers=h).status_code == 200                    # Polar's trial is still running

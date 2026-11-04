@@ -203,7 +203,7 @@ export default function TermsPage() {
           </div>
 
           <div className="legal-title">Terms of Service</div>
-          <div className="legal-updated">Last updated: May 25, 2026</div>
+          <div className="legal-updated">Last updated: November 4, 2026</div>
           <div className="legal-divider" />
 
           <div className="legal-section">
@@ -216,21 +216,21 @@ export default function TermsPage() {
           <div className="legal-section">
             <div className="legal-h2">2. Description of Service</div>
             <p className="legal-p">
-              AI Workflow Coordinator is a SaaS platform that automatically extracts tasks from your team's Slack conversations using AI, organizes them on a shared Kanban board, and helps your team track ownership, deadlines, and progress without manual data entry. The Service is provided on a monthly subscription basis.
+              AI Workflow Coordinator is a SaaS platform that automatically extracts tasks from your team's connected sources (Slack, Gmail, Microsoft Teams and WhatsApp Business) using AI, organizes them on a shared Kanban board, and helps your team track ownership, deadlines, and progress without manual data entry. The Service is provided on a monthly subscription basis.
             </p>
           </div>
 
           <div className="legal-section">
             <div className="legal-h2">3. Free Trial</div>
             <p className="legal-p">
-              New users are eligible for a 7-day free trial. No charge is made during the trial period. On the 8th day, your selected subscription plan will be billed automatically. You may cancel at any time before the trial ends to avoid being charged.
+              New users get a 7-day free trial. No payment details are required to start. When the trial ends, you need an active paid subscription to keep using the Service, and access is paused until you subscribe. You can add your payment details at any time, during the trial or after it ends. The checkout page shows what you will be charged, and when, before you confirm.
             </p>
           </div>
 
           <div className="legal-section">
             <div className="legal-h2">4. Billing & Payments</div>
             <p className="legal-p">
-              Subscriptions are billed monthly at a flat rate of $20/month, regardless of team size. Payments are processed securely through Polar. By subscribing, you authorize us to charge your payment method on a recurring basis until you cancel.
+              Subscriptions are billed monthly at $19.99 per month. Each person who signs in to the Service needs their own trial or active subscription. Payments are processed securely through Polar. By subscribing, you authorize us to charge your payment method on a recurring basis until you cancel.
             </p>
             <ul className="legal-ul">
               <li>All prices are listed in USD.</li>

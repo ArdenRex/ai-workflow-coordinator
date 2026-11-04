@@ -838,6 +838,13 @@ def billing_status(
                 "trial_ends_at": trial_end.isoformat(),
             }
 
+    # Subscribed through Polar and still inside Polar's own trial period: full access, no wall.
+    if current_user.subscription_status == "trialing" and getattr(current_user, "ls_subscription_id", None):
+        return {
+            "status": "trialing", "show_wall": False, "card_on_file": True,
+            "trial_ends_at": current_user.trial_ends_at.isoformat() if current_user.trial_ends_at else None,
+        }
+
     # Trial expired or cancelled or past_due
     return {
         "status":    current_user.subscription_status,

@@ -5474,7 +5474,7 @@ function BillingWall({ user, token, status, isNewUser, daysLeft, trialEndsAt, on
           <div style={{ padding: "14px 18px", background: isNewUser ? "rgba(63,174,125,0.08)" : "rgba(255,106,82,0.08)", border: isNewUser ? "1px solid rgba(63,174,125,0.2)" : "1px solid rgba(255,106,82,0.2)", borderRadius: 12, marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>{isNewUser ? "Free for 7 days, then" : "Monthly subscription"}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#efe7df", marginTop: 2 }}>$20 <span style={{ fontSize: 13, fontWeight: 400, color: "var(--color-text-secondary)" }}>/ user / month</span></div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#efe7df", marginTop: 2 }}>$19.99 <span style={{ fontSize: 13, fontWeight: 400, color: "var(--color-text-secondary)" }}>/ user / month</span></div>
             </div>
             <div style={{ fontSize: 11, color: isNewUser ? "#3fae7d" : "#d99a3f", background: isNewUser ? "rgba(63,174,125,0.1)" : "rgba(34,211,238,0.1)", padding: "4px 10px", borderRadius: 20, fontWeight: 600 }}>{isNewUser ? "7 days FREE" : "Cancel anytime"}</div>
           </div>
@@ -5737,7 +5737,7 @@ function AuthenticatedApp() {
               {[
                 ["✅", "Full access for 7 days — completely free"],
                 ["💳", "Card saved securely — cancel anytime"],
-                ["💰", "Just $20/month flat after trial ends"],
+                ["💰", "Just $19.99/month after trial ends"],
               ].map(([icon, text]) => (
                 <div key={text} style={{
                   display: "flex", alignItems: "center", gap: 10,
