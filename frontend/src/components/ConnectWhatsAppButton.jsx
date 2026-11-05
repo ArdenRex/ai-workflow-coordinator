@@ -44,8 +44,19 @@ function loadFacebookSdk(appId, version) {
   return sdkPromise;
 }
 
+// WhatsApp is not open to customers yet (Meta's Tech Provider approval is pending), so the real
+// button is limited to the emails in REACT_APP_WHATSAPP_BETA_EMAILS (comma-separated, set on the
+// frontend project in Vercel, then redeploy). Everyone else sees a small "coming soon" heading.
+// Once Meta approves the app, remove this check (or put every customer's email on the list).
+function isWhatsAppBeta(user) {
+  const allowed = (process.env.REACT_APP_WHATSAPP_BETA_EMAILS || "")
+    .split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+  return !!user?.email && allowed.includes(String(user.email).toLowerCase());
+}
+
 export default function ConnectWhatsAppButton() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const beta = isWhatsAppBeta(user);
   const [config, setConfig]       = useState(null);    // null until loaded; {enabled,...}
   const [connected, setConnected] = useState(false);
   const [number, setNumber]       = useState(null);
@@ -60,7 +71,7 @@ export default function ConnectWhatsAppButton() {
   const authHeaders = { Authorization: `Bearer ${token}` };
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !beta) return;
     let cancelled = false;
     (async () => {
       try {
@@ -83,7 +94,7 @@ export default function ConnectWhatsAppButton() {
       }
     })();
     return () => { cancelled = true; };
-  }, [token]);
+  }, [token, beta]);
 
   // Stop listening if the component unmounts mid-flow
   useEffect(() => () => { if (cleanupRef.current) cleanupRef.current(); }, []);
@@ -197,6 +208,25 @@ export default function ConnectWhatsAppButton() {
       setDisconnecting(false);
     }
   };
+
+  // Not open to customers yet -> small "coming soon" heading instead of the button
+  if (!beta) {
+    return (
+      <div
+        data-testid="whatsapp-coming-soon"
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          padding: "7px 14px", borderRadius: 8,
+          fontSize: 12.5, fontWeight: 600, letterSpacing: "0.01em",
+          color: "var(--color-text-secondary)",
+          background: "rgba(37,211,102,0.08)", border: "1px dashed rgba(37,211,102,0.35)",
+        }}
+      >
+        <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#25D366", flexShrink: 0 }} />
+        WhatsApp feature will be available soon
+      </div>
+    );
+  }
 
   // Still loading -> show nothing yet
   if (!configLoaded) return null;
