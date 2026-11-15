@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aceden AI OS - Operations</title>
+<link rel="stylesheet" href="/dashboard/dashboard.css">
+</head>
+<body>
+<header><h1>Operations</h1><p class="muted">Read-only view of one workspace. The token stays in this page's memory only.</p></header>
+<form id="connect" autocomplete="off">
+  <label>Workspace id <input id="ws" required maxlength="64" autocomplete="off"></label>
+  <label>Access token <input id="token" type="password" required autocomplete="off"></label>
+  <label>Window
+    <select id="window"><option value="3600">1 hour</option><option value="86400" selected>1 day</option><option value="604800">7 days</option></select>
+  </label>
+  <button type="submit">Load</button>
+</form>
+<p id="status" role="status" class="muted"></p>
+<main id="out" hidden>
+  <section><h2>Alerts <span id="alerts-badge" class="badge"></span></h2><ul id="alerts"></ul></section>
+  <section><h2>Executions</h2><dl id="executions"></dl></section>
+  <section><h2>Approvals</h2><dl id="approvals"></dl></section>
+  <section><h2>Connections</h2><ul id="connections"></ul></section>
+  <section><h2>Agent and workflow runs</h2><dl id="runs"></dl></section>
+  <section><h2>Schedules and events</h2><dl id="sched"></dl></section>
+  <section><h2>Recent failures</h2><ul id="failures"></ul></section>
+  <p class="muted" id="generated"></p>
+</main>
+<script src="/dashboard/dashboard.js"></script>
+</body>
+</html>

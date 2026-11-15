@@ -1,563 +1,129 @@
-# AI Workflow Coordinator — v0.2 MVP
-
-A SaaS backend that listens to Slack channels, uses OpenAI to extract tasks, assigns them to people, and tracks them on a Kanban dashboard.
-
-```
-Slack message → AI extraction → PostgreSQL → Kanban dashboard + Slack reply
-```
-
-## Stack
-
-| Layer     | Technology                        |
-|-----------|-----------------------------------|
-| Backend   | FastAPI + SQLAlchemy 2.0 + Alembic |
-| AI        | OpenAI GPT-4o-mini (JSON mode)    |
-| Slack     | Slack Bolt for Python             |
-| Database  | PostgreSQL 16                     |
-| Frontend  | React 18 (Create React App)       |
-| Deploy    | Render (backend) + Vercel (frontend) + Supabase (DB) |
-
----
-
-## Project Structure
-
-```
-ai-workflow-coordinator/
-├── .env.example              ← Copy to .env and fill in keys
-├── Dockerfile                ← Docker build for backend
-├── docker-compose.yml        ← Local: db + backend containers
-├── render.yaml               ← One-click Render deployment
-├── requirements.txt
-├── alembic.ini
-├── alembic/
-│   ├── env.py                ← Reads DATABASE_URL from .env
-│   └── versions/
-│       └── 0001_initial_tasks.py   ← Creates tasks table
-├── app/
-│   ├── main.py               ← FastAPI app entry point
-│   ├── config.py             ← Pydantic settings (reads .env)
-│   ├── database.py           ← SQLAlchemy engine + session
-│   ├── models.py             ← Task ORM model
-│   ├── schemas.py            ← Pydantic request/response types
-│   ├── crud.py               ← DB operations
-│   ├── ai_extractor.py       ← OpenAI task extraction
-│   ├── slack_bot.py          ← Bolt app + message handler
-│   └── routers/
-│       ├── messages.py       ← POST /process-message
-│       ├── tasks.py          ← GET/PATCH /tasks
-│       └── slack.py          ← POST /slack/events
-├── frontend/
-│   ├── vercel.json           ← Vercel deployment config
-│   ├── .env.example          ← Copy to .env.local for production
-│   ├── package.json
-│   └── src/
-│       ├── api.js            ← Backend API calls
-│       ├── App.jsx           ← Main app + Kanban layout
-│       ├── hooks/useTasks.js ← Data fetching + optimistic updates
-│       └── components/
-│           ├── KanbanColumn.jsx
-│           ├── TaskCard.jsx
-│           └── AddTaskModal.jsx
-└── scripts/
-    ├── test_task.py          ← Python integration test
-    ├── test_task.sh          ← Shell integration test
-    └── ngrok_start.sh        ← Start server + ngrok tunnel
-```
-
----
-
-## Quick Start (Local)
-
-### 1. Install dependencies
-
-```bash
-python -m venv venv
-source venv/bin/activate        # Windows: venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 2. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and fill in your keys:
-
-```env
-DATABASE_URL=postgresql://postgres:password@localhost:5432/ai_workflow
-OPENAI_API_KEY=sk-...
-SLACK_BOT_TOKEN=xoxb-...
-SLACK_SIGNING_SECRET=...
-```
-
-### 3. Start PostgreSQL
-
-```bash
-docker-compose up -d db
-```
-
-### 4. Run database migrations
-
-```bash
-alembic upgrade head
-```
-
-> ✅ This creates the `tasks` table in PostgreSQL.
-
-### 5. Start the backend
-
-```bash
-uvicorn app.main:app --reload
-```
-
-- API: http://localhost:8000
-- Interactive docs: http://localhost:8000/docs
-
-### 6. Start the frontend (new terminal)
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-- Dashboard: http://localhost:3000
-
-### 7. Test it works
-
-```bash
-# Python (recommended — shows colored output)
-python3 scripts/test_task.py
-
-# Or shell
-./scripts/test_task.sh
-```
-
----
-
-## Slack App Setup (one-time)
-
-### Step 1 — Create a Slack App
-
-1. Go to https://api.slack.com/apps → **Create New App** → From scratch
-2. Name: `AI Workflow Coordinator`, pick your workspace
-
-### Step 2 — Add Bot Token Scopes
-
-**OAuth & Permissions** → **Bot Token Scopes**, add:
-
-| Scope              | Purpose                       |
-|--------------------|-------------------------------|
-| `channels:history` | Read public channel messages  |
-| `groups:history`   | Read private channel messages |
-| `chat:write`       | Post replies in threads       |
-| `app_mentions:read`| Respond to @mentions          |
-
-### Step 3 — Install to Workspace
-
-**OAuth & Permissions** → **Install to Workspace** → Authorize
-
-Copy the **Bot User OAuth Token** (`xoxb-...`) → paste into `.env` as `SLACK_BOT_TOKEN`
-
-### Step 4 — Copy Signing Secret
-
-**Basic Information** → **App Credentials** → **Signing Secret**
-
-Paste into `.env` as `SLACK_SIGNING_SECRET`
-
-### Step 5 — Expose local server with ngrok
-
-```bash
-# Option A: automated (starts server + tunnel)
-./scripts/ngrok_start.sh
-
-# Option B: manual
-ngrok http 8000
-```
-
-### Step 6 — Set the Request URL
-
-**Event Subscriptions** → Enable Events → **Request URL**:
-
-```
-https://your-ngrok-id.ngrok.io/slack/events
-```
-
-Slack sends a one-time challenge — the handler responds automatically. ✅
-
-### Step 7 — Subscribe to Events
-
-**Event Subscriptions** → **Subscribe to bot events**:
-- `message.channels`
-- `message.groups`
-
-Click **Save Changes**.
-
-### Step 8 — Invite the bot to a channel
-
-In Slack: `/invite @AI Workflow Coordinator`
-
----
-
-## REST API
-
-| Method  | Endpoint                | Description                        |
-|---------|-------------------------|------------------------------------|
-| `GET`   | `/`                     | Health check                       |
-| `POST`  | `/process-message`      | Manual message → AI → DB           |
-| `GET`   | `/tasks`                | List tasks (filter + paginate)     |
-| `GET`   | `/tasks/{id}`           | Get task by ID                     |
-| `PATCH` | `/tasks/{id}/status`    | Update task status                 |
-| `POST`  | `/slack/events`         | Slack Events API webhook           |
-
-### Example: Process a message manually
-
-```bash
-curl -X POST http://localhost:8000/process-message \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Sarah, fix the login bug by Monday. Urgent!", "source": "manual"}'
-```
-
-Response:
-
-```json
-{
-  "message": "Task extracted and saved successfully.",
-  "extracted": {
-    "task": "Fix the login bug",
-    "assignee": "Sarah",
-    "deadline": "Monday",
-    "priority": "high"
-  },
-  "task": {
-    "id": 1,
-    "task_description": "Fix the login bug",
-    "assignee": "Sarah",
-    "deadline": "Monday",
-    "priority": "high",
-    "status": "pending",
-    "created_at": "2025-01-01T12:00:00Z",
-    ...
-  }
-}
-```
-
----
-
-## Deployment
-
-### Database → Supabase
-
-1. Create a project at [supabase.com](https://supabase.com)
-2. **Settings → Database → Connection string** → copy the URI
-3. Use as `DATABASE_URL` in Render environment variables
-
-### Backend → Render
-
-**Option A: `render.yaml` (recommended)**
-
-1. Push to GitHub
-2. Go to [render.com](https://render.com) → **New** → **Blueprint**
-3. Connect your repo — Render reads `render.yaml` automatically
-4. Set `OPENAI_API_KEY`, `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET` in the dashboard
-
-**Option B: Manual**
-
-1. **New Web Service** → connect GitHub repo
-2. **Build command**: `pip install -r requirements.txt`
-3. **Start command**: `alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-4. Add all environment variables from `.env.example`
-5. Copy the deployed URL: `https://your-app.onrender.com`
-
-### Frontend → Vercel
-
-1. Go to [vercel.com](https://vercel.com) → **New Project** → connect repo
-2. **Root Directory**: `frontend`
-3. Add environment variable:
-   ```
-   REACT_APP_API_BASE=https://your-app.onrender.com
-   ```
-4. Deploy
-
-### Update Slack Request URL
-
-After deploying the backend, update your Slack App:
-
-**Event Subscriptions → Request URL**:
-```
-https://your-app.onrender.com/slack/events
-```
-
----
-
-## How It Works
-
-```
-User posts in Slack
-       │
-       ▼
-POST /slack/events
-(Bolt verifies X-Slack-Signature)
-       │
-       ▼
-handle_message()  in slack_bot.py
-       │
-       ├─ Guard: skip bot messages, edits, sub-types
-       │
-       ├─ Step 1: extract_task_from_message(text)
-       │          → OpenAI GPT-4o-mini (JSON mode, temp=0)
-       │          → { task, assignee, deadline, priority }
-       │
-       ├─ Step 2: crud.create_task(db, message, extracted)
-       │          → INSERT INTO tasks ...
-       │
-       └─ Step 3: say(reply, thread_ts=...)
-                  → ✅ Task #7 created and assigned to *Sarah*
-                     › finish the landing page redesign
-                     › Deadline: Thursday  |  Priority: 🟠 high
-```
-
----
-
-## Priority Levels
-
-| Value      | Emoji | Assigned when                                     |
-|------------|-------|---------------------------------------------------|
-| `critical` | 🔴    | Production down, security breach, data loss, ASAP |
-| `high`     | 🟠    | Urgent, blocking a team, due today/tomorrow       |
-| `medium`   | 🟡    | Normal request, this-week deadline (default)      |
-| `low`      | 🟢    | "Nice to have", no rush, far-future deadline      |
-
----
-
-## Task Status Flow
-
-```
-pending  →  in_progress  →  completed
-   ↑              ↓
-   └──────────────┘  (can move back)
-   
-pending / in_progress → cancelled
-cancelled → pending (restore)
-```
-
----
-
-## DB Migrations
-
-```bash
-# Create a new migration after changing models.py
-alembic revision --autogenerate -m "describe your change"
-
-# Apply migrations
-alembic upgrade head
-
-# Roll back one step
-alembic downgrade -1
-```
-
----
-
-## Environment Variables Reference
-
-| Variable             | Required | Description                              |
-|----------------------|----------|------------------------------------------|
-| `DATABASE_URL`       | ✅       | PostgreSQL connection string             |
-| `OPENAI_API_KEY`     | ✅       | OpenAI API key                           |
-| `SLACK_BOT_TOKEN`    | ✅       | Slack Bot User OAuth Token (`xoxb-...`)  |
-| `SLACK_SIGNING_SECRET` | ✅    | Slack app signing secret                 |
-| `SLACK_CHANNEL_ID`   | ⬜       | Restrict bot to one channel (optional)   |
-| `APP_ENV`            | ⬜       | `development` or `production`            |
-| `APP_SECRET_KEY`     | ⬜       | App secret (auto-generated on Render)    |
-
-
-A SaaS backend that listens to Slack channels, uses AI to extract tasks,
-assigns them, and tracks them in PostgreSQL. Replies directly in Slack threads.
-
-## Stack
-- **FastAPI** — async Python web framework
-- **Slack Bolt** — official Slack bot SDK (Events API + signature verification)
-- **PostgreSQL** — task storage
-- **OpenAI GPT-4o-mini** — task + priority extraction
-- **SQLAlchemy 2.0** — ORM
-- **Alembic** — DB migrations
-
----
-
-## Project Structure
-```
-ai-workflow-coordinator/
-├── .env.example
-├── .gitignore
-├── README.md
-├── alembic.ini
-├── docker-compose.yml
-├── requirements.txt
-├── scripts/
-│   └── ngrok_start.sh        ← Start dev server + tunnel in one command
-├── alembic/
-│   └── env.py
-└── app/
-    ├── main.py               ← FastAPI app + router registration
-    ├── config.py             ← Settings (reads .env)
-    ├── database.py           ← SQLAlchemy engine + get_db()
-    ├── models.py             ← Task ORM model
-    ├── schemas.py            ← Pydantic types
-    ├── crud.py               ← DB operations
-    ├── ai_extractor.py       ← OpenAI structured extraction
-    └── routers/
-        ├── messages.py       ← POST /process-message
-        ├── tasks.py          ← GET/PATCH /tasks
-        └── slack.py          ← POST /slack/events  ← NEW
-    slack_bot.py              ← Bolt app + message handler ← NEW
-```
-
----
-
-## Quick Start
-
-### 1. Install dependencies
-```bash
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Configure environment
-```bash
-cp .env.example .env
-# Fill in OPENAI_API_KEY, SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET
-```
-
-### 3. Start PostgreSQL
-```bash
-docker-compose up -d
-```
-
-### 4. Run the server
-```bash
-uvicorn app.main:app --reload
-```
-
----
-
-## Slack App Setup (one-time)
-
-### Step 1 — Create a Slack App
-1. Go to https://api.slack.com/apps → **Create New App** → From scratch
-2. Name it "AI Workflow Coordinator", pick your workspace
-
-### Step 2 — Add Bot Token Scopes
-Navigate to **OAuth & Permissions** → **Bot Token Scopes**, add:
-
-| Scope              | Purpose                        |
-|--------------------|--------------------------------|
-| `channels:history` | Read public channel messages   |
-| `groups:history`   | Read private channel messages  |
-| `chat:write`       | Post replies in threads        |
-| `app_mentions:read`| Respond to @mentions           |
-
-### Step 3 — Install App to Workspace
-**OAuth & Permissions** → **Install to Workspace** → Authorize
-
-Copy the **Bot User OAuth Token** (`xoxb-...`) → paste into `.env` as `SLACK_BOT_TOKEN`
-
-### Step 4 — Copy Signing Secret
-**Basic Information** → **App Credentials** → **Signing Secret**
-Paste into `.env` as `SLACK_SIGNING_SECRET`
-
-### Step 5 — Expose your local server with ngrok
-```bash
-# Option A: one command (starts both server + tunnel)
-./scripts/ngrok_start.sh
-
-# Option B: manually
-ngrok http 8000
-```
-
-### Step 6 — Set the Request URL
-In your Slack App: **Event Subscriptions** → Enable Events → **Request URL**:
-```
-https://your-ngrok-subdomain.ngrok.io/slack/events
-```
-Slack sends a challenge POST — the handler responds automatically. ✅
-
-### Step 7 — Subscribe to Events
-**Event Subscriptions** → **Subscribe to bot events**:
-- `message.channels`
-- `message.groups` (if using private channels)
-
-Click **Save Changes**.
-
-### Step 8 — Invite the bot to a channel
-In Slack: `/invite @AI Workflow Coordinator`
-
----
-
-## How It Works
-
-```
-User posts a message in Slack
-        │
-        ▼
-POST /slack/events  (Bolt verifies X-Slack-Signature)
-        │
-        ▼
-handle_message()  in slack_bot.py
-        │
-        ├─ Guard: skip bot messages, edits, sub-types
-        │
-        ├─ Step 1: extract_task_from_message(text)
-        │          → OpenAI GPT-4o-mini (JSON mode)
-        │          → returns task / assignee / deadline / priority
-        │
-        ├─ Step 2: crud.create_task(db, message, extracted)
-        │          → INSERT INTO tasks ...
-        │
-        └─ Step 3: say(reply, thread_ts=...)
-                   → ✅ Task #7 created and assigned to *Sarah*
-                      › finish the landing page redesign
-                      › Deadline: Thursday  |  Priority: 🟠 high
-```
-
----
-
-## Example Slack Interaction
-
-**User** (in #dev channel):
-> Hey Sarah, the login page is broken in production — please hotfix ASAP, it's critical!
-
-**Bot** (replies in thread):
-> ✅ Task #12 created and assigned to **Sarah**
-> › Fix the broken login page in production
-> › Deadline: ASAP  |  Priority: 🔴 critical
-
----
-
-## REST API
-
-| Method | Endpoint                 | Description                        |
-|--------|--------------------------|------------------------------------|
-| POST   | `/process-message`       | Manual message → AI → DB           |
-| GET    | `/tasks`                 | List tasks (filter + paginate)     |
-| GET    | `/tasks/{id}`            | Get task by ID                     |
-| PATCH  | `/tasks/{id}/status`     | Update task status                 |
-| POST   | `/slack/events`          | Slack Events API webhook           |
-
-Interactive docs: `http://localhost:8000/docs`
-
----
-
-## DB Migrations (Alembic)
-```bash
-alembic revision --autogenerate -m "describe change"
-alembic upgrade head
-```
-
-## Priority levels
-| Value      | Emoji | When assigned                                     |
-|------------|-------|---------------------------------------------------|
-| `critical` | 🔴    | Production down, security breach, "ASAP"          |
-| `high`     | 🟠    | Urgent, blocking another team, due today/tomorrow |
-| `medium`   | 🟡    | Normal request, this-week deadline (default)      |
-| `low`      | 🟢    | "Nice to have", no rush, far-future deadline      |
+# Aceden AI OS
+
+Independent AI business operating system. It connects to external systems (Aceden included) only through connectors; it has no code dependency on any of them.
+
+## Roadmap status
+- Step 1 Foundation
+  - Substep 1.1 Project skeleton, config, logging, app factory, health, tests — DONE
+  - Substep 1.2 Database layer (engine, sessions, mixins), Alembic baseline, /ready — DONE
+  - Substep 1.3 Testing foundation (isolated DB fixtures), Docker, CI, architecture doc — DONE
+- Step 1 COMPLETE
+- Step 2 Execution Kernel
+  - Substep 2.1 Kernel models + migration 0002 (tool_executions, approvals, system_events), no-drift test — DONE
+  - Substep 2.2 Tool registry (schemas, risk levels, approval rules, limits, built-in system.ping) — DONE
+  - Substep 2.3 Permissions (user + agent scope), deny-first policy engine, workspace policy — DONE
+  - Substep 2.4 Approval workflow (atomic decisions, no self/agent approval, expiry) + audit helper — DONE
+  - Substep 2.5 ToolExecutionService (single execution boundary, approvals, idempotency, timeouts, retries, audit) — DONE
+  - Substep 2.6 Input-bound approvals, bypass/edge tests, docs/KERNEL.md — DONE
+- Step 2 COMPLETE
+- Step 3 First External Connector
+  - Substep 3.1 Connector base + hardened HTTP client (timeouts, error mapping, no redirects, size cap, safe paths) — DONE
+  - Substep 3.2 Aceden connector (X-API-Key, read-only) + kernel tools aceden.task.list / aceden.task.get, per-workspace credentials — DONE
+  - Substep 3.3 Env config (ACEDEN_*), factory, workspace-bound provider, connection-check CLI, docs/CONNECTORS.md — DONE
+- Step 3 COMPLETE
+- Step 4 Multi-tenancy and Business Identity
+  - Substep 4.1 Identity models + migration 0003 (users, workspaces, memberships, roles; FKs enforced) — DONE
+  - Substep 4.2 Password hashing (scrypt), JWT access tokens, register/login/me — DONE
+  - Substep 4.3 Workspaces, membership rules, role->permission mapping into kernel Principal, kernel FKs to workspaces (migration 0004) — DONE
+  - Substep 4.4 Encrypted credential storage (AES-256-GCM), rotation, revocation, root-key change support (migration 0005) — DONE
+  - Substep 4.5 Per-workspace connector construction from stored credentials, SSRF guard, connection-test endpoint + status (migration 0006) — DONE
+  - Substep 4.6 Workspace-isolation tests (HTTP route sweep, credentials/crypto, connectors, kernel/approvals, identity, secret leakage), docs/ISOLATION.md — DONE
+- Step 4 COMPLETE
+- Step 5 Core AI Intelligence
+  - Substep 5.1 LLM service, provider contract, fake provider, limits, retries, content-free audit, docs/LLM.md — DONE
+  - Substep 5.2 OpenAI-compatible provider (platform key or per-workspace encrypted key), SSRF/size/redirect hardening — DONE
+  - Substep 5.3 Structured outputs (strict validation, bounded content-free repair, untrusted-text fencing) — DONE
+  - Substep 5.4 Request understanding / intent classification (caller-scoped capability catalog, deterministic resolution, POST /workspaces/{id}/ai/understand) — DONE
+  - Substep 5.5 Safe AI-to-tool planning (strict argument validation, proposals only, kernel bridge, POST /workspaces/{id}/ai/plan) — DONE
+  - Substep 5.6 End-to-end safety tests across the Step 5 chain, docs/STEP5.md — DONE
+- Step 5 COMPLETE
+- Step 6 Agent Foundation
+  - Substep 6.1 Agent definition, validation (no platform permissions, fail-closed patterns), registry, docs/AGENTS.md — DONE
+  - Substep 6.2 Agent context: scoped principal, kernel-enforced tool-access rules (fail closed), agent-bound proposals — DONE
+  - Substep 6.3 Agent runs: run records (migration 0007), lifecycle state machine, hard budgets, per-stretch deadlines, content-free audit — DONE
+  - Substep 6.4 Bounded agent executor: budgeted LLM calls, kernel-only execution, approval pause/resume, approval withdrawal when a run ends — DONE
+  - Substep 6.5 Starter agents (ops, insight; read-only) + run API: start, list, read, cancel, resume — DONE
+  - Substep 6.6 Agent/run safety and isolation tests, docs — DONE. **Step 6 COMPLETE**
+- Step 7 Orchestration and Planning (docs/ORCHESTRATION.md)
+  - Substep 7.1 Execution plan model: bounded DAG, validation, dependency/failure logic, digest — DONE
+  - Substep 7.2 Plan persistence: migration 0008, CAS state machines, dependency order enforced in the store, content-free audit — DONE
+  - Substep 7.3 Goal decomposition: structured model output -> validated plan proposal, offered-agents only, content-free audit — DONE
+  - Substep 7.4 Orchestrator: drives stored plans through ordinary agent runs; approvals pause/resume, failure skipping, cancel of linked runs — DONE
+  - Substep 7.5 Result aggregation + plans HTTP API: create/run/read/cancel, content-free summaries — DONE
+  - Substep 7.6 Orchestration safety and isolation tests, docs; fixes approval-deadline gap in resume — DONE. **Step 7 COMPLETE**
+- Step 8 Memory and Business Knowledge (docs/MEMORY.md)
+  - Substep 8.1 Memory model: kinds, sources, governed writes, secret rejection, freshness, deterministic ranking (pure) — DONE
+  - Substep 8.2 Memory persistence: migration 0009, workspace-scoped store, access rules, supersede/delete/expire with content purge, content-free audit — DONE
+  - Substep 8.3 Knowledge ingestion: documents cut into source-tracked chunks, replace-on-update, purge-on-delete, no migration — DONE
+  - Substep 8.4 Retrieval service: permission-aware search with provenance, freshness flags, bounds and content-free audit, no migration — DONE
+  - Substep 8.5 Memory in agent/planner prompts as untrusted data + memory, document and search HTTP API, no migration — DONE
+  - Substep 8.6 End-to-end memory safety suite — DONE. Step 8 COMPLETE
+- Step 9 Workflows and Events (docs/WORKFLOWS.md)
+  - Substep 9.1 Workflow definition model: steps, bounded retry/timeout, triggers, strict parsing, digest (pure, no migration) — DONE
+  - Substep 9.2 Workflow persistence: versioned definitions, runs and steps, migration 0010, retry bookkeeping, trigger dedupe, content-free audit — DONE
+  - Substep 9.3 Workflow engine: drives runs through agent runs with bounded retries (transient causes only, never after a tool call), timeouts, approval pause/resume, cancel — DONE
+  - Substep 9.4 Events: content-free event intake, trigger matching, idempotent starts, bounded fan-out, migration 0011 — DONE
+  - Substep 9.5 Scheduling: armed interval schedules, exactly-once slots, bounded restart-safe tick that fires and drives runs as the owner, migration 0012 — DONE
+  - Substep 9.6 HTTP API (definitions, runs, events, schedules, per-workspace tick) and the end-to-end safety suite, closes Step 9 — DONE
+- Step 9 COMPLETE
+- Step 10 Core Business Connectors (docs/CONNECTORS.md)
+  - Substep 10.1 Connector kit: auth schemes, untrusted-text cleaning, bounded pagination, business domains and tool rules, domain-level provider resolution, admin-only domain permissions (no migration) — DONE
+  - Substep 10.2 CRM domain interface (crm.lead.list / crm.lead.get) and read-only HubSpot connector (no migration) — DONE
+  - Substep 10.3 Chat (Slack, public channels only) and project (Asana, one configured workspace) read connectors (no migration) — DONE
+  - Substep 10.4 OAuth refresh handling, email (Gmail) and calendar (Google Calendar) read connectors, read-only scopes enforced (no migration) — DONE
+  - Substep 10.5 Approval-gated write tools (crm.lead.create, email.draft, email.send, calendar.meeting.create, chat.message.post), opt-in per connection with allow_write, write scopes allow-listed (no migration) — DONE
+  - Substep 10.6 Step 10 hardening: per-connection outbound call limit, cross-connector invariants, audited end-to-end journey (no migration) — DONE; Step 10 complete
+- Step 11 Business AI Capabilities (docs/CAPABILITIES.md)
+  - Substep 11.1 Operations digest "what requires attention" (calendar, project, CRM, email; read-only, kernel-mediated, deterministic; no migration) — DONE
+  - Substep 11.2 Digest as an agent tool `insight.attention.read` + Business Insight capability (read-only, kernel-mediated, admin/owner; no migration) — DONE
+  - Substep 11.3 Qualified opportunities (CRM stage rules, ranked, read-only; HTTP endpoint + `sales.opportunity.list` agent tool; shared composite-tool cap; no migration) — DONE
+  - Substep 11.4 Weekly changes, "What changed this week?" (calendar, project, CRM and email counts; read-only; HTTP endpoint + `insight.changes.read` agent tool; shared composite-tool cap; no migration) — DONE
+  - Substep 11.5 Meeting briefing, "Prepare tomorrow's meetings" (tomorrow's UTC calendar plus possible CRM leads matched by title text; read-only; HTTP endpoint + `insight.meetings.read` agent tool; shared composite-tool cap; no migration) — DONE
+  - Substep 11.6 Step 11 closing pass (cross-capability safety-shape tests, shared cap across all four, end-to-end audited agent journey, honest Step 11 status; no new code paths, no migration) — DONE
+  - **Step 11 complete.**
+- Step 12 Autonomous but controlled execution (in progress)
+  - Substep 12.1 Policy store + autonomy levels 1-3 (`GET|PUT /workspaces/{id}/policy`, versioned, tighten-only, fail-closed provider; migration 0013; NOT yet wired into the running app, see docs/POLICY.md) — DONE
+  - Substep 12.2a Policy wired into the Step 11 HTTP routes + four composite tools (mini step 1 of 3; agent runs, plans, workflows still pending in 12.2b) — DONE
+  - Substep 12.2b Policy wired into agent runs, plans and workflows (mini step 2 of 3; 12.2c = plan/workflow e2e + guard) — DONE
+  - Substep 12.2c Plan/workflow end-to-end policy tests + closing guard (12.2 complete: a stored policy now takes effect on every kernel path) — DONE
+  - Substep 12.3a Per-workspace risk override per tool, tighten-only (migration 0014; risk classification, mini step 1) — DONE
+  - Substep 12.3b Effective risk in catalog and plan proposals, plus a no-base-risk-read guard (risk classification, mini step 2) — DONE
+  - Substep 12.3c Workspace execution limit, tighten-only, enforced in the kernel (execution limits, mini step 1) — DONE
+  - Substep 12.3d Escalation rule: failures/denials in a window park unattended runs for approval, tighten-only (mini step 2) — DONE
+  - Substep 12.3e Approval routing: owner-only decisions for chosen risk levels, tighten-only (mini step 3) — DONE; 12.3 complete
+  - Substep 12.4 Autonomy level 4: explicit allowlist of tools that run unattended, needs an execution cap; level 5 still refused — DONE
+  - Substep 12.5 Autonomy level 5: level 4 plus mandatory guardrails (cap, escalation, owner-routed high risk); no extra authority — DONE; Step 12 complete
+  - Step 13.1 Workspace execution monitoring summary (`GET /workspaces/{id}/monitoring/summary`, docs/MONITORING.md) — DONE
+  - Step 13.2 Connection, agent-run and workflow-run health (`GET /workspaces/{id}/monitoring/health`) — DONE
+  - Step 13.3 Retries and idempotency review (kernel replay fixes, audit in docs/KERNEL.md) — DONE
+  - Step 13.4 Backup and recovery (`python -m app.backup`, docs/BACKUP.md) — DONE
+  - Step 13.5 Latency percentiles and approval-decision delay (monitoring summary) — DONE
+  - Step 13.6 Schedule and event health (monitoring health) — DONE
+  - Step 13.7 Alert rules (`GET /workspaces/{id}/monitoring/alerts`) — DONE
+  - Step 13.8 Operations dashboard (`/dashboard`, `GET /workspaces/{id}/monitoring/overview`) — DONE; Step 13 complete
+  - Step 14.1 Security review pass 1: auth throttling, security headers, size cap, production guards (docs/SECURITY.md) — DONE
+  - Step 14.2 PostgreSQL validation: migrations, full suite, real concurrency tests, cap race and time zone fixes (docs/POSTGRES.md) — DONE
+  - Step 14.3 Isolation and surface sweeps; route-sweep tests fixed for newer FastAPI (docs/SECURITY.md) — DONE
+  - Step 14.4 Credential security review and real-foreign-id sweeps; 422 no longer echoes input, settings repr hides root keys (docs/SECURITY.md) — DONE
+  - Step 14.5 Production configuration review (schema off, private hosts and unlimited calls refused, minimal health) and end-to-end journey test (docs/SECURITY.md) — DONE
+  - Step 14.6 Failure and burst testing: huge-integer 500 fixed, escalation re-checked under the claim lock (docs/SECURITY.md) — DONE
+  - Step 14.7 Token revocation: POST /auth/logout invalidates all of a user's tokens (migration 0019) (docs/SECURITY.md) — DONE
+  - Step 14.8 Password change (revokes all tokens) and account activity log (migration 0020) (docs/SECURITY.md) — DONE
+  - Step 14.9 Final validation: dependency audit (35 vulnerabilities fixed by upgrading pins), secret scan, production checklist (docs/PRODUCTION.md) — DONE
+  - Step 15.1 Final acceptance run: one check per blueprint success criterion, report in docs/ACCEPTANCE.md (`python scripts/acceptance_report.py`) — DONE
+  - Step 15.2 Trusted-proxy client address, container HEALTHCHECK, operations runbook (docs/RUNBOOK.md) — DONE
+  - Step 15.3 Launch-gate preflight script (scripts/preflight.py) — DONE
+  - Step 15.4 Launch checklist (docs/LAUNCH.md), acceptance report re-run — DONE
+  - Interface F1 Web shell, sign-in with remember-me, account page (frontend/) — DONE
+  - Interface F2 Workspace picker and Connections page (frontend/) — DONE
+  - Interface F3 Goals and plans page (frontend/) — DONE
+  - Interface F4 Approvals inbox and workspace activity (frontend/ + app/api/approvals.py) — DONE
+  - Interface F5 Monitoring page (frontend/) — DONE
+  - Interface F6 One-repo, two-Vercel-project deployment (api/index.py, vercel.json, docs/DEPLOY_VERCEL.md) — DONE
+
+## Run
+    pip install -r requirements-dev.txt
+    cp .env.example .env
+    uvicorn app.main:app --reload
+    alembic upgrade head
+    pytest

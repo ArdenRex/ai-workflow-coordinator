@@ -1,0 +1,10 @@
+:root { color-scheme: light dark; --bg:#fff; --fg:#1a1a1a; --muted:#666; --line:#ddd; --crit:#b00020; --warn:#8a5a00; --ok:#1b6e3a; }
+@media (prefers-color-scheme: dark) { :root { --bg:#141414; --fg:#eee; --muted:#9a9a9a; --line:#333; --crit:#ff6b7d; --warn:#f0b955; --ok:#5fd08a; } }
+body { background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, sans-serif; margin:0 auto; padding:16px; max-width:900px; }
+h1 { font-size:20px; margin:0 0 4px } h2 { font-size:16px; margin:24px 0 8px; border-bottom:1px solid var(--line); padding-bottom:4px }
+.muted { color:var(--muted) } form { display:flex; flex-wrap:wrap; gap:12px; align-items:end }
+label { display:flex; flex-direction:column; font-size:13px; gap:2px } input, select, button { font:inherit; padding:6px 8px }
+dl { display:grid; grid-template-columns:max-content 1fr; gap:2px 16px; margin:0 } dt { color:var(--muted) } dd { margin:0 }
+ul { padding-left:18px; margin:0 } li { margin:2px 0 }
+.badge { font-size:12px; padding:1px 8px; border-radius:10px; border:1px solid var(--line) }
+.critical { color:var(--crit); font-weight:600 } .warning { color:var(--warn); font-weight:600 } .ok { color:var(--ok) }

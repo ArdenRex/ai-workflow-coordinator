@@ -1,0 +1,64 @@
+/* Design tokens carried over from the AI Workflow Coordinator (ember / crimson on near-black). */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg-base: #060504; --bg-page: #0a0706; --bg-sidebar: #0c0908; --bg-card: #120d0b; --bg-input: #0e0a08;
+  --border: rgba(255,255,255,0.09); --border-strong: rgba(255,255,255,0.18);
+  --ember: #ff6a52; --crimson: #c81f30; --amber: #d99a3f; --emerald: #3fae7d;
+  --text: #f5f0eb; --text-2: #9a908a; --text-3: #847a73; --text-4: #655c56;
+  --grad: linear-gradient(135deg, #ff6a52 0%, #c81f30 100%);
+  --radius: 12px; --font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+html, body, #root { height: 100%; }
+body { background: var(--bg-page); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+a { color: var(--ember); text-decoration: none; } a:hover { text-decoration: underline; }
+button { font-family: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--ember); outline-offset: 2px; }
+.auth-wrap { min-height: 100%; display: grid; place-items: center; padding: 24px; background: radial-gradient(900px 500px at 50% -10%, rgba(200,31,48,0.22), transparent), var(--bg-base); }
+.auth-card { width: 100%; max-width: 420px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; }
+.brand { font-weight: 700; letter-spacing: 0.14em; font-size: 13px; background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.auth-card h1 { font-size: 22px; margin: 10px 0 4px; } .sub { color: var(--text-2); font-size: 14px; margin-bottom: 20px; }
+.tabs { display: flex; gap: 6px; margin-bottom: 20px; background: var(--bg-input); padding: 4px; border-radius: 10px; }
+.tabs button { flex: 1; border: 0; background: transparent; color: var(--text-2); padding: 8px; border-radius: 8px; font-weight: 600; }
+.tabs button[aria-selected="true"] { background: var(--bg-card); color: var(--text); box-shadow: 0 0 0 1px var(--border-strong); }
+label.f { display: block; font-size: 13px; color: var(--text-2); margin: 14px 0 6px; }
+.auth-input, .input { width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: var(--text); border-radius: 10px; padding: 11px 12px; font: inherit; }
+.auth-input:focus, .input:focus { border-color: var(--ember); outline: none; }
+.check { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; color: var(--text-2); font-size: 14px; }
+.check input { accent-color: var(--ember); width: 16px; height: 16px; }
+.btn { width: 100%; margin-top: 20px; border: 0; border-radius: 10px; padding: 12px; font-weight: 700; color: #fff; background: var(--grad); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.msg { margin-top: 14px; font-size: 13px; padding: 10px 12px; border-radius: 10px; }
+.msg.err { background: rgba(200,31,48,0.14); border: 1px solid rgba(200,31,48,0.5); color: #ffb3ba; }
+.msg.ok { background: rgba(63,174,125,0.12); border: 1px solid rgba(63,174,125,0.45); color: #a6e6c9; }
+.hint { color: var(--text-3); font-size: 12px; margin-top: 6px; }
+.shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100%; }
+.side { background: var(--bg-sidebar); border-right: 1px solid var(--border); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px; }
+.side .brand { padding: 4px 10px 16px; }
+.nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 10px; border-radius: 9px; color: var(--text-2); border: 0; background: transparent; text-align: left; font-weight: 500; width: 100%; }
+.nav:hover:not(:disabled) { background: rgba(255,255,255,0.05); color: var(--text); }
+.nav[aria-current="page"] { background: rgba(255,106,82,0.12); color: var(--ember); }
+.nav:disabled { color: var(--text-4); cursor: default; }
+.soon { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; }
+.side .grow { flex: 1; }
+.who { font-size: 12px; color: var(--text-3); padding: 8px 10px; word-break: break-all; }
+.main { padding: 32px; max-width: 880px; width: 100%; }
+.main h1 { font-size: 24px; margin-bottom: 4px; }
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-top: 18px; }
+.card h2 { font-size: 16px; margin-bottom: 4px; }
+table.t { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }
+.t th { text-align: left; color: var(--text-3); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.t td { padding: 8px; border-bottom: 1px solid var(--border); color: var(--text-2); }
+@media (max-width: 760px) { .shell { grid-template-columns: 1fr; } .side { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--border); } .side .brand, .side .grow { display: none; } .main { padding: 20px; } }
+select.auth-input { appearance: auto; }
+.pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border-strong); }
+.pill.ok { color: #a6e6c9; border-color: rgba(63,174,125,0.5); } .pill.bad { color: #ffb3ba; border-color: rgba(200,31,48,0.6); }
+.pill.warn { color: #f1d9a8; border-color: rgba(217,154,63,0.5); } .pill.off { color: var(--text-3); }
+.acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.btn-s { border: 1px solid var(--border-strong); background: transparent; color: var(--text); border-radius: 8px; padding: 6px 11px; font-size: 13px; font-weight: 600; }
+.btn-s:hover:not(:disabled) { background: rgba(255,255,255,0.06); } .btn-s:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-s.danger { color: #ffb3ba; border-color: rgba(200,31,48,0.5); }
+.ws-pick { margin: 0 0 12px; } .ws-pick select { width: 100%; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: 9px; padding: 8px; font: inherit; }
+textarea.auth-input { resize: vertical; min-height: 84px; }
+.msg.warn { background: rgba(217,154,63,0.12); border: 1px solid rgba(217,154,63,0.45); color: #f1d9a8; }
+.steps { margin: 8px 0 8px 20px; display: grid; gap: 10px; } .steps li::marker { color: var(--ember); font-weight: 700; }
+

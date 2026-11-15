@@ -1,4 +1,12 @@
-scripts/
-docker-compose.yml
+frontend
+tests
+docs
+scripts
+alembic
+alembic.ini
 Dockerfile
-render.yaml
+docker-compose.yml
+requirements-dev.txt
+pytest.ini
+.env
+*.db

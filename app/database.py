@@ -1,93 +1,77 @@
-import logging
+"""Database layer: engine, session factory, declarative Base, health check."""
+from typing import Iterator
 
-from sqlalchemy import create_engine, event, text
-from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy import MetaData, create_engine, event, text
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 
-logger = logging.getLogger(__name__)
-
-settings = get_settings()
-
-# Supabase / Render emit postgres:// — SQLAlchemy 2.x only accepts postgresql://
-_raw_url: str = str(settings.database_url)
-_db_url: str = _raw_url.replace("postgres://", "postgresql://", 1)
-
-# ── Engine ────────────────────────────────────────────────────────────────────
-# NullPool is used when DATABASE_URL points at a connection pooler (e.g. PgBouncer,
-# Supabase pooler) that manages its own pool — double-pooling causes "prepared
-# statement already exists" errors with pgBouncer in transaction mode.
-# For direct connections, swap NullPool for the defaults below.
-_pool_kwargs: dict = (
-    {"poolclass": NullPool}
-    if "pgbouncer" in _db_url or settings.app_env == "production"
-    else {
-        "pool_size": 5,
-        "max_overflow": 10,
-        "pool_timeout": 30,
-        "pool_recycle": 1800,   # recycle connections after 30 min
-    }
-)
-
-engine = create_engine(
-    _db_url,
-    pool_pre_ping=True,     # validates connection before checkout
-    **_pool_kwargs,
-)
+# Deterministic constraint names keep Alembic migrations portable.
+NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
 
 
-# ── Connection health logging ─────────────────────────────────────────────────
-@event.listens_for(engine, "connect")
-def _on_connect(dbapi_conn, connection_record):
-    logger.debug("DB connection established: %s", connection_record)
-
-
-@event.listens_for(engine, "checkout")
-def _on_checkout(dbapi_conn, connection_record, connection_proxy):
-    logger.debug("DB connection checked out from pool.")
-
-
-# ── Session factory ───────────────────────────────────────────────────────────
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine,
-    expire_on_commit=False,   # avoids lazy-load errors after commit in async contexts
-)
-
-
-# ── ORM base ─────────────────────────────────────────────────────────────────
 class Base(DeclarativeBase):
-    """Base class for all SQLAlchemy models."""
-    pass
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
-# ── FastAPI dependency ────────────────────────────────────────────────────────
-def get_db():
-    """
-    FastAPI dependency: yields a transactional DB session.
-    Rolls back on unhandled exceptions; always closes the session.
-    """
-    db = SessionLocal()
+def build_engine(settings: Settings | None = None):
+    settings = settings or get_settings()
+    url = settings.database_url
+    if url.startswith("sqlite"):
+        kwargs = {"connect_args": {"check_same_thread": False}}
+        if ":memory:" in url:
+            kwargs["poolclass"] = StaticPool  # one shared in-memory DB
+        eng = create_engine(url, **kwargs)
+
+        @event.listens_for(eng, "connect")
+        def _fk_on(dbapi_conn, _):          # SQLite ignores foreign keys unless asked
+            cur = dbapi_conn.cursor()
+            cur.execute("PRAGMA foreign_keys=ON")
+            cur.close()
+        return eng
+    # Every server connection runs in UTC (14.2): timestamps are stored and compared as UTC, so a server or OS time zone must never leak
+    # into expiry, backoff or schedule arithmetic. PostgreSQL only; other server databases need their own equivalent.
+    kwargs = {"connect_args": {"options": "-c timezone=UTC"}} if url.startswith("postgresql") else {}
+    return create_engine(url, pool_pre_ping=True, pool_size=5, max_overflow=10, **kwargs)
+
+
+_engine = None
+_SessionLocal = None
+
+
+def get_engine():
+    global _engine, _SessionLocal
+    if _engine is None:
+        _engine = build_engine()
+        _SessionLocal = sessionmaker(bind=_engine, autoflush=False, expire_on_commit=False)
+    return _engine
+
+
+def get_session_factory() -> sessionmaker:
+    get_engine()
+    return _SessionLocal
+
+
+def get_db() -> Iterator[Session]:
+    """FastAPI dependency: one session per request, always closed."""
+    db = get_session_factory()()
     try:
         yield db
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
     finally:
         db.close()
 
 
-# ── Connectivity check (called from lifespan if needed) ───────────────────────
-def check_db_connection() -> None:
-    """Raises OperationalError if the database is unreachable."""
+def check_database(engine=None) -> bool:
     try:
-        with engine.connect() as conn:
+        with (engine or get_engine()).connect() as conn:
             conn.execute(text("SELECT 1"))
-        logger.info("Database connectivity check passed.")
-    except OperationalError as exc:
-        logger.critical("Database connectivity check FAILED: %s", exc)
-        raise
+        return True
+    except Exception:
+        return False

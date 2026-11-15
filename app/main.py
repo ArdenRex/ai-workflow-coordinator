@@ -1,313 +1,109 @@
-"""
-main.py
-────────
-FastAPI application entry point.
-
-Slack bot logic lives entirely in app/slack_bot.py.
-This file only wires up FastAPI, routers, CORS, and the scheduler.
-
-Environment variables required:
-    SLACK_BOT_TOKEN        xoxb-…
-    SLACK_SIGNING_SECRET   …
-    SLACK_CLIENT_ID        …   (used only by /auth/install OAuth button)
-    SLACK_CLIENT_SECRET    …   (used only by /auth/slack/callback)
-    DATABASE_URL           postgresql://…
-    GROQ_API_KEY            …
-    APP_SECRET_KEY          …
-    BACKEND_URL            https://your-railway-url.railway.app
-    FRONTEND_URL           https://your-vercel-url.vercel.app
-    ALLOWED_ORIGINS        (optional, comma-separated for CORS)
-    SLACK_CHANNEL_ID       (optional, restrict bot to one channel)
-    GOOGLE_CLIENT_ID       (optional — enables the "Connect Gmail" feature)
-    GOOGLE_CLIENT_SECRET   (optional — enables the "Connect Gmail" feature)
-
-Note on the try/except around the imports below: app.database (imported
-transitively by nearly every router) builds a pydantic Settings object at
-MODULE IMPORT TIME. If a required env var (DATABASE_URL, GROQ_API_KEY,
-SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, APP_SECRET_KEY) is missing on
-whichever platform this is deployed to, that import raises a
-ValidationError before FastAPI even exists — which used to crash the
-entire Python process with no usable HTTP response. On Vercel that showed
-up as "Python process exited with exit status: 0" on every single
-request, including the health check, with no way to tell what was wrong
-short of reading logs. We now catch that here so the process always boots
-and instead returns a clear diagnostic over HTTP.
-"""
-
-import asyncio
+"""Application factory for Aceden AI OS."""
 import logging
-import os
-import sys
+import uuid
 from contextlib import asynccontextmanager
-from typing import Optional
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-# ─── Logging ──────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
+from app import __version__
+from app.agents.starter import build_agent_registry
+from app.security.throttle import Throttle
+from app.api import agent_runs, ai, approvals, auth, capabilities, credentials, dashboard, health, memory, plans, monitoring, policy, workflows, workspaces
+from app.config import Settings, get_settings
+from app.logging_config import configure_logging, request_id_ctx
+from app.runtime import build_runtime
+
+SECURITY_HEADERS = {"X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer",
+                    "Cache-Control": "no-store", "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'"}
+
 logger = logging.getLogger(__name__)
 
-VERSION = "1.5.1"
 
-# ─── Safe import of everything that depends on Settings/env vars ─────────────
-_startup_error: Optional[str] = None
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
+    configure_logging(settings.log_level)
 
-try:
-    from alembic import command
-    from alembic.config import Config
-    from sqlalchemy.exc import ProgrammingError, OperationalError
+    registry, connectors = build_runtime(settings)
 
-    from app.routers import messages, tasks, slack as slack_router
-    from app.routers import auth as auth_router
-    from app.routers import workspace_settings as workspace_settings_router
-    from app.routers import onboarding as onboarding_router
-    from app.routers import integrations as integrations_router
-    from app.routers import locale as locale_router
-    from app.routers import viral as viral_router
-    from app.routers import teams as teams_router
-    from app.routers import public_api as public_api_router
-    from app.routers import feedback as feedback_router
-    from app.routers import billing as billing_router
-    from app.routers import admin as admin_router
-    from app.routers import referral as referral_router
-    from app.routers import email_router
-    from app.routers import gmail_router
-    from app.routers import whatsapp_router
-    from app.billing_access import billing_gate
-    from app.routers.tasks import share_router
-except Exception as exc:  # pydantic ValidationError, or any other import-time failure
-    _startup_error = f"{type(exc).__name__}: {exc}"
-    logger.critical(
-        "Startup import failed — booting in degraded mode instead of crashing: %s",
-        _startup_error,
-        exc_info=True,
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        yield
+        connectors.close()
+
+    app = FastAPI(
+        lifespan=lifespan,
+        title=settings.app_name,
+        version=__version__,
+        docs_url=None if settings.is_production else "/docs",
+        redoc_url=None,
+        openapi_url=None if settings.is_production else "/openapi.json",      # 14.5: the schema lists every route; not public in production
     )
 
+    app.state.tool_registry = registry
+    app.state.trusted_proxy_count = settings.trusted_proxy_count
+    app.state.auth_throttle = Throttle(max_failures=settings.auth_max_failed_logins, window_seconds=settings.auth_lockout_window_seconds,
+                                       max_requests_per_minute=settings.auth_max_requests_per_minute)
+    app.state.agent_registry = build_agent_registry(registry)
 
-# ─── Helpers used only in the healthy-boot path (safe to define unconditionally) ──
-_BENIGN_MARKERS = (
-    "already exists",
-    "duplicatetable",
-    "duplicate_table",
-    "duplicatecolumn",
-    "duplicateindex",
-    "duplicate key value violates unique constraint",
-)
-
-
-def _is_benign_race_error(exc: Exception) -> bool:
-    """
-    True if this looks like a "someone else already created/stamped it" race
-    from multiple cold-start instances running migrations at once —
-    i.e. the schema is actually fine, not a real failure.
-    """
-    message = str(exc).lower()
-    return any(marker in message for marker in _BENIGN_MARKERS)
-
-
-# Repo root — app/main.py -> app/ -> repo root, where alembic.ini and alembic/ live.
-_BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-
-def _run_alembic_upgrade() -> None:
-    """
-    Run all Alembic migrations up to head.
-
-    This replaces the old Base.metadata.create_all() approach. create_all()
-    only ever builds tables that don't exist yet — it never applies later
-    migrations (e.g. add_freelancer_slug), and on Vercel there's no
-    persistent start command (unlike render.yaml's
-    'alembic upgrade head && uvicorn ...') to run migrations once per
-    deploy. Running this on every cold start is safe: Alembic tracks the
-    applied revision in the alembic_version table, so if the schema is
-    already current this is a fast no-op.
-    """
-    alembic_cfg = Config(os.path.join(_BASE_DIR, "alembic.ini"))
-    alembic_cfg.set_main_option("script_location", os.path.join(_BASE_DIR, "alembic"))
-    command.upgrade(alembic_cfg, "head")
-
-
-# ─── FastAPI lifespan ─────────────────────────────────────────────────────────
-# Defined unconditionally. If startup already failed at import time, this is a
-# no-op (nothing left to migrate); otherwise it runs Alembic on cold start.
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    if _startup_error:
-        yield
-        return
-
-    logger.info("Starting up — running Alembic migrations (upgrade head)…")
-    try:
-        _run_alembic_upgrade()
-        logger.info("Database schema is up to date.")
-    except (ProgrammingError, OperationalError) as exc:
-        if _is_benign_race_error(exc):
-            logger.warning(
-                "Database objects already exist/stamped (likely a cold-start "
-                "race between parallel instances) — continuing startup: %s", exc
-            )
-        else:
-            # NOTE: no sys.exit() here. Exiting the process on a migration
-            # failure is exactly what produced the opaque
-            # "Python process exited" crashes — better to boot, log loudly,
-            # and let individual DB-touching requests fail with a real
-            # error message than to kill the whole app over a migration
-            # hiccup (which may be transient, e.g. a cold DB pooler).
-            logger.critical("Database migration failed: %s", exc, exc_info=True)
-    except Exception as exc:
-        if _is_benign_race_error(exc):
-            logger.warning(
-                "Database objects already exist/stamped (likely a cold-start "
-                "race between parallel instances) — continuing startup: %s", exc
-            )
-        else:
-            logger.critical("Database migration failed: %s", exc, exc_info=True)
-
-    # ── Gmail Connect background poller ──────────────────────────────────────
-    # Simple asyncio loop rather than pulling in APScheduler for one job —
-    # checks every connected user's inbox on a fixed interval (see
-    # app.gmail_bot.poll_all_connected_users).
-    #
-    # IMPORTANT: this only does anything on a persistent server process
-    # (Railway, a VM, a long-running container). On serverless hosting
-    # (Vercel and similar), each request runs in its own short-lived
-    # function invocation — there's no continuously-running process for
-    # this loop to live in, so it silently never fires between requests.
-    # It's harmless to leave running (it just won't do anything there) —
-    # but if your backend is on Vercel, use the
-    # POST /internal/gmail-poll?secret=... endpoint in gmail_router.py
-    # instead, triggered by a free external scheduler (cron-job.org etc.)
-    # on a schedule, since that's a normal request/response and works fine
-    # as a serverless function invocation.
-    gmail_poll_task = None
-    try:
-        from app.config import get_settings as _get_settings
-        from app.gmail_bot import poll_all_connected_users
-
-        _settings = _get_settings()
-        _interval = max(10, _settings.gmail_poll_interval_seconds)
-
-        async def _gmail_poll_loop():
-            while True:
-                await asyncio.sleep(_interval)
-                try:
-                    await poll_all_connected_users()
-                except Exception as exc:
-                    logger.error("Gmail poll cycle raised: %s", exc, exc_info=True)
-
-        gmail_poll_task = asyncio.create_task(_gmail_poll_loop())
-        logger.info("Gmail Connect background poller started (every %ds).", _interval)
-    except Exception as exc:
-        logger.error("Failed to start Gmail poller — Gmail Connect will be inactive: %s", exc, exc_info=True)
-
-    yield
-
-    if gmail_poll_task:
-        gmail_poll_task.cancel()
-    logger.info("Shutting down.")
-
-
-# ─── FastAPI app ───────────────────────────────────────────────────────────────
-# This is the single, unconditional, top-level "app = FastAPI(...)" statement
-# Vercel's static analyzer scans for. Everything that depends on whether
-# startup succeeded is attached to `app` below, conditionally — the
-# instantiation itself never is.
-app = FastAPI(
-    title       = "AI Workflow Coordinator",
-    description = (
-        "MVP SaaS that reads Slack messages, extracts tasks with AI, "
-        "assigns them, and tracks them in a database."
-    ),
-    version  = VERSION,
-    lifespan = lifespan,
-)
-
-# ── CORS (unconditional — needed in both healthy and degraded mode) ───────────
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
-_extra       = [o.strip() for o in _raw_origins.split(",") if o.strip()]
-_frontend    = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
-_backend     = os.getenv("BACKEND_URL",  "").strip().rstrip("/")
-
-ALLOWED_ORIGINS = list(filter(None, [_frontend, _backend, *_extra]))
-logger.info("CORS allowed origins (informational only, allow_origins=* below): %s", ALLOWED_ORIGINS)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins     = ["*"],
-    allow_credentials = False,
-    allow_methods     = ["*"],
-    allow_headers     = ["*"],
-)
-
-if _startup_error:
-    # ── Degraded-mode routes ─────────────────────────────────────────────────
-    # The process boots successfully (so Vercel never kills it outright), but
-    # every route returns a clear 503 explaining exactly what's missing,
-    # instead of a silent process crash with no response at all.
-    @app.api_route("/{full_path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
-    async def _startup_error_handler(full_path: str = ""):
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "config_error",
-                "detail": (
-                    "The API failed to start because required configuration is "
-                    "missing or invalid. Check this project's Environment "
-                    "Variables (Production) for: DATABASE_URL, GROQ_API_KEY, "
-                    "SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET, APP_SECRET_KEY."
-                ),
-                "error": _startup_error,
-            },
+    if settings.cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_origins,
+            allow_methods=["*"],
+            allow_headers=["*"],
         )
 
-else:
-    # ── Billing gate: after the trial, logged-in users get 402 unless they have
-    # paid / been exempted by an admin. Registered BEFORE the routers so it is
-    # applied to every route below (and to any router added in the future).
-    # See app/billing_access.py.
-    app.router.dependencies.append(Depends(billing_gate))
+    @app.middleware("http")
+    async def request_id_middleware(request: Request, call_next):
+        rid = request.headers.get("x-request-id") or uuid.uuid4().hex
+        token = request_id_ctx.set(rid)
+        try:
+            declared = request.headers.get("content-length", "")
+            if declared.isdigit() and int(declared) > settings.max_request_bytes:        # 14.1: refuse oversized bodies up front
+                response = JSONResponse(status_code=413, content={"detail": "Request too large"})
+            else:
+                response = await call_next(request)
+        finally:
+            request_id_ctx.reset(token)
+        response.headers["x-request-id"] = rid
+        for name, value in SECURITY_HEADERS.items():       # 14.1: defaults for every response; a route may set its own stricter value
+            if name == "Content-Security-Policy" and request.url.path.startswith("/docs"):
+                continue                                    # Swagger UI (development only) needs scripts; docs are off in production
+            response.headers.setdefault(name, value)
+        return response
 
-    # ── Normal routes (all imports succeeded) ────────────────────────────────
-    app.include_router(auth_router.router)                  # /auth/*
-    app.include_router(messages.router)
-    app.include_router(tasks.router)                        # /tasks/*
-    app.include_router(share_router)                        # /share/{token}
-    app.include_router(slack_router.router)                 # /slack/events + OAuth
-    app.include_router(workspace_settings_router.router)    # /workspace/settings
-    app.include_router(onboarding_router.router)            # /onboarding/*
-    app.include_router(integrations_router.router)          # /integrations/*
-    app.include_router(locale_router.router)                # /locale/*
-    app.include_router(viral_router.router)                 # /viral/*
-    app.include_router(teams_router.router)                 # /teams/*
-    app.include_router(public_api_router.router)            # /api/v1/*
-    app.include_router(feedback_router.router)              # /feedback/*
-    app.include_router(billing_router.router)               # /billing/*
-    app.include_router(admin_router.router)                 # /admin/*
-    app.include_router(referral_router.router)              # /referral/*
-    app.include_router(email_router.router)                 # /email/inbound
-    app.include_router(gmail_router.router)                 # /auth/gmail/*
-    app.include_router(whatsapp_router.router)              # /webhooks/whatsapp
+    @app.exception_handler(RequestValidationError)
+    async def validation_failed(request: Request, exc: RequestValidationError):
+        # 14.4: the default 422 echoes the submitted input, which can be a password or a credential secret. Return where and why only.
+        errors = [{"loc": list(e.get("loc", ())), "msg": str(e.get("msg", "Invalid value")), "type": str(e.get("type", "value_error"))}
+                  for e in exc.errors()]
+        return JSONResponse(status_code=422, content={"detail": errors})
 
-    # ── Global exception handler ────────────────────────────────────────────
     @app.exception_handler(Exception)
-    async def unhandled_exception_handler(request: Request, exc: Exception):
-        logger.error(
-            "Unhandled exception on %s %s: %s",
-            request.method, request.url, exc,
-            exc_info=True,
-        )
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "Internal server error. Please try again later."},
-        )
+    async def unhandled(request: Request, exc: Exception):
+        # Never leak internals to clients; details go to logs only.
+        logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+        return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
-    # ── Health ───────────────────────────────────────────────────────────────
-    @app.get("/", tags=["Health"])
-    async def health_check():
-        return {"status": "ok", "service": "AI Workflow Coordinator", "version": VERSION}
+    app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(workspaces.router)
+    app.include_router(credentials.router)
+    app.include_router(ai.router)
+    app.include_router(agent_runs.router)
+    app.include_router(plans.router)
+    app.include_router(approvals.router)
+    app.include_router(memory.router)
+    app.include_router(workflows.router)
+    app.include_router(capabilities.router)
+    app.include_router(policy.router)
+    app.include_router(monitoring.router)
+    app.include_router(dashboard.overview_router)
+    app.include_router(dashboard.router)
+    return app
+
+
+app = create_app()

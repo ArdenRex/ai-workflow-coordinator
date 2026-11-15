@@ -1,36 +1,12 @@
-# Web framework
-fastapi==0.111.0
+fastapi==0.162.7
+starlette==1.10.0
 uvicorn[standard]==0.29.0
-python-multipart==0.0.9  # required by FastAPI to parse the multipart/form-data SendGrid posts to /email/inbound
-
-# Database
+pydantic==2.14.3
+pydantic-settings==2.2.1
 sqlalchemy==2.0.30
 alembic==1.13.1
 psycopg2-binary==2.9.9
-
-# AI
-groq>=1.0.0
-
-# Slack
-slack-bolt==1.18.1
-slack-sdk==3.27.2
-
-# Config & validation
-python-dotenv==1.0.1
-pydantic==2.7.1
-pydantic-settings==2.2.1
-
-# HTTP (used by groq + slack sdk internally)
-httpx>=0.27.0
-
-email-validator==2.1.1
-
-passlib[bcrypt]==1.7.4
-# Pinned below 4.1.0: passlib 1.7.4 reads bcrypt.__about__.__version__ to detect
-# the backend version, and that attribute was removed in bcrypt 4.1.0+. Newer
-# bcrypt still hashes/verifies fine, but passlib logs a "trapped" warning on
-# every call. 4.0.1 is the newest version passlib 1.7.4 can read cleanly.
-bcrypt==4.0.1
-
-python-jose[cryptography]==3.3.0
-email-validator==2.1.1
+python-dotenv==1.2.4
+httpx==0.27.0
+PyJWT==2.15.1
+cryptography>=42.0,<51
